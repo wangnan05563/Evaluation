@@ -100,7 +100,7 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 导致 `release` 整个目录删不掉、改不了名。
 
 前端源码在 `frontend/src/`（`index.src.html` + `js/*` + `css/*`），由 `python scripts/build_frontend.py`
-打包成单文件 `frontend/index.html`；改完 `src` 必须重新构建，`tests/refactor_guard.py` 会校验产物与源码同步。
+打包成单文件 `frontend/index.html`；改完 `src` 必须重新构建，否则运行的仍是旧产物（`index.html` 入库，构建后一并提交）。
 
 > 清理失败时的排查：脚本会自动列出删不掉的文件与占用进程
 > （`python scripts\_rm_locks.py release`）。历史遗留的 `release\*\win-unpacked\resources\app.asar`
@@ -124,10 +124,12 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 │   ├── build_frontend.py      # 前端源码 → 单文件 index.html
 │   └── make_badges.py         # README 本地徽章生成（离线可用，替代外链图床）
 ├── data/
-│   ├── i18n/                  # 界面文案字典 zh-CN.json / en-US.json（813 key 对齐）
-│   ├── config.json            # 运行配置（LLM 预设、上下文目录、主题）
-│   └── pert.db / estimation.db# 项目库与估算历史
+│   ├── i18n/                  # 界面文案字典 zh-CN.json / en-US.json（813 key 对齐，入库）
+│   ├── testdocs/              # 回归夹具 t00928_req.docx（S3~S9 依赖，入库）
+│   ├── config.json            # 运行配置（LLM 预设、上下文目录、主题）——本地产物，已忽略
+│   └── pert.db / estimation.db# 项目库与估算历史——本地产物，已忽略
 ├── tpl/template.xlsx          # 成品母版（公式/样式保真基座）
+├── 工作量评估工具.spec         # 手写 PyInstaller 构建定义（datas/hiddenimports/图标），sidecar exe 依赖它
 ├── tests/                     # 回归套件（S1–S12：Python 单测 + API 冒烟 + UI 冒烟）
 ├── docs/                      # 设计与方法论文档（见下方「设计文档」）
 ├── dev-shell/                 # Electron 壳（main.js 拉起 sidecar 并托管窗口）
@@ -153,7 +155,7 @@ npm test -- --only=S3,S4  # 只跑指定套件
 | S4 / S5 / S7 / S8 / S9 / S11 / S12 | UI 冒烟（无头 Chrome + CDP）：上传→识别→审核→生成→导出、表格增强与规则沉淀、版本 diff、主题定制、键盘可达、动效空态、界面多语言 |
 | S6 | UI 进度/失败/超时 |
 
-辅助校验：`python tests/i18n_check.py`（双语 key 对齐、服务端 msgKey 覆盖）、`python tests/refactor_guard.py`（前端产物与源码同步）、`python scripts/generate_xlsx.py --verify`（金标准）。**12/12 全绿为交付线。**
+辅助校验：`python tests/i18n_check.py`（双语 key 对齐、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**12/12 全绿为交付线。**
 
 ## 主要接口
 
