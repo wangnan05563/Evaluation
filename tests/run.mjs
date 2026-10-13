@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /** M4/FR-5.2 编排器：npm test 一条命令跑核心链路自动化测试。
  *  用法：npm test [-- --only=S1,S3] [-- --with-flaky]
- *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome) · S6 flaky(默认 skip)。
+ *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)，12 套全部默认纳入。
+ *  （--with-flaky 为历史开关：S6 曾在 T01079 前被标 flaky 默认跳过，夹具改绝对路径后已转 default-on，现无套件挂 flaky。）
  *  另有独立 WCAG 对比度审计：python tests/a11y_contrast.py（FR-UI05，非 npm test 套件）。
  *  ⚠ 须用带依赖的解释器：PYTHON="/f/Program Files/Python3.14/python" npm test
  *    （默认 python 缺 openpyxl，会导致 S3~S12 全部「API 实例未就绪」假失败）。 */
