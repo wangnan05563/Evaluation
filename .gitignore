@@ -1,42 +1,89 @@
-# 依赖
+# ─── 依赖 ────────────────────────────────────────────────────────────
 node_modules/
+.npm/
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# 构建产物
+# ─── 构建产物与发布物 ────────────────────────────────────────────────
 build/
-release/
 dist/
-*.spec
+out/
+release/
+# 图标预览图由 `python scripts/make_icon.py` 每次重出（真源是 we_icon.ico），不入库。
+assets/we_icon_preview.png
+# ⚠ 不要写 `*.spec` 兜底：根目录 `工作量评估工具.spec` 是**手写**的 PyInstaller
+# 构建定义（datas / hiddenimports / 图标口径与取舍注释都在其中），此前正是被
+# `*.spec` 误忽略而长期未入库，新克隆因此打不出 sidecar exe。它属于源码，必须跟踪。
 
-# 运行时数据与日志
-# data/ 整体忽略，但放行 i18n/：git 不会进入被排除的目录，
+# ─── 运行时数据与日志 ────────────────────────────────────────────────
+# data/ 整体忽略，但放行两个「源码级」子目录：git 不会进入被排除的目录，
 # 必须先让目录本身不被忽略，其下文件才谈得上 include。
 data/*
+# i18n 文案字典是**源码**（界面文案，随构建分发、启动时播种到 %APPDATA%）。
+# 若随 data/ 一起忽略，其他机器与 CI 拿不到字典，且 _i18n_seed() 在打包态静默
+# 落空 → 安装版翻译整体失效。
 !data/i18n/
-# i18n 文案字典是**源码**（界面文案，随构建分发、启动时播种到 %APPDATA%），
-# 不是运行时产物。若随 data/ 一起忽略，其他机器与 CI 拿不到字典，
-# 且 _i18n_seed() 在打包态静默落空 → 安装版翻译整体失效。
 !data/i18n/*.json
+# data/testdocs 是回归夹具（S3/S4/S5/S6/S7/S8/S9 硬依赖 t00928_req.docx，
+# 文件缺失时套件直接报错而非跳过）。不入库 = 新克隆与 CI 无法跑测试。
+!data/testdocs/
+!data/testdocs/*.docx
 logs/
 *.log
 
-# 环境与敏感信息
+# ─── 本地配置与敏感信息 ──────────────────────────────────────────────
 .env
 .env.*
+!.env.example
+*.local.json
+config.local.*
+credentials*
+*.pem
+*.key
+*.pfx
+*.p12
 
-# 编辑器 / IDE
+# ─── 临时文件与编辑器残留 ────────────────────────────────────────────
+*.tmp
+*.temp
+*.orig
+*.rej
+*~
+# Office 打开 tpl/template.xlsx、成品表时在同目录产生的属主锁文件
+~$*
 .vscode/
 .idea/
 *.swp
+*.swo
+*.code-workspace
+.qoder/
+.trae/
+.cursor/
 
-# SonarQube
+# ─── 质量工具产物 ────────────────────────────────────────────────────
 .scannerwork/
 sonarqube-*.properties.bak
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
-# 系统文件
+# ─── 系统生成文件 ────────────────────────────────────────────────────
 Thumbs.db
+ehthumbs.db
 Desktop.ini
 .DS_Store
+._*
+.Spotlight-V100
+.Trashes
+$RECYCLE.BIN/
 
+# ─── 平台与工作区辅助目录（非交付物）────────────────────────────────
+# WorkBuddy / mtask 在本仓库落地的会话与流水文件。
 .workbuddy
+mtask-dedup/
+plan-cards/
