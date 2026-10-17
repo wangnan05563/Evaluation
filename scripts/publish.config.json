@@ -1,0 +1,33 @@
+{
+  "encoding": { "chcp_codepage": 65001 },
+  "runtime": {
+    "python_candidates": ["python", "python3", "py"],
+    "node_candidates": [
+      "node",
+      "%ProgramFiles%\\nodejs\\node.exe",
+      "%ProgramFiles(x86)%\\nodejs\\node.exe",
+      "%LOCALAPPDATA%\\Programs\\nodejs\\node.exe",
+      "%USERPROFILE%\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe"
+    ]
+  },
+  "version": {
+    "source": "package.json",
+    "tag_prefix": ""
+  },
+  "env": {
+    "ELECTRON_MIRROR": "https://registry.npmmirror.com/-/binary/electron/",
+    "ELECTRON_BUILDER_BINARIES_MIRROR": "https://registry.npmmirror.com/-/binary/electron-builder-binaries/"
+  },
+  "build": {
+    "builder_bat": "scripts\\构建打包.bat",
+    "timeout_ms": 1800000
+  },
+  "publish": {
+    "repo": "wangnan05563/evaluation",
+    "setup_glob": "release\\WorkloadEstimate-*-setup.exe",
+    "artifact_name_template": "WorkloadEstimate-${version}-setup.exe",
+    "notes_glob": "release-notes-${version}.md",
+    "auto_notes_git_log_count": 20,
+    "py_publisher": "scripts\\publish-release.py"
+  }
+}

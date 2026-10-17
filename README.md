@@ -106,6 +106,26 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 > （`python scripts\_rm_locks.py release`）。历史遗留的 `release\*\win-unpacked\resources\app.asar`
 > 若被 WorkBuddy.exe 索引句柄占住（err=32），需要**重启 WorkBuddy 后**再跑一次清理脚本。
 
+## 发布（一键发布到 GitHub Releases）
+
+`scripts\一键发布.bat` 在「构建」基础上多了「发布」一步：调用 `构建打包.bat` 出包 →
+定位 `release\WorkloadEstimate-<版本>-setup.exe` → 生成/复用发布说明 →
+`scripts\publish-release.py` 创建（或复用）GitHub Release 并上传安装包。
+
+```bat
+rem 一键构建并发布（需先在 .env 配置 GH_TOKEN，详见 scripts\.env.example）
+scripts\一键发布.bat
+
+rem 只打印将要执行的发布动作、不真正发布
+set GH_DRY_RUN=1 && scripts\一键发布.bat
+```
+
+- 配置全部走 `scripts\publish.config.json`（仓库坐标、镜像源、构建入口、版本/安装包 glob 等），不硬编码。
+- Token 仅从本地 `.env`（`GH_TOKEN=...`，已被 `.gitignore` 忽略）或 git 凭据库读取，绝不入库。
+- 版本号取 `package.json` 的 `version`（形如 `0.1.YYYYMMDD-NNN`）作为 Release 标签。
+- 发布说明优先用 `release-notes-<版本>.md`，缺失时自动用 `git log` 生成。
+- 编码规范：`.bat` 纯 ASCII + `chcp 65001`，`.ps1` 全部 UTF-8 BOM；`scripts\verify.ps1` 可做字节级静态校验。
+
 ## 目录结构
 
 ```
@@ -136,6 +156,11 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 ├── assets/                    # 应用图标、README 徽章与社交预览图
 ├── scripts\构建打包.bat        # 一键构建（先清 release，再 zip / exe / 安装包）
 ├── scripts\清理发布目录.bat    # 清空 release（可随时执行，产物可重建）
+├── scripts\一键发布.bat        # 一键发布（构建 + 发布到 GitHub Releases，纯 ASCII 入口）
+├── scripts\publish.ps1         # 发布主逻辑（UTF-8 BOM，配置驱动）
+├── scripts\publish.config.json # 发布配置（零硬编码）
+├── scripts\publish-release.py  # 通用 GitHub Release 发布器（零依赖）
+├── scripts\verify.ps1          # 脚本编码/语法静态校验
 └── release/                   # 构建产物（zip、sidecar exe、安装包），可随时清理
 ```
 
