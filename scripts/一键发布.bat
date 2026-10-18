@@ -8,5 +8,9 @@ REM Run: scripts\publish.bat   (double-click also works)
 REM Set GH_DRY_RUN=1 to print actions without publishing.
 REM ============================================================
 set "SCRIPT_DIR=%~dp0"
+REM cd to repo root so publish-release.py can load .env (GH_TOKEN) from it
+set "REPO_ROOT=%SCRIPT_DIR%.."
+for %%I in ("%REPO_ROOT%") do set "REPO_ROOT=%%~fI"
+cd /d "%REPO_ROOT%"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%publish.ps1" %*
 exit /b %ERRORLEVEL%
