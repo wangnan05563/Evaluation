@@ -17,6 +17,8 @@
 - **PERT 三点估算**：新建/选择项目 → 需求导入（AI 拆分或人工录入）→ 乐观/最可能/悲观三值 → 预期 = (O + 4M + P) ÷ 6、σ = (P − O) ÷ 6 → 生成 PERT 成品表
 - **大模型识别增强**：配置中心可接入任意 OpenAI 兼容接口（OpenAI / Claude / 通义 / 火山 / Agnes / 自定义），支持连接测试、模型列表自动拉取；启用后对候选做复核补全，并可注入项目上下文目录扫描出的技术栈/规模信息
 - **估算历史与版本对比**：估算历史持久化、重开复用，两次估算可逐项 diff（新增/删除/变更高亮）
+- **用户故事导出**：结果页按 INVEST 模板从已确认功能点生成用户故事（含验收标准与规模），导出 MD/CSV，可一键推送到 GitHub Issues（token/仓库自配，失败可重试）
+- **母版管理**：配置中心可上传新成品母版并登记口径说明，生成时按所选母版出表
 - **多语言与主题**：界面中/英双语切换（813 组文案 key 全量对齐）；浅色 / 深色 / 高对比三套主题，品牌主色可自定义
 - **可访问性**：全链路键盘可完成主流程，语义化 role/aria，焦点环与对比度按 WCAG 口径校验
 - **项目库与参数持久化**：PERT 项目、估算项、费率、母版模板、识别规则统一落库 SQLite，支持多项目管理与在线编辑
@@ -24,6 +26,17 @@
 - **数据与运维**：配置中心可一键导出/导入全量数据（含 schema 版本），提供诊断包导出与更新源检查入口
 - **命令行模式**：`scripts/we_cli.py` 无人值守出表，退出码可信（0 成功 / 2 输入非法 / 3 生成失败），可挂进调度脚本
 - **本地目录选择**：配置中心浏览目录走系统原生对话框，返回绝对路径自动填入
+
+## 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 本地引擎 | Python 3.10+ 标准库 `http.server`（无 Web 框架）+ `python-docx` 解析需求 + `openpyxl` 保真写母版 + SQLite 项目库/历史 |
+| 前端 | 原生 JS 单文件页面，无框架、无 CDN：ECharts 与 lucide 图标库本地内联（`frontend/echarts.min.js`、`frontend/src/js/00_vendor_lucide.js`）；源码分模块，由 `scripts/build_frontend.py` 打包成 `frontend/index.html` |
+| 桌面 | Electron 壳（`dev-shell/`）+ PyInstaller 单文件 sidecar（`工作量评估工具.spec`）+ electron-builder NSIS 安装包 |
+| 测试 | Node 编排器 `tests/run.mjs` + 无头 Chrome（直连 CDP，非 Selenium/Playwright）+ Python 单测 |
+| 发布 | `scripts/publish-release.py` 零依赖直连 GitHub REST API（标签 = `package.json` 的 `version`） |
+| 文案 | `data/i18n/{zh-CN,en-US}.json` 字典 + 运行时 `/api/i18n` 下发；服务端提示走 msgKey + 过渡映射表 |
 
 ## 页面导览
 
@@ -51,7 +64,7 @@
 
 ### 桌面版（推荐）
 
-从 `release/` 获取安装包 `WorkloadEstimate-<版本>-setup.exe`（版本号为日期序列，如 `WorkloadEstimate-0.1.20261012-1-setup.exe`，与 `package.json` 的 `version` 一致），双击安装后启动桌面应用（自动拉起本地引擎并打开界面）。
+从 `release/` 获取安装包 `WorkloadEstimate-<版本>-setup.exe`（版本号为日期序列 `0.1.YYYYMMDD-NNN`，与 `package.json` 的 `version` 一致），双击安装后启动桌面应用（自动拉起本地引擎并打开界面）。已发布到 GitHub Releases 的版本同样以该标签命名。
 
 ### 开发运行
 
@@ -142,6 +155,7 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 │   ├── replay_recognize.py    # 功能点类型/修改类型识别规则
 │   ├── we_cli.py              # 命令行 / 无人值守模式
 │   ├── build_frontend.py      # 前端源码 → 单文件 index.html
+│   ├── publish-release.py     # GitHub Release 发布器（零依赖 REST）
 │   └── make_badges.py         # README 本地徽章生成（离线可用，替代外链图床）
 ├── data/
 │   ├── i18n/                  # 界面文案字典 zh-CN.json / en-US.json（813 key 对齐，入库）
@@ -203,6 +217,7 @@ npm test -- --only=S3,S4  # 只跑指定套件
 | GET/POST | `/api/templates` | 成品母版模板目录与口径说明 |
 | POST | `/api/pert/*` | PERT 项目/估算项/导入/生成（`project`、`item`、`import`、`import/confirm`、`generate`、`list`、`delete`） |
 | POST | `/api/pickdir` | 系统原生目录选择，返回绝对路径 |
+| POST | `/api/story/push` | 用户故事推送到 GitHub Issues（`token`/`repo`/`stories`，单次上限 50 条，失败逐条回传可重试） |
 | POST | `/api/data/export` `/api/data/import` | 全量数据导出/导入（zip，含 schema 版本） |
 | GET | `/api/diag` | 诊断包导出（日志 + 数据快照） |
 | GET/POST | `/api/update/*` | 更新源检查、下载与安装进度 |
@@ -219,6 +234,27 @@ npm test -- --only=S3,S4  # 只跑指定套件
 - `docs/设计-设计令牌与主题系统.md` — 主题与品牌色令牌
 - `docs/设计-复核表格增强与规则沉淀.md` — 审核表格交互与规则沉淀
 - `docs/设计-运维健壮性与数据安全.md` — 数据备份、诊断与健壮性
+
+## 常见问题
+
+- **S3~S12 集体报「API 实例未就绪」**：默认 `python` 缺 `openpyxl` 会连片假失败，改用带依赖的解释器：`PYTHON="/f/Program Files/Python3.14/python" npm test`。
+- **`release/` 删不掉、改不了名**：历史遗留的 `release\*\win-unpacked\resources\app.asar` 可能被索引进程句柄占住（err=32）。`python scripts\_rm_locks.py release` 会列出占用者，重启 WorkBuddy 后再跑一次清理脚本。
+- **内网/离线构建拉不到 electron**：镜像源集中在 `scripts/publish.config.json` 的 `env` 段（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`），不在脚本里硬编码；前端本身无 CDN 依赖。
+- **界面切成英文后导出的表还是中文**：这是设计边界，交付物（成品 xlsx / PERT 表 / 用户故事）恒为中文，理由与影响面见 `docs/设计-多语言边界-交付物恒为中文.md`。
+- **整跑时 S4/S6 偶发 FAIL、单跑却全绿**：无头 Chrome + CDP 在连续跑 UI 套件时会资源竞争（2026-10-29 实测：整跑 10/12 → `--only=S4` 13/13、`--only=S6` 17/17 → 再整跑 12/12）。先复跑确认，**连续两次同项失败才按回归处理**。
+- **双击 `scripts\一键发布.bat` 说没有 GH_TOKEN**：`.env` 要放在**仓库根**（脚本会先切到仓库根再加载），字段格式见 `scripts/.env.example`。
+
+## 贡献指南
+
+1. 拉取 `main`（本仓库单人维护，改动直接提交 `main`，提交信息以任务号开头，如 `T03631 README 同步…`，便于与任务系统互相溯源）。
+2. 按改动类型自测：
+   - 改前端：先 `python scripts/build_frontend.py` 重新打包 `frontend/index.html`，再 `npm test`；
+   - 改计算口径：必须过金标准 `python scripts/generate_xlsx.py --verify`（US 合计 = `105.07`）；
+   - 加界面文案：`data/i18n/zh-CN.json` 与 `en-US.json` **同时**补 key，跑 `python tests/i18n_check.py`（key 对齐 + 服务端 msgKey 覆盖）；
+   - 加服务端提示：用 `scripts/server.py` 的 `_m(key, 中文兜底)` 返回 msgKey，前端经 `lm()` 查字典渲染，不要直接硬编码中文给英文态。
+3. 交付线：`npm test` **12/12 全绿**；只跑单套件用 `npm test -- --only=S4`。
+4. 不要提交：`data/` 运行时产物（`config.json`、`*.db`、`generated/`、`uploads/`）、`release/`、`logs/`、根目录 `.env`（`.gitignore` 已覆盖；`data/i18n/` 与 `data/testdocs/` 是例外，属源码/夹具必须入库）。
+5. 发布：本地 `scripts\构建打包.bat` 出包，或 `scripts\一键发布.bat` 构建 + 发布 GitHub Releases（先 `set GH_DRY_RUN=1` 演练一遍）。
 
 ## 许可证
 
