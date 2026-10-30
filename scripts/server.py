@@ -170,7 +170,7 @@ def running_jobs():
             jobs.append({"kind": "recognize", "name": "AI 识别需求文档", "pct": None})
     return {"ok": True, "jobs": jobs}
 
-# 解析母版：环境 WE_TPL > 打包内置(tpl/template.xlsx) > 开发默认
+# 解析母版：环境 WE_TPL > 内置（开发态 _RES 即仓库根，打包态为 _MEIPASS）
 def _resolve_template():
     env = os.environ.get("WE_TPL")
     if env and Path(env).exists():
@@ -181,8 +181,7 @@ def _resolve_template():
         if not dst.exists():
             shutil.copy2(bundled, dst)            # 首次运行将母版落到可写目录
         return dst
-    dev = Path(r"C:\Users\hspcadmin\Desktop\工作量评估\副本造价评估-天津银行_票据新增五篇大文章标识功能项目（软件开发功能点评估）_KX_20251027_V1.0.xlsx")
-    return dev if dev.exists() else bundled
+    return bundled
 
 g.TPL = str(_resolve_template())
 

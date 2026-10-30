@@ -3,10 +3,11 @@
 目的：量化"正文描述→IFPUG类型/修改类型"识别能力，暴露待优化项，驱动识别层迭代。
 """
 import json, re, sys
-sys.path.insert(0, r"d:\code\otherProjects\27_Evaluation\scripts")
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent))
 import generate_xlsx as g
 
-OUT_JSON = r"d:\code\otherProjects\27_Evaluation\data\candidates_replay.json"
+OUT_JSON = str(_P(__file__).resolve().parent.parent / "data" / "candidates_replay.json")
 
 
 _rules_store = None

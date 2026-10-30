@@ -7,7 +7,7 @@
       "%ProgramFiles%\\nodejs\\node.exe",
       "%ProgramFiles(x86)%\\nodejs\\node.exe",
       "%LOCALAPPDATA%\\Programs\\nodejs\\node.exe",
-      "%USERPROFILE%\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe"
+      "%USERPROFILE%\\.workbuddy\\binaries\\node\\versions\\*\\node.exe"
     ]
   },
   "version": {

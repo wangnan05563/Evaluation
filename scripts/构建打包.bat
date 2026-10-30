@@ -17,7 +17,9 @@ echo ========================================
 
 REM [0] Generate unique build version YYYYMMDD-NNN, write back to root package.json
 echo [0/6] Generate unique build version...
-%PY_EXE% scripts\bump_version.py
+REM 必须加引号：WE_PYTHON 由发布脚本注入，其路径常带空格；
+REM 不加引号时这一行会静默失败，版本号不递增却继续打包出旧版安装包
+"%PY_EXE%" scripts\bump_version.py
 if errorlevel 1 (
     echo   [WARN] version bump failed, keep current version
 )
@@ -54,7 +56,7 @@ if errorlevel 1 (
     echo   [ERROR] 缺少依赖，请先执行: pip install openpyxl python-docx
     echo   [HINT] 当前生效的 python 解释器:
     where python
-    echo   [HINT] 多 Python 环境可用 WE_PYTHON 指定，例如: set WE_PYTHON=C:\Python313\python.exe
+    echo   [HINT] 多 Python 环境可用 WE_PYTHON 指定，例如: set WE_PYTHON=你的 python.exe 完整路径
     pause
     exit /b 1
 )
@@ -91,11 +93,10 @@ if errorlevel 1 (
     set "EXE_EXISTS=0"
 ) else (
     if not exist "%ZIP_DIR%\exe" mkdir "%ZIP_DIR%\exe"
-    REM spec 必须位于项目根：PyInstaller 以 spec 所在目录为基准解析 ['scripts/server.py']
-    REM 等相对路径，而 spec 里的路径是相对项目根写的。docs\ 下那份仅作归档。
+    REM spec 在仓库根；其内部用 SPECPATH 自解析源文件与资源路径，与调用方 CWD 无关。
     if not exist "工作量评估工具.spec" (
         echo   [ERROR] 缺少 spec 文件: %CD%\工作量评估工具.spec
-        echo          源文件应位于 docs\工作量评估工具.spec
+        echo          它是随仓库跟踪的源码，请确认工作树完整（git checkout -- 该文件）
         pause
         exit /b 1
     )
@@ -118,21 +119,30 @@ if errorlevel 1 (
 
 REM [7/7] Build desktop shell installer (electron-builder, NSIS)
 echo [6/6] 打包桌面安装包 (electron-builder / NSIS)...
+REM node 解析优先级：WE_NODE（发布脚本按 publish.config.json 注入）> PATH > 常见安装目录
+REM 版本托管目录不写死具体版本号（本机与 config 的版本各自漂移，写死即过期）
 set "NODE_EXE="
-where node >nul 2>&1
-if not errorlevel 1 (
-    set "NODE_EXE=node"
+if defined WE_NODE if exist "%WE_NODE%" set "NODE_EXE=%WE_NODE%"
+if not defined NODE_EXE (
+    where node >nul 2>&1
+    if not errorlevel 1 set "NODE_EXE=node"
 )
 if not defined NODE_EXE (
     for %%c in (
         "%ProgramFiles%\nodejs\node.exe"
         "%ProgramFiles(x86)%\nodejs\node.exe"
         "%LOCALAPPDATA%\Programs\nodejs\node.exe"
-        "%USERPROFILE%\.workbuddy\binaries\node\versions\22.22.2-3\node.exe"
         "%USERPROFILE%\AppData\Roaming\nvm\current\node.exe"
     ) do (
         if not defined NODE_EXE (
             if exist %%~c set "NODE_EXE=%%~c"
+        )
+    )
+)
+if not defined NODE_EXE (
+    for /d %%v in ("%USERPROFILE%\.workbuddy\binaries\node\versions\*") do (
+        if not defined NODE_EXE (
+            if exist "%%v\node.exe" set "NODE_EXE=%%v\node.exe"
         )
     )
 )

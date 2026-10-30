@@ -17,8 +17,12 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 import engine
 
-TPL = r"C:\Users\hspcadmin\Desktop\工作量评估\副本造价评估-天津银行_票据新增五篇大文章标识功能项目（软件开发功能点评估）_KX_20251027_V1.0.xlsx"
-SRC = Path(r"d:\code\otherProjects\27_Evaluation")
+# 母版与仓库根一律相对本文件解析：原先写死某台机器桌面路径，
+# 该文件一旦不在（换机器/清理桌面），构建链的金标准校验直接 FileNotFoundError 并中止构建。
+# 内置母版是金标准 105.07 的载体，不随 WE_TPL 变（运行时的所选母版由 server.py 覆盖 g.TPL）。
+REPO = Path(__file__).resolve().parent.parent
+TPL = str(REPO / "tpl" / "template.xlsx")
+SRC = REPO
 
 # 规模估算明细列映射（1 起）：B系统 C一级 D二级 E三级 F四级 G描述 H计数项 I类别 J(公式) K重用 L修改 M(公式) N备注
 COLS = {"system": 2, "m1": 3, "m2": 4, "m3": 5, "m4": 6, "desc": 7,

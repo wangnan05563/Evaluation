@@ -33,7 +33,10 @@ $cfg = Get-Content -Raw -Encoding UTF8 $ConfigPath | ConvertFrom-Json
 function Find-Tool($cands) {
     foreach ($c in $cands) {
         $exp = [Environment]::ExpandEnvironmentVariables($c)
-        if (Test-Path $exp) { return $exp }
+        # 候选项允许通配（如 versions\*\node.exe），否则版本一升级就写死过期；
+        # 通配命中按名字排序取最后一个（多数情况下即最新的那份）
+        try { $hits = @(Resolve-Path -Path $exp -ErrorAction Stop | Sort-Object Path) } catch { $hits = @() }
+        if ($hits.Count -gt 0) { return $hits[-1].Path }
         try { $cmd = Get-Command $c -ErrorAction SilentlyContinue; if ($cmd) { return $cmd.Source } } catch {}
     }
     return $null
@@ -84,6 +87,10 @@ if (-not $SkipBuild) {
     Step "2/5 构建（调用 构建打包.bat）"
     $buildBat = Join-Path $RepoRoot $cfg.build.builder_bat
     if (-not (Test-Path $buildBat)) { Fail ("找不到构建脚本: " + $buildBat) }
+    # 构建脚本复用同一份配置解析出的解释器（构建打包.bat 读 WE_PYTHON/WE_NODE），
+    # 不再两边各维护一套候选路径
+    $env:WE_PYTHON = $Py
+    $env:WE_NODE = $Node
     # 构建打包.bat 末尾有 pause，自动化场景下用空 stdin 中和它（使其立即返回，避免卡住）
     $emptyInput = Join-Path $env:TEMP ("we_build_in_" + [guid]::NewGuid().ToString('N') + ".txt")
     '' | Out-File -Encoding ASCII -FilePath $emptyInput
@@ -106,6 +113,12 @@ if (-not $SkipBuild) {
         Fail ("构建失败，exit code=" + $proc.ExitCode + "（详见 构建打包.bat 的输出与 build\pyinstaller.log）")
     }
     Write-Host "  构建完成"
+    # 构建内 bump_version.py 已把日期序号 +1，发布必须以构建后的版本为准；
+    # 沿用步骤1读到的旧值会让 tag / 发布说明 / 产物显示名指向上一版（实测 tag=…-002 而包为 …-3）
+    $pkg = Get-Content -Raw -Encoding UTF8 $pkgPath | ConvertFrom-Json
+    $version = $pkg.version
+    $tag = ($cfg.version.tag_prefix + $version)
+    Write-Host ("  构建后版本: " + $version)
 } else {
     Step "2/5 跳过构建（-SkipBuild）"
 }
@@ -127,13 +140,16 @@ $notesPath = Join-Path $RepoRoot $notesName
 if (-not (Test-Path $notesPath)) {
     Write-Host ("  未找到 " + $notesName + "，从 git log 自动生成...")
     $auto = Join-Path $RepoRoot ("release-notes-" + $version + ".auto.md")
-    $log = (git -C $RepoRoot log --no-merges --oneline -$cfg.publish.auto_notes_git_log_count 2>$null)
+    # 参数模式里 -$cfg.x.y 不会做属性展开（实测拼出 "-@{...}.publish..." 让 git 直接 fatal），
+    # 先取成整数再以 "-N" 传入；git 输出是行数组，须 join 后才能进 StringBuilder
+    $logCount = [int]$cfg.publish.auto_notes_git_log_count
+    $log = @(git -C $RepoRoot log --no-merges --oneline "-$logCount" 2>$null) -join "`r`n"
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine("# WorkloadEval $version")
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("自动生成的发布说明（基于 git 提交记录）。可用正式 release-notes-$version.md 覆盖。")
     [void]$sb.AppendLine("")
-    if ($log) { [void]$sb.AppendLine($log) }
+    if ($log) { [void]$sb.AppendLine($log) }   # join 后为单串，不再写出 Object[]
     [System.IO.File]::WriteAllText($auto, $sb.ToString(), [System.Text.Encoding]::UTF8)
     $notesPath = $auto
 }
