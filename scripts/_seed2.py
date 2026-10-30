@@ -4,7 +4,9 @@ API=os.environ.get("WE_ENGINE","http://127.0.0.1:8020")
 def post(path,p):
     req=urllib.request.Request(API+path,data=json.dumps(p).encode(),headers={"Content-Type":"application/json"},method="POST")
     return json.loads(urllib.request.urlopen(req,timeout=60).read().decode())
-con=sqlite3.connect(r"d:\code\otherProjects\27_Evaluation\data\pert.db")
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+con = sqlite3.connect(str(REPO / "data" / "pert.db"))
 pid=con.execute("SELECT id FROM projects WHERE name='阜新票据优化PERT测试'").fetchone()[0]
 con.close()
 d=[("需求分析","","","需求梳理调研",5,8,12),

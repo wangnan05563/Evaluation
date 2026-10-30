@@ -3,15 +3,17 @@
 复用 replay_recognize.guess_type 识别规则；功能点修改类型以需求清单表官方"新增"为准。
 """
 import json, sys
-sys.path.insert(0, r"d:\code\otherProjects\27_Evaluation\scripts")
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
 from replay_recognize import guess_type
 import engine
 import generate_xlsx as g
 
 SYS = "新一代票据业务管理系统"
 M1 = "业务功能点一：反洗钱业务功能优化"
-CAND_JSON = r"d:\code\otherProjects\27_Evaluation\data\candidates_aml.json"
-OUT_XLSX = r"d:\code\otherProjects\27_Evaluation\data\aml_output.xlsx"
+CAND_JSON = str(REPO / "data" / "candidates_aml.json")
+OUT_XLSX = str(REPO / "data" / "aml_output.xlsx")
 
 # 每条候选：count_item 名称 + desc(取自需求原文精简) ；modify 官方=新增
 ROWS = [

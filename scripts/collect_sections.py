@@ -4,8 +4,13 @@ from docx import Document
 from docx.table import Table
 from docx.oxml.ns import qn
 
-SRC = r"C:\Users\hspcadmin\Desktop\工作量评估\综合服务平台需求说明书V0.1(2).docx"
-OUT = r"d:\code\otherProjects\27_Evaluation\data\proper_4x.txt"
+import sys as _sys
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: " + _sys.argv[0] + " <需求文档.docx>")
+SRC = _sys.argv[1]
+OUT = str(REPO / "data" / "proper_4x.txt")
 doc = Document(SRC)
 
 def style_of(p):

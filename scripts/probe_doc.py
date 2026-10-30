@@ -4,7 +4,7 @@ import sys, re
 from docx import Document
 from docx.oxml.ns import qn
 
-path = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\hspcadmin\Desktop\工作量评估\HNNS-EB-STD-REQ-002-票据业务系统反洗钱工作对接-日常优化类(公司金融部)(20260831).docx"
+path = sys.argv[1] if len(sys.argv) > 1 else sys.exit("用法: python probe_doc.py <docx路径>")
 doc = Document(path)
 
 np = len(doc.paragraphs)

@@ -7,7 +7,9 @@ import base64, json, urllib.request, sys
 from pathlib import Path
 
 API = os.environ.get("WE_ENGINE","http://127.0.0.1:8020")
-DOC = Path(r"C:\Users\hspcadmin\Desktop\工作量评估\HNNS-EB-STD-REQ-002-票据业务系统反洗钱工作对接-日常优化类(公司金融部)(20260831).docx")
+if len(sys.argv) < 2:
+    raise SystemExit("用法: %s <需求文档.docx>" % sys.argv[0])
+DOC = Path(sys.argv[1])
 
 def post(path, obj):
     req = urllib.request.Request(API + path, data=json.dumps(obj).encode("utf-8"),

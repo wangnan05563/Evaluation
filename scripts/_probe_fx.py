@@ -1,5 +1,8 @@
 import openpyxl
-p = r"C:\Users\hspcadmin\Desktop\工作量评估\阜新银行-票据系统优化-工作量评估V2.0.xlsx"
+import sys as _sys
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: %s <PERT母版.xlsx>" % _sys.argv[0])
+p = _sys.argv[1]
 wb = openpyxl.load_workbook(p, data_only=False)
 ws = wb["项目工作量估算表"]
 print("=== merged ranges (row-wise) ===")

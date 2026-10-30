@@ -5,8 +5,11 @@ from docx import Document
 from docx.table import Table
 from docx.oxml.ns import qn
 
-src = sys.argv[1] if len(sys.argv) > 1 else r"C:\Users\hspcadmin\Desktop\工作量评估\HNNS-EB-STD-REQ-002-票据业务系统反洗钱工作对接-日常优化类(公司金融部)(20260831).docx"
-out = sys.argv[2] if len(sys.argv) > 2 else r"d:\code\otherProjects\27_Evaluation\data\aml_doc.txt"
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+src = sys.argv[1] if len(sys.argv) > 1 else sys.exit("用法: python dump_all.py <src> <out>")
+out = sys.argv[2] if len(sys.argv) > 2 else str(REPO / "data" / "aml_doc.txt")
 doc = Document(src)
 
 def style_of(p):

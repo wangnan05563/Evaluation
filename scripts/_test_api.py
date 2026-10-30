@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
 import json, urllib.request, sys
 API = os.environ.get("WE_ENGINE","http://127.0.0.1:8020")
 def post(path, payload):
@@ -36,8 +38,8 @@ print("生成:", g["ok"], g["sid"])
 # 5. 验证文件
 import openpyxl, urllib.request
 dl = urllib.request.urlopen(API + "/api/download?s=" + g["sid"])
-open(r"d:\code\otherProjects\27_Evaluation\data\generated\\" + g["sid"], "wb").write(dl.read())
-wb = openpyxl.load_workbook(r"d:\code\otherProjects\27_Evaluation\data\generated\\" + g["sid"], data_only=False)
+open(str(REPO / "data" / "generated" / g["sid"]), "wb").write(dl.read())
+wb = openpyxl.load_workbook(str(REPO / "data" / "generated" / g["sid"]), data_only=False)
 ws = wb[wb.sheetnames[0]]
 print("D3(项目名):", ws["D3"].value, "| H2:", ws["H2"].value, "| D2:", ws["D2"].value)
 print("开发R8 D/E/F/G:", ws.cell(8,4).value, ws.cell(8,5).value, ws.cell(8,6).value, ws.cell(8,7).value)

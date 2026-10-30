@@ -5,9 +5,14 @@
 import json, os, shutil, sqlite3
 from pathlib import Path
 
-# 阜新 V2.0 母版路径：环境 WE_TPL_PERT > 桌面默认
-TPL_PERT = os.environ.get("WE_TPL_PERT") or \
-    r"C:\Users\hspcadmin\Desktop\工作量评估\阜新银行-票据系统优化-工作量评估V2.0.xlsx"
+# 阜新 V2.0 母版不入库：环境 WE_TPL_PERT 显式指定，或自行放到 tpl/pert-template.xlsx。
+# 两者都不存在时由 generate() 抛出可读错误，不再回退到某台机器的桌面路径。
+def _resolve_pert_template():
+    env = os.environ.get("WE_TPL_PERT")
+    if env:
+        return env
+    bundled = Path(__file__).resolve().parent.parent / "tpl" / "pert-template.xlsx"
+    return str(bundled) if bundled.exists() else None
 
 # 六阶段固定顺序（对齐模板 R6/R7/R8/R32/R33/R34）
 PHASES = ["需求分析", "系统设计", "开发", "实施", "公共及远程", "现场维护"]
@@ -140,9 +145,12 @@ def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
     开发明细写 R8 起(E/F/G)，其余阶段写阶段行(E/F/G)；H/I 列保留模板公式自动计算。
     """
     import openpyxl
-    path = tpl or TPL_PERT
-    if not Path(path).exists():
-        raise FileNotFoundError(f"PERT 母版不存在：{path}（可设环境变量 WE_TPL_PERT 指定）")
+    path = tpl or _resolve_pert_template()
+    if not path or not Path(path).exists():
+        raise FileNotFoundError(
+            "PERT 母版未找到：请设置环境变量 WE_TPL_PERT 指向阜新 V2.0 母版，"
+            "或把该母版放到 tpl/pert-template.xlsx"
+            + (f"（当前解析到：{path}）" if path else ""))
     shutil.copy2(path, out)
     wb = openpyxl.load_workbook(out, data_only=False)
     ws = wb[SHEET]

@@ -24,7 +24,9 @@ def locked(path):
     return False, 0
 
 
-ROOT = r"D:\code\otherProjects\27_Evaluation\release"
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+ROOT = str(REPO / "release")
 targets = []
 for rel in [
     r"exe\工作量评估工具.exe",

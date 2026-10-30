@@ -2,7 +2,10 @@
 """定位 verify 差异：逐行对比 引擎US 与 母版M列(缓存值)。"""
 import openpyxl
 import engine
-TP = r"C:\Users\hspcadmin\Desktop\工作量评估\副本造价评估-天津银行_票据新增五篇大文章标识功能项目（软件开发功能点评估）_KX_20251027_V1.0.xlsx"
+import sys as _sys
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: %s <已填写的成品.xlsx>" % _sys.argv[0])
+TP = _sys.argv[1]
 wv = openpyxl.load_workbook(TP, data_only=True)["规模估算"]  # 缓存值
 ws = openpyxl.load_workbook(TP, data_only=False)["规模估算"]  # 公式/原始
 diff = 0

@@ -6,8 +6,13 @@
 import json, re
 from docx import Document
 
-INPUT = r"C:\Users\hspcadmin\Desktop\工作量评估\综合服务平台需求说明书V0.1(2).docx"
-OUT = r"d:\code\otherProjects\27_Evaluation\data\requirements_structure.json"
+import sys as _sys
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: " + _sys.argv[0] + " <需求文档.docx>")
+INPUT = _sys.argv[1]
+OUT = str(REPO / "data" / "requirements_structure.json")
 
 # IFPUG 候选动作词（用于把表格/正文行粗线索化为候选提示）
 ACTION_WORDS = ["新增", "修改", "删除", "查询", "导入", "下载", "导出", "保存",

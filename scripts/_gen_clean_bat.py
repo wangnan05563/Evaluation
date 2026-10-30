@@ -45,7 +45,9 @@ if not "%1"=="-NoPause" pause >nul
 exit /b 0
 '''
 
-P = r"D:\code\otherProjects\27_Evaluation\scripts\清理发布目录.bat"
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+P = str(REPO / "scripts" / "清理发布目录.bat")
 data = BAT.replace("\n", "\r\n")
 with io.open(P, "w", encoding="gbk", newline="") as f:
     f.write(data)

@@ -6,7 +6,9 @@ def post(path,p):
     return json.loads(urllib.request.urlopen(req,timeout=60).read().decode())
 # 找最新项目id
 import sqlite3
-con=sqlite3.connect(r"d:\code\otherProjects\27_Evaluation\data\pert.db")
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+con = sqlite3.connect(str(REPO / "data" / "pert.db"))
 pid=con.execute("SELECT id,name FROM projects ORDER BY id LIMIT 1").fetchone()
 print("latest project:",pid)
 pid=pid[0]

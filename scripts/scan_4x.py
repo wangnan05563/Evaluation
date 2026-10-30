@@ -4,7 +4,12 @@ import re
 from docx import Document
 from docx.oxml.ns import qn
 
-SRC = r"C:\Users\hspcadmin\Desktop\工作量评估\综合服务平台需求说明书V0.1(2).docx"
+import sys as _sys
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: " + _sys.argv[0] + " <需求文档.docx>")
+SRC = _sys.argv[1]
 doc = Document(SRC)
 
 pat = re.compile(r"(^|[^\d])(3)\.([1-9])")  # 先尝试 4. 若不中再放开

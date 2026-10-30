@@ -13,7 +13,7 @@ from PIL import ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTDIR = ROOT / "assets" / "badges"
-FONT = r"C:\Windows\Fonts\arial.ttf"
+FONT = r"C:\Windows\Fonts\arial.ttf"  # verify:allow-abs Windows 系统字体，非机器专属
 # shields 用 DejaVu Sans（比 Arial 略宽），按实测比例放宽以留足余量
 SCALE = 1.08
 FONT_SIZE = 11

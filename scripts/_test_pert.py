@@ -1,5 +1,7 @@
 import sys, sqlite3, tempfile, os
-sys.path.insert(0, r"d:\code\otherProjects\27_Evaluation\scripts")
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
 import pert
 
 # 临时库
@@ -33,8 +35,7 @@ for ph in s["phases"]:
 out = os.path.join(tmp, "out.xlsx")
 name, est, rows = pert.rows_for_generate(con, pid)
 dirout = os.path.dirname(out)
-pert.generate(name, rows, out, est_date="2026-09-08", estimator=est,
-              tpl=r"C:\Users\hspcadmin\Desktop\工作量评估\阜新银行-票据系统优化-工作量评估V2.0.xlsx")
+pert.generate(name, rows, out, est_date="2026-09-08", estimator=est)
 print("\n=== generate ===")
 print("generated:", os.path.exists(out), os.path.getsize(out) if os.path.exists(out) else 0)
 

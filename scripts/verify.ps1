@@ -8,8 +8,9 @@
       .ps1        : UTF-8 BOM（恰好 1 个）+ CRLF（孤立 LF = 0）+ [Parser]::ParseFile 无错误
       config.json : 合法 JSON（非 ASCII 值仅告警，已知例外为构建脚本中文文件名）
       publish-release.py : py_compile 通过
-      构建链源文件      : 不得出现写死的盘符绝对路径（X:\ 或 X:/），确需保留的行以
-                          verify:allow-abs 标记豁免（守卫只盯构建/发布链，不管一次性取证脚本）
+      scripts/*.py      : 不得出现写死的盘符绝对路径（X:\ 或 X:/）：仓库内路径相对 __file__
+                          解析，外部输入走必填参数或环境变量；确需保留（如系统字体）的行以
+                          verify:allow-abs 标记豁免
 #>
 [CmdletBinding()]
 param()
@@ -141,16 +142,17 @@ if (-not (Test-Path $p)) {
 # ---- 构建链绝对路径守卫 ----
 Write-Host "--- 构建链绝对路径守卫（禁止写死某台机器的盘符路径） ---"
 $absFiles = @(
-    (Join-Path $ScriptDir 'generate_xlsx.py'),
-    (Join-Path $ScriptDir 'server.py'),
-    (Join-Path $ScriptDir 'replay_recognize.py'),
     (Join-Path $ScriptDir 'publish.ps1'),
     (Join-Path $ScriptDir 'publish.config.json'),
     (Join-Path $ScriptDir '构建打包.bat'),
     (Join-Path $RepoRoot '工作量评估工具.spec')
 )
-# 单个字母 + ":" + 斜杠；https:// 之类的前面是字母，已被后视排除
-$absPattern = '(?<![A-Za-z0-9])[A-Za-z]:[\\/]'
+# 全量纳入 scripts/*.py：一次性取证/调试脚本同样不得写死某台机器的盘符路径
+$absFiles += @(Get-ChildItem -Path (Join-Path $ScriptDir '*.py') -File | ForEach-Object { $_.FullName })
+$absFiles = @($absFiles | Sort-Object -Unique)
+# 单个字母 + ":" + 斜杠；https:// 之类的前面是字母，已被后视排除。
+# 后视排除正则转义（如 id:\s* 里的 d:\s*）：反斜杠后是 s/S/d/D 等转义字母再接 * + ? ( [ { 的不算路径
+$absPattern = '(?<![A-Za-z0-9])[A-Za-z]:[\\/](?![sSdDwWbBnNtTrRvVfFaAzZ][*+?(\[{])'
 $absHits = @()
 foreach ($f in $absFiles) {
     if (-not (Test-Path $f)) { Report $false ("守卫缺少文件: " + (Split-Path -Leaf $f)); continue }
@@ -164,7 +166,7 @@ foreach ($f in $absFiles) {
     }
 }
 if ($absHits.Count -eq 0) {
-    Report $true ("构建链 " + $absFiles.Count + " 个文件均为相对/环境变量解析路径")
+    Report $true ("构建链与 scripts/*.py 共 " + $absFiles.Count + " 个文件均为相对/环境变量解析路径")
 } else {
     foreach ($h in $absHits) { Write-Host ("    " + $h) -ForegroundColor DarkRed }
     Report $false ("发现 " + $absHits.Count + " 处写死绝对路径（改相对解析，或加 verify:allow-abs 豁免并注明理由）")

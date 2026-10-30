@@ -9,8 +9,13 @@
 import json, re, os
 from docx import Document
 
-INPUT = r"C:\Users\hspcadmin\Desktop\工作量评估\综合服务平台需求说明书V0.1(2).docx"
-OUT = r"d:\code\otherProjects\27_Evaluation\data\candidates.json"
+import sys as _sys
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: " + _sys.argv[0] + " <需求文档.docx>")
+INPUT = _sys.argv[1]
+OUT = str(REPO / "data" / "candidates.json")
 
 doc = Document(INPUT)
 list_tbl = None

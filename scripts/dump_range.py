@@ -4,7 +4,12 @@ from docx import Document
 from docx.table import Table
 from docx.oxml.ns import qn
 
-SRC = r"C:\Users\hspcadmin\Desktop\工作量评估\综合服务平台需求说明书V0.1(2).docx"
+import sys as _sys
+from pathlib import Path
+REPO = Path(__file__).resolve().parent.parent
+if len(_sys.argv) < 2:
+    raise SystemExit("用法: " + _sys.argv[0] + " <需求文档.docx>")
+SRC = _sys.argv[1]
 doc = Document(SRC)
 
 def ptext(elm):
@@ -40,7 +45,7 @@ for blk in doc.element.body.iterchildren():
         t = Table(blk, doc)
         out.append(f"   ==我表格 {len(t.rows)}行==")
 
-with open(r"d:\code\otherProjects\27_Evaluation\data\range_55_320.txt", "w", encoding="utf-8") as f:
+with open(str(REPO / "data" / "range_55_320.txt"), "w", encoding="utf-8") as f:
     f.write("\n".join(out))
 print("共", len(out), "行。前 120 行预览：")
 print("\n".join(out[:120]))
