@@ -277,7 +277,7 @@ npm test -- --only=S3,S4  # 只跑指定套件
 | S4 / S5 / S7 / S8 / S9 / S11 / S12 | UI 冒烟（无头 Chrome + CDP）：上传→识别→审核→生成→导出、表格增强与规则沉淀、版本 diff、主题定制、键盘可达、动效空态、界面多语言 |
 | S6 | UI 进度/失败/超时 |
 
-辅助校验：`python tests/i18n_check.py`（双语 key 对齐、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**12/12 全绿为交付线。**
+辅助校验：`python tests/i18n_check.py`（双语 key 对齐、JSON 重复键检测、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**12/12 全绿为交付线。**
 
 ## 主要接口
 
