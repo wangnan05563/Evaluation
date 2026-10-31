@@ -2345,6 +2345,10 @@ function refreshCharts(){
   // 深色/高对比主题下深色字芯被白边包住，看起来像两份数值叠印；这里把字色与描边
   // 一并对齐主题：字色用 --ink，描边用卡片底色，深浅两套都只剩一份可读文字。
   const lbl=extra=>({color:th.ink,textBorderColor:th.card,textBorderWidth:2,...extra});
+  // T03712：ECharts 默认轴文字 #6E7079 / 分割线 #E0E6F1 不跟主题，深色下轴文字对卡片
+  // 仅约 2.9:1、分割线比卡片更亮。轴文字用 --muted（深色 #94A3B8 约 5.7:1），
+  // 轴线/分割线用 --chart-grid。分类轴 splitLine 默认关闭，这里只给颜色不打开。
+  const axis=extra=>({axisLabel:{color:th.muted},axisLine:{lineStyle:{color:th.grid}},splitLine:{lineStyle:{color:th.grid}},...extra});
   // T01556：图表随 setLang→refreshCharts 重建，绘制期文案一律现取 t()；
   // tooltip 的 {b}/{c}/{d} 是 ECharts 占位符，字典值原样保留（t 不插值）。
   const opts={
@@ -2352,14 +2356,14 @@ function refreshCharts(){
         series:[{type:"pie",radius:["35%","65%"],data:Object.entries(byType).map(([k,v])=>({name:k,value:v})),
                  label:lbl({formatter:"{b}\n{c}"})}]},
     c2:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:44,right:16,top:20,bottom:24},
-        xAxis:{type:"category",data:Object.keys(byReuse).map(k=>t("common.lv."+LV[k]))},yAxis:{type:"value",minInterval:1},
+        xAxis:axis({type:"category",data:Object.keys(byReuse).map(k=>t("common.lv."+LV[k]))}),yAxis:axis({type:"value",minInterval:1}),
         series:[{type:"bar",barWidth:"45%",data:Object.values(byReuse),itemStyle:{color:th.brand}}]},
     c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:90,right:30,top:10,bottom:24},
-        xAxis:{type:"value"},yAxis:{type:"category",inverse:true,data:sysArr.map(x=>x.name)},
+        xAxis:axis({type:"value"}),yAxis:axis({type:"category",inverse:true,data:sysArr.map(x=>x.name)}),
         series:[{type:"bar",barWidth:"55%",data:sysArr.map(x=>x.us),itemStyle:{color:th.brand},
                  label:lbl({show:true,position:"right",formatter:"{c} US"})}]},
     c4:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:60,right:30,top:24,bottom:24},
-        xAxis:{type:"category",data:[t("result.kpi.low"),t("result.kpi.mid"),t("result.kpi.high")]},yAxis:{type:"value"},
+        xAxis:axis({type:"category",data:[t("result.kpi.low"),t("result.kpi.mid"),t("result.kpi.high")]}),yAxis:axis({type:"value"}),
         series:[{type:"bar",barWidth:"40%",data:[gSummary?gSummary.work.low:0,gSummary?gSummary.work.mid:0,gSummary?gSummary.work.high:0],
                  itemStyle:{color:th.brand},label:lbl({show:true,position:"top"})}]}};
   ["c1","c2","c3","c4"].forEach(id=>{
