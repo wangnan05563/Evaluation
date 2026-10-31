@@ -232,7 +232,7 @@ function pertFillPhase(){
   const cur=sel.value;
   sel.innerHTML=PERT_PHASES.map(x=>`<option value="${x}" ${x===cur?"selected":""}>${pertPhaseLabel(x)}</option>`).join("");
 }
-function pertInit(){pertFillPhase();pertLoadProjects();pertSyncStart();window.lucide&&lucide.createIcons();}
+function pertInit(){pertFillPhase();pertLoadProjects();pertSyncStart();renderPert();window.lucide&&lucide.createIcons();}
 function pertStep(s){
   // 切换 PERT 步骤视图（in=需求输入/edit=估算录入/gen=结果生成），与 IFPUG 步骤条风格一致
   document.body.dataset.pertstep=s;

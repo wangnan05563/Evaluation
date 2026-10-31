@@ -116,8 +116,9 @@ async function setLang(lang){
   if(typeof pertSyncStart === "function" && document.body.dataset.page === "pert") pertSyncStart();
   // T01556：PERT 阶段下拉的标签按新语言重建（数据值不变）
   if(typeof pertFillPhase === "function" && document.body.dataset.page === "pert") pertFillPhase();
-  // T01555（批次5）：PERT 估算明细行的 title/待填徽标按新语言重绘
-  if(typeof renderPert === "function" && document.body.dataset.page === "pert" && Array.isArray(pertItems) && pertItems.length) renderPert();
+  // T01555（批次5）：PERT 估算明细行的 title/待填徽标按新语言重绘；
+  // T03723：计数「N 项」同样由 renderPert 产出，空明细也要重绘，否则停在旧语言
+  if(typeof renderPert === "function" && document.body.dataset.page === "pert") renderPert();
   // T01555：驻留 DOM 的动态文案（进度条/状态框/文件提示…）按注册的状态函数重算重绘
   if(typeof dynPaint === "function") dynPaint();
   // 帮助页更新区的动态状态（检测中/发现新版本/下载进度…）按保存的状态重绘（T01548 批次4a）
