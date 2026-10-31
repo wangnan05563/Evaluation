@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""FR-5.5 i18n 构建校验：两字典 key 双向对齐 + 无空译文 + 标注 key 均存在。
+"""FR-5.5 i18n 构建校验：两字典 key 双向对齐 + 无重复 key + 无空译文 + 标注 key 均存在。
 
 独立运行：python tests/i18n_check.py（不属 npm test 套件，与 a11y_contrast.py 同级）
 退出码：0 = 全部通过；1 = 存在问题（列出具体 key）。
@@ -32,19 +32,39 @@ def check(name, ok, detail=""):
 
 
 def load(lang):
+    """返回 (strings, 重复 key 列表)。
+
+    T03767：同一 key 在 JSON 里写两行时，标准解析只保留最后一处，两语字典
+    看起来都「合法」，文案却被静默顶掉（本轮帮助页 PERT 段落误用既有
+    help.body.p7a/b/c 就是这样漏过校验的）。用 object_pairs_hook 在解析的同时
+    收集重复 key——覆盖顶层与任意嵌套对象，命中即 FAIL 并点名 key。
+    """
     p = I18N_DIR / f"{lang}.json"
     if not p.exists():
-        return None
-    doc = json.loads(p.read_text(encoding="utf-8-sig"))
-    return doc.get("strings") if isinstance(doc, dict) else None
+        return None, []
+    dups = []
+
+    def collect_dups(pairs):
+        seen = set()
+        for k, _v in pairs:
+            if k in seen:
+                dups.append(k)
+            seen.add(k)
+        return dict(pairs)
+
+    doc = json.loads(p.read_text(encoding="utf-8-sig"), object_pairs_hook=collect_dups)
+    return (doc.get("strings") if isinstance(doc, dict) else None), dups
 
 
-# 1) 字典文件存在且结构合法
+# 1) 字典文件存在且结构合法；同一对象内不得出现重复 key
 dicts = {}
 for lang in SUPPORTED:
-    s = load(lang)
+    s, dups = load(lang)
     check(f"{lang}.json 存在且含 strings 对象", isinstance(s, dict),
           "" if s is None else f"{len(s)} 键")
+    dup_names = sorted(set(dups))
+    check(f"{lang}.json 无重复 key（重复时后者静默覆盖前者）", not dup_names,
+          f"重复 {len(dups)} 处: {', '.join(dup_names[:6])}" if dup_names else "")
     dicts[lang] = s or {}
 
 zh, en = dicts["zh-CN"], dicts["en-US"]
