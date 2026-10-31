@@ -454,8 +454,9 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="WLGuide.startAndGo('work')" data-i18n="title=help.guide.work" title="重温 IFPUG 估算三步流程引导"><i aria-hidden="true" data-lucide="calculator" style="width:15px;height:15px"></i><span data-i18n="help.guide.work.btn">IFPUG 估算引导</span></button>
         <button class="btn btn-ghost" onclick="WLGuide.startAndGo('pert')" data-i18n="title=help.guide.pert" title="重温 PERT 三点估算流程引导"><i aria-hidden="true" data-lucide="activity" style="width:15px;height:15px"></i><span data-i18n="help.guide.pert.btn">PERT 估算引导</span></button>
+        <button class="btn btn-ghost" onclick="WLGuide.startAndGo('fast')" data-i18n="title=help.guide.fast" title="重温 NESMA 快速估算引导"><i aria-hidden="true" data-lucide="zap" style="width:15px;height:15px"></i><span data-i18n="help.guide.fast.btn">快速估算引导</span></button>
         <button class="btn btn-ghost" onclick="WLGuide.startAndGo('config')" data-i18n="title=help.guide.config" title="重温配置中心引导"><i aria-hidden="true" data-lucide="settings" style="width:15px;height:15px"></i><span data-i18n="help.guide.config.btn">配置中心引导</span></button>
-        <button class="btn btn-ghost" onclick="WLGuide.startAndGo('help')" data-i18n="title=help.guide.help" title="功能总览：介绍 4 大功能入口"><i aria-hidden="true" data-lucide="book-open" style="width:15px;height:15px"></i><span data-i18n="help.guide.help.btn">功能总览引导</span></button>
+        <button class="btn btn-ghost" onclick="WLGuide.startAndGo('help')" data-i18n="title=help.guide.help" title="功能总览：介绍 5 大功能入口"><i aria-hidden="true" data-lucide="book-open" style="width:15px;height:15px"></i><span data-i18n="help.guide.help.btn">功能总览引导</span></button>
       </div>
     </div>
     <div class="glass pad">
@@ -480,41 +481,72 @@
           <div class="doc-sec">
             <h4 data-i18n="help.h4.m3">3. 复杂度与权重</h4>
             <p data-i18n="help.body.m3">每个功能点按「低 / 中 / 高」三级复杂度计权：ILF(7/10/15)、EIF(5/7/10)、EI(3/4/6)、EO(4/5/7)、EQ(3/4/6)。</p>
+            <p data-i18n="help.body.m3b">预估功能点法仅统计 ILF（35）与 EIF（15），事务类回退估算功能点权重。</p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.m4">4. 调整因子</h4>
             <ul>
               <li><b data-i18n="help.body.m4.reuse_b">重用程度</b><span data-i18n="help.body.m4.reuse_t">：高 1/3、中 2/3、低 1（复用的功能不计全额）</span></li>
               <li><b data-i18n="help.body.m4.mod_b">修改类型</b><span data-i18n="help.body.m4.mod_t">：新增 1.0、修改 0.8、删除 0.2</span></li>
-              <li><b data-i18n="help.body.m4.scf_b">规模变更因子</b><span data-i18n="help.body.m4.scf_t">：按估算时机取 0.8~1.4 区间折减/放大</span></li>
+              <li><b data-i18n="help.body.m4.scf_b">规模变更因子</b><span data-i18n="help.body.m4.scf_t">：按估算时机取 1.39（早期）/ 1.21（中期）/ 1.10（晚期）/ 1.00（交付后及运维）</span></li>
             </ul>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.m5">5. 估算流程</h4>
+            <p data-i18n="help.body.m5">在「IFPUG 估算」页上传需求说明书（.docx，可拖拽或点击选择，键盘回车亦可），本地引擎解析后生成候选功能点；在「审核功能点」逐条确认类别、复杂度、重用与修改类型，支持搜索、筛选、排序、批量设置与粘贴 Excel 明细；全部确认后点「确认无误 · 生成结果」，在结果页下载成品表。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.m6">6. 历史与导出</h4>
+            <p data-i18n="help.body.m6">「历史估算」支持重开继续调整、另存为新记录、删除，勾选两次估算可逐项对比差异；结果页可导出功能点明细 CSV、Markdown 摘要与评估报告 PDF，并可按 INVEST 生成用户故事。</p>
           </div>
         </div>
         <div class="doc-block">
           <h3 style="font-size:15px;font-weight:700;color:var(--brand-ink);margin-bottom:10px"><span style="display:inline-block;background:var(--brand);color:var(--on-brand);font-size:11px;padding:2px 8px;border-radius:999px;margin-right:8px;vertical-align:2px">IFPUG</span><span data-i18n="help.h3.algo">算法说明</span></h3>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.a1">1. UFP（未调整功能点）</h4>
-            <p data-i18n="help.body.a1">单一功能点 UFP = 类别权重 × 复杂度权重</p>
+            <p data-i18n="help.body.a1">单一功能点 UFP = 类别权重 × 复杂度权重（低 / 中 / 高）；预估功能点法仅 ILF=35、EIF=15，事务类回退估算权重。</p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.a2">2. US（调整后规模）</h4>
             <p><span class="formula" data-i18n="help.body.a2f">US = UFP × 重用系数 × 修改系数</span></p>
           </div>
           <div class="doc-sec">
-            <h4 data-i18n="help.h4.a3">3. 调整后功能点</h4>
-            <p><span class="formula" data-i18n="help.body.a3f">调整后FP = ΣUS × 规模变更因子</span><span data-i18n="help.body.a3t">（估算中期取 1.10）</span></p>
+            <h4 data-i18n="help.h4.a3">3. 调整后规模</h4>
+            <p><span class="formula" data-i18n="help.body.a3f">调整后规模 = ΣUS × 规模变更调整因子</span><span data-i18n="help.body.a3t">（估算早期 1.39 / 中期 1.21 / 晚期 1.10 / 交付后及运维 1.00）</span></p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.a4">4. 工作量（人天）</h4>
-            <p><span class="formula" data-i18n="help.body.a4f">工作量(人天) = 调整后FP × 生产率(人时/FP) ÷ 8</span></p>
+            <p><span class="formula" data-i18n="help.body.a4f">工作量(人天) = 调整后规模 × 生产率(人时/FP) ÷ 8 × 调整因子 0.8</span></p>
+            <p data-i18n="help.body.a4t">低 / 中 / 高按中值 ±20% 取上下限。</p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.a5">5. 费用（万元）</h4>
             <p><span class="formula" data-i18n="help.body.a5f">费用 = 工作量(人天) ÷ 22 × 人月单价(万元)</span></p>
+            <p data-i18n="help.body.a5t">人月单价默认 2.57 万元/人月，可在项目参数中调整。</p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.a6">6. 上下限</h4>
             <p data-i18n="help.body.a6">中值 ±20% 作为下限/上限，供谈判区间参考。</p>
+          </div>
+        </div>
+        <div class="doc-block">
+          <h3 style="font-size:15px;font-weight:700;color:var(--brand-ink);margin-bottom:10px"><span style="display:inline-block;background:var(--brand);color:var(--on-brand);font-size:11px;padding:2px 8px;border-radius:999px;margin-right:8px;vertical-align:2px">NESMA</span><span data-i18n="help.h3.fast">快速估算</span></h3>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.f1">1. 适用场景</h4>
+            <p data-i18n="help.body.f1">需求早期、功能点还拆不细时，只需清点 ILF / EIF（估算法再计 EI / EO / EQ），输入即算规模与费用量级。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.f2">2. 两种口径</h4>
+            <p><span class="formula" data-i18n="help.body.f2pre">预估法 UFP = 35 × ILF + 15 × EIF</span></p>
+            <p><span class="formula" data-i18n="help.body.f2est">估算法 UFP = 7 × ILF + 5 × EIF + 4 × EI + 5 × EO + 4 × EQ</span></p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.f3">3. 即时结果</h4>
+            <p data-i18n="help.body.f3">页面即时给出 UFP、规模（UFP × 需求阶段调整因子 1.10）、工作量（PDR × 规模）与费用（工作量 ÷ 174 × 人月费率 + 直接非人力成本），并附 COCOMO II 与 PERT 三点参考。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.f4">4. 与国标造价衔接</h4>
+            <p data-i18n="help.body.f4">点「按此结果进国标造价」可把当前 UFP 带入结果页「国标造价」页签，按 GB/T 36964 继续测算。</p>
           </div>
         </div>
         <div class="doc-block">
@@ -537,7 +569,11 @@
             <p><span class="formula" data-i18n="help.body.p3s">标准差 σ = (P − O) ÷ 6</span></p>
           </div>
           <div class="doc-sec">
-            <h4 data-i18n="help.h4.p4">4. 汇总与调节</h4>
+            <h4 data-i18n="help.h4.p3b">4. 三步操作与项目库</h4>
+            <p data-i18n="help.body.p3b">需求输入（新建/选择项目、上传 Word/PDF 或粘贴文本，按配置走 AI 拆分或本地分析，勾选候选导入）→ 估算录入（逐项维护阶段与三值，实时显示预期与 σ）→ 结果与生成（汇总预期总人天、最理想人月、调节系数与实际预估人月，并生成成品表）。项目保存在本地 SQLite（data/pert.db），可随时载入继续编辑。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.p4">5. 汇总与调节</h4>
             <ul>
               <li><span data-i18n="help.body.p4a">分阶段（需求/设计/开发/实施/公共及远程/现场维护）汇总预期人天</span></li>
               <li><span class="formula" data-i18n="help.body.p4b">最理想人月 = 总预期人天 ÷ 20.83</span></li>
@@ -545,27 +581,59 @@
             </ul>
           </div>
           <div class="doc-sec">
-            <h4 data-i18n="help.h4.p5">5. 输出映射</h4>
+            <h4 data-i18n="help.h4.p5">6. 输出映射</h4>
             <p data-i18n="help.body.p5">开发阶段明细写入成品表 R8 起（B/C 列合并，仅写 D 描述与 E/F/G 三值），其余阶段写入对应阶段行；H 列预期由模板公式自动重算。</p>
           </div>
         </div>
         <div class="doc-block">
-          <h3 style="font-size:15px;font-weight:700;color:var(--brand-ink);margin-bottom:10px"><span style="display:inline-block;background:var(--brand);color:var(--on-brand);font-size:11px;padding:2px 8px;border-radius:999px;margin-right:8px;vertical-align:2px">PERT</span><span data-i18n="help.h3.pert_ctx">项目上下文与 AI 辅助</span></h3>
+          <h3 style="font-size:15px;font-weight:700;color:var(--brand-ink);margin-bottom:10px"><span style="display:inline-block;background:var(--brand);color:var(--on-brand);font-size:11px;padding:2px 8px;border-radius:999px;margin-right:8px;vertical-align:2px">SETTINGS</span><span data-i18n="help.h3.config">配置中心与 AI 辅助</span></h3>
           <div class="doc-sec">
-            <h4 data-i18n="help.h4.p6">1. AI 拆分功能点</h4>
-            <p><span data-i18n="help.body.p6a">在「需求输入」上传需求说明书（Word/PDF）或粘贴文本后，点右侧「上传文档开始识别」按钮发起识别（未上传文件时按钮灰显）。系统按</span><b data-i18n="help.body.p6b">配置中心「启用大模型辅助识别」</b><span data-i18n="help.body.p6c">开关自动分流：开启则由 AI 拆分功能/工作项并对每项给出乐观/最可能/悲观工作量评估，关闭则走本地离线分析；勾选确认后进入估算录入。</span></p>
+            <h4 data-i18n="help.h4.c1">1. 大模型识别增强</h4>
+            <p data-i18n="help.body.c1">可接入任意 OpenAI 兼容接口（OpenAI / Claude / 通义 / 火山 / Agnes / 自定义预设），填写 API 地址、模型名与 Key，支持连接测试、获取模型列表、跳转控制台与恢复默认；Key 仅保存在本机 data/config.json。启用后由模型核对/补全候选功能点，连接异常或超时自动回退本地规则。</p>
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.p7">2. 项目上下文目录</h4>
             <p><span data-i18n="help.body.p7a">在</span><b data-i18n="help.body.p7b">配置中心 → 项目上下文目录</b><span data-i18n="help.body.p7c">配置一个代码目录，AI 估算时会扫描其技术栈、目录结构、依赖与规模，把「项目级上下文」注入提示词，使工作量评估更贴合实际代码。</span></p>
+            <p data-i18n="help.body.p7d">仅扫描技术栈、目录结构与依赖等元信息，不读取业务源码；目录不存在或未配置时 AI 自动跳过。</p>
           </div>
           <div class="doc-sec">
-            <h4 data-i18n="help.h4.p8">3. 使用前提</h4>
-            <ul>
-              <li><span data-i18n="help.body.p8a">AI 拆分/评估需在</span><b data-i18n="help.body.p8b">配置中心</b><span data-i18n="help.body.p8c">启用大模型并填好 API 地址与 Key</span></li>
-              <li><span data-i18n="help.body.p8d">未能启用大模型时，docx 需求可回退本地识别（仅描述、三值手工补填）</span></li>
-              <li><span data-i18n="help.body.p8e">项目上下文目录可选；未配置时 AI 自动跳过该上下文，不影响主流程</span></li>
-            </ul>
+            <h4 data-i18n="help.h4.c3">3. 识别规则</h4>
+            <p data-i18n="help.body.c3">规则按优先级从高到低匹配，命中即判定类型；正则支持多条，可配置排除项。修改保存后下次识别生效并记录规则版本。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.c4">4. 费率与基准</h4>
+            <p data-i18n="help.body.c4">按年度维护多版本费率（PDR、人月费率、功能点单价、直接非人力成本与数据出处），估算时选用并记录版本。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.c5">5. 母版与公式缓存</h4>
+            <p data-i18n="help.body.c5">可上传新成品母版并登记口径说明，上传后应先用新母版生成一次首件、人工核对列位；公式缓存支持后台补算 / 生成时同步重算 / 不重算，超时自动跳过。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.c6">6. 应用更新与运维</h4>
+            <p data-i18n="help.body.c6">在「应用更新」配置更新源 JSON 地址后，启动与打开帮助页会自动检测，新版本可一键下载安装并保留本机配置；运维区支持导出诊断包、导出与导入全部数据（导入前自动备份）。</p>
+          </div>
+        </div>
+        <div class="doc-block">
+          <h3 style="font-size:15px;font-weight:700;color:var(--brand-ink);margin-bottom:10px"><span style="display:inline-block;background:var(--brand);color:var(--on-brand);font-size:11px;padding:2px 8px;border-radius:999px;margin-right:8px;vertical-align:2px">GENERAL</span><span data-i18n="help.h3.common">通用功能</span></h3>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.g1">1. 国标造价</h4>
+            <p data-i18n="help.body.g1">结果页「国标造价」页签按 GB/T 36964-2018 计算：规模 = UFP × GSC × 阶段因子 CF，工作量 AE = PDR × 规模 × 业务领域因子 SWF × 开发语言因子 RDF，费用 = AE ÷ 174 × 人月费率 + 直接非人力成本；可勾选自定义覆盖基准值并标注「人工调整」。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.g2">2. 用户故事导出</h4>
+            <p data-i18n="help.body.g2">结果页按 INVEST 模板把已确认功能点生成用户故事（含验收标准与规模），可编辑后导出 Markdown / CSV，或一键推送到 GitHub Issues（仓库与 Token 自配）。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.g3">3. 导出与报告</h4>
+            <p data-i18n="help.body.g3">结果页支持导出功能点明细 CSV、Markdown 摘要与评估报告 PDF（打印管线另存）。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.g4">4. 外观与语言</h4>
+            <p data-i18n="help.body.g4">提供亮色 / 暗色 / 高对比 / 跟随系统四套主题，中英双语界面，主色可自定义且导出表头同步。</p>
+          </div>
+          <div class="doc-sec">
+            <h4 data-i18n="help.h4.g5">5. 数据与隐私</h4>
+            <p data-i18n="help.body.g5">计算、存储与界面资源全部本地化，需求文档不出本机；大模型 API Key 仅保存在本机配置文件。</p>
           </div>
         </div>
       </div>

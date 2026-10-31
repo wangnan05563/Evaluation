@@ -2,8 +2,8 @@
  * guide.js —— 菜单向导引导系统（T00859，按本工具实际形态适配）
  *
  * 本工具为「无框架的单页原生 HTML/JS」应用（无 Vue/React，无路由），
- * 真实结构是 4 个页面（IFPUG估算/PERT估算/配置中心/帮助文档）+ 页内步骤条。
- * 因此引导系统的目标对象不是「多菜单路由」，而是这 4 个页面入口与 2 套步骤条。
+ * 真实结构是 5 个页面（IFPUG估算/PERT估算/快速估算/配置中心/帮助文档）+ 页内步骤条。
+ * 因此引导系统的目标对象不是「多菜单路由」，而是这 5 个页面入口与 2 套步骤条。
  *
  * 设计取舍（适配不虚构）：
  *  - 引导数据按「菜单·页面」粒度组织，每页可配多个引导步骤；
@@ -45,6 +45,17 @@
       desc: '结果生成阶段输出各阶段预期工作量，并支持下载成品表。',
       target: '#pst3' },
 
+    // --- 快速估算页：NESMA 快算引导 ---
+    { id: 'fast', menuId: 'fast', title: 'NESMA 快速估算', order: 1,
+      desc: '需求早期、功能点还拆不细时，用 NESMA 预估法 / 估算法清点 ILF、EIF 即可即时拿到规模与费用量级。',
+      target: '#mi-fast' },
+    { id: 'fast-count', menuId: 'fast', title: '输入计数', order: 2,
+      desc: '按所选口径填入 ILF / EIF（估算法再填 EI / EO / EQ），结果区随输入即时重算。',
+      target: '#fastCounts' },
+    { id: 'fast-gb', menuId: 'fast', title: '带入国标造价', order: 3,
+      desc: '点「按此结果进国标造价」，把当前 UFP 带到结果页「国标造价」页签，按 GB/T 36964 继续测算。',
+      target: '#fastResult' },
+
     // --- 配置中心页 ---
     { id: 'config', menuId: 'config', title: '配置中心', order: 1,
       desc: '配置中心用于大模型识别增强设置：选择模型服务商、填入 API 地址/模型/密钥，并支持在线连接测试。',
@@ -57,11 +68,14 @@
     { id: 'help-pert', menuId: 'help', title: '② PERT 估算', order: 2,
       desc: '三点估算法：录入乐观/最可能/悲观值，自动计算预期工期与方差。',
       target: '#mi-pert' },
-    { id: 'help-config', menuId: 'help', title: '③ 配置中心', order: 3,
+    { id: 'help-fast', menuId: 'help', title: '③ 快速估算', order: 3,
+      desc: 'NESMA 快算：清点 ILF / EIF 即出规模与费用，适合需求早期拿量级。',
+      target: '#mi-fast' },
+    { id: 'help-config', menuId: 'help', title: '④ 配置中心', order: 4,
       desc: '配置大模型识别增强（服务商/API 地址/密钥）与应用更新源，支持在线连接测试。',
       target: '#mi-config' },
-    { id: 'help-doc', menuId: 'help', title: '④ 帮助文档', order: 4,
-      desc: '查阅 IFPUG 评估方法论与计算算法说明，并可从这里重温各页操作引导。',
+    { id: 'help-doc', menuId: 'help', title: '⑤ 帮助文档', order: 5,
+      desc: '查阅各功能模块的方法论与计算算法说明，并可从这里重温各页操作引导。',
       target: '#mi-help' },
   ];
 
@@ -179,7 +193,7 @@
 
   // 由 body.data-page 或 data-step 推断当前应引导的 menuId
   function menuOfPage(page) {
-    var map = { work: 'work', pert: 'pert', config: 'config', help: 'help' };
+    var map = { work: 'work', pert: 'pert', fast: 'fast', config: 'config', help: 'help' };
     return map[page] || 'work';
   }
 

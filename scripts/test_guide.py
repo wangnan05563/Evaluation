@@ -15,7 +15,7 @@ targets = re.findall(r"target:\s*'([^']+)'", gs)
 ck(len(ids) >= 8, f"步骤数应>=8, 实际{len(ids)}")
 ck(len(ids) == len(set(ids)), "步骤 id 重复")
 ck(len(ids) == len(menus) == len(titles) == len(targets), "字段数量不一致")
-ck(all(m in {"work","pert","config","help"} for m in menus), f"非法 menuId: {sorted(set(menus)-{'work','pert','config','help'})}")
+ck(all(m in {"work","pert","fast","config","help"} for m in menus), f"非法 menuId: {sorted(set(menus)-{'work','pert','fast','config','help'})}")
 for t in targets:
     ck(t.lstrip("#.") in ih, f"目标选择器 {t} 不存在于 index.html")
 for fn in ("start","stop","step","render","guideMaybe","autoTimer","menuOfPage","markDone","isDone"):
