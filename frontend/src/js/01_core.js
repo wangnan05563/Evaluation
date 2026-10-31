@@ -2,7 +2,8 @@
 // 页面由后端同源提供时直接复用 origin；file:// 直接打开时回退到 127.0.0.1:8020，
 // 避免硬编码端口与实际监听端口不一致导致 fetch 直接 Failed to fetch。
 const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8020';
-const WEIGHT={ILF:{低:7,中:10,高:15},EIF:{低:5,中:7,高:10},EI:{低:3,中:4,高:6},EO:{低:4,中:5,高:7},EQ:{低:3,中:4,高:6}};
+// T03724：UFP 口径与母版成品表一致——按类别默认权重（母版无复杂度列），复杂度仅作记录。
+const WEIGHT={ILF:10,EIF:7,EI:4,EO:5,EQ:4}; const WEIGHT_PRE={ILF:35,EIF:15};
 const REUSE={低:1,中:2/3,高:1/3}; const MODIFY={新增:1,修改:.8,删除:.2};
 const CATCOLOR={ILF:'c-ILF',EIF:'c-EIF',EI:'c-EI',EO:'c-EO',EQ:'c-EQ'};
 let items=[]; let gSummary=null; let gSid=null; let curFile=null;
@@ -21,13 +22,14 @@ function dynPaint(){let htmlPainted=false;for(const d of __dyn){if(!document.bod
   const v=d.fn();if(v!=null){if(d.mode==="html"){d.el.innerHTML=v;htmlPainted=true;}else d.el.textContent=v;}}
   // T01556：html 模式重绘会重建 <i data-lucide> 占位，补一次图标化，避免切语言后图标消失
   if(htmlPainted)window.lucide&&lucide.createIcons();}
-// 数据域中文值（低/中/高、新增/修改/删除）是 WEIGHT/REUSE/MODIFY 的字典键，
+// 数据域中文值（低/中/高、新增/修改/删除）是 REUSE/MODIFY 的字典键，
 // 迁移的是「显示文本」：option 显式带 value=原中文值，label 走 t()，后端与计算不受影响。
 const LV={低:"low",中:"mid",高:"high",新增:"new",修改:"change",删除:"del"};
 // 属性转义：system 等字段可能含引号/尖括号，拼进 HTML 属性前必须转义
 const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
-function ufp(it){return WEIGHT[it.type][it.cx];}
+function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
+function onMethodChange(){if(items.length)render();}
 function us(it){return +(ufp(it)*REUSE[it.reuse]*MODIFY[it.modify]).toFixed(2);}
 function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>`<option value="${c}" ${c===it.cx?"selected":""}>${t("common.lv."+LV[c])}</option>`).join('')}</select>`;}
 function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>`<option value="${v}" ${v===it.reuse?"selected":""}>${t("common.lv."+LV[v])}</option>`).join('')}</select>`;}

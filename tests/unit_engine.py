@@ -44,6 +44,16 @@ check("费用三值区间有序且与工作量同向", s["cost"]["low"] < s["cos
 check("调整后规模 = US×因子", abs(s["adjusted_fp"] - round(s["us"] * g.SCALE_CHANGE["估算中期"], 2)) < 0.01,
       f"{s['adjusted_fp']} vs {s['us']}×{g.SCALE_CHANGE['估算中期']}")
 
+# T03724：复杂度仅记录，不参与 UFP/US（母版成品表无复杂度列）
+CX_ITEMS = [{"type": "ILF", "reuse": "低", "modify": "新增", "cx": cx} for cx in ("低", "中", "高")]
+cx_u = {g.summary([i], method="估算功能点")["ufp"] for i in CX_ITEMS}
+cx_s = {g.summary([i], method="估算功能点")["us"] for i in CX_ITEMS}
+check("复杂度不影响 UFP（低/中/高同为 10）", cx_u == {10}, str(cx_u))
+check("复杂度不影响 US（低/中/高同为 10）", cx_s == {10.0}, str(cx_s))
+pre = g.summary([{"type": "ILF", "reuse": "低", "modify": "新增"},
+                 {"type": "EIF", "reuse": "低", "modify": "新增"}], method="预估功能点")
+check("预估功能点法 ILF=35/EIF=15", pre["ufp"] == 50, str(pre["ufp"]))
+
 # M6/FR-2.1：NESMA 快算口径
 check("NESMA 预估法 35×ILF+15×EIF", gb.nesma_ufp({"ILF": 2, "EIF": 3}, "pre") == 35*2+15*3)
 check("NESMA 估算法 7/5/4/5/4", gb.nesma_ufp({"ILF": 1, "EIF": 1, "EI": 2, "EO": 1, "EQ": 1}, "est") == 7+5+8+5+4)

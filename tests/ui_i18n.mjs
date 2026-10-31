@@ -470,10 +470,10 @@ const hpZh = JSON.parse(await ev(`JSON.stringify({
   zhTextNodes:JSON.stringify((()=>{const w=document.createTreeWalker(document.querySelector('#pg-help'),NodeFilter.SHOW_TEXT);const a=[];let n;while(n=w.nextNode())if(/[一-龥]/.test(n.nodeValue))a.push(n.nodeValue.trim().slice(0,12));return a})()),
 })`));
 check('帮助页中文态：章节标题/小节/快捷键表均为中文',
-  hpZh.h3.length === 4 && hpZh.h4.length === 4 && hpZh.kbdKey === '按键' && hpZh.verTitle === '版本与更新',
+  hpZh.h3.length === 6 && hpZh.h4.length === 4 && hpZh.kbdKey === '按键' && hpZh.verTitle === '版本与更新',
   JSON.stringify({h3:hpZh.h3, kbd:hpZh.kbdKey}));
 check('帮助页中文态：正文段落为中文原文（批次3 key 化后 zh 字典生效）',
-  /三级复杂度计权/.test(hpZh.bodyM3) && /重用系数/.test(hpZh.bodyA2f) && hpZh.zhTextNodes.includes('操作引导'),
+  /不参与 UFP/.test(hpZh.bodyM3) && /重用系数/.test(hpZh.bodyA2f) && hpZh.zhTextNodes.includes('操作引导'),
   JSON.stringify({m3:hpZh.bodyM3.slice(0, 20), a2f:hpZh.bodyA2f}));
 
 await ev(`setLang('en-US');`); await sleep(700);
@@ -495,16 +495,16 @@ const hpEn = JSON.parse(await ev(`JSON.stringify({
   guideBtn:document.querySelector('[data-i18n="help.guide.work.btn"]').textContent.trim(),
 })`));
 check('帮助页英文态：章节与快捷键表已切英文',
-  hpEn.h3.length === 4 && hpEn.kbdKey === 'Key' && hpEn.verTitle === 'Version and Updates'
+  hpEn.h3.length === 6 && hpEn.kbdKey === 'Key' && hpEn.verTitle === 'Version and Updates'
   && /Methodology/.test(hpEn.h3[0]) && /Algorithms/.test(hpEn.h3[1]),
   JSON.stringify({h3:hpEn.h3, kbd:hpEn.kbdKey, ver:hpEn.verTitle}));
 check('帮助页小节标题已切英文', /^1\. /.test(hpEn.h4[0]) && /Basis/.test(hpEn.h4[0]), JSON.stringify(hpEn.h4));
 check('帮助页按钮 title 已切英文（更新与引导）',
-  /Check for updates/.test(hpEn.checkTitle || '') && /Feature overview/.test(hpEn.guideTitle || ''),
+  /Check for updates/.test(hpEn.checkTitle || '') && /Overview: introduces/.test(hpEn.guideTitle || ''),
   JSON.stringify({chk:hpEn.checkTitle, guide:hpEn.guideTitle}));
 check('帮助页 h3 徽标未被摧毁（h3 子结构完好）', hpEn.badgeIntact === true, `badges=${hpEn.badgeIntact}`);
 check('帮助页英文态：正文段落/公式/引导按钮已切英文（批次3）',
-  /complexity levels/.test(hpEn.bodyM3) && /US = UFP × Reuse Factor/.test(hpEn.bodyA2f)
+  /does not affect UFP/.test(hpEn.bodyM3) && /US = UFP × Reuse Factor/.test(hpEn.bodyA2f)
   && /Ideal Person-Months/.test(hpEn.bodyP4b) && /row R8/.test(hpEn.bodyP5)
   && hpEn.guideBtn === 'IFPUG Walkthrough',
   JSON.stringify({m3:hpEn.bodyM3.slice(0, 30), a2f:hpEn.bodyA2f, p4b:hpEn.bodyP4b, btn:hpEn.guideBtn}));
