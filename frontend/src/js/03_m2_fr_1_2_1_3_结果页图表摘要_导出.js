@@ -1,7 +1,8 @@
 /* ===== M2/FR-1.2、1.3：结果页图表摘要 + 导出管线 ===== */
 let _charts={};
+window._charts=_charts;  // 主题/折叠/品牌色三条刷新路径按 window._charts 守卫，顶层 let 不会挂到 window，必须显式导出
 function chartTheme(){const cs=getComputedStyle(document.documentElement);
-  return {brand:(cs.getPropertyValue("--brand")||"#2563EB").trim(),muted:(cs.getPropertyValue("--muted")||"#6B7280").trim(),grid:(cs.getPropertyValue("--chart-grid")||"#E5E7EB").trim(),tipBg:(cs.getPropertyValue("--chart-tip-bg")||"#FFFFFF").trim(),tipInk:(cs.getPropertyValue("--chart-tip-ink")||"#1F2937").trim()};}
+  return {brand:(cs.getPropertyValue("--brand")||"#2563EB").trim(),muted:(cs.getPropertyValue("--muted")||"#6B7280").trim(),grid:(cs.getPropertyValue("--chart-grid")||"#E5E7EB").trim(),tipBg:(cs.getPropertyValue("--chart-tip-bg")||"#FFFFFF").trim(),tipInk:(cs.getPropertyValue("--chart-tip-ink")||"#1F2937").trim(),ink:(cs.getPropertyValue("--ink")||"#1F2937").trim(),card:(cs.getPropertyValue("--card")||"#FFFFFF").trim()};}
 function refreshCharts(){
   if(typeof echarts==="undefined"){chartsFallback();return;}
   const ok=items.filter(x=>x.ok).length?items.filter(x=>x.ok):items;
@@ -12,23 +13,27 @@ function refreshCharts(){
   if(sysArr.length>15){const rest=+sysArr.slice(14).reduce((s,x)=>s+x.us,0).toFixed(2);
     sysArr=sysArr.slice(0,14);sysArr.push({name:t("result.chart_other"),us:rest});}
   const th=chartTheme();
+  // T03695：ECharts 5.6 的系列标签默认 fill=#333 + 2px 白描边（为浅色背景提可读性）。
+  // 深色/高对比主题下深色字芯被白边包住，看起来像两份数值叠印；这里把字色与描边
+  // 一并对齐主题：字色用 --ink，描边用卡片底色，深浅两套都只剩一份可读文字。
+  const lbl=extra=>({color:th.ink,textBorderColor:th.card,textBorderWidth:2,...extra});
   // T01556：图表随 setLang→refreshCharts 重建，绘制期文案一律现取 t()；
   // tooltip 的 {b}/{c}/{d} 是 ECharts 占位符，字典值原样保留（t 不插值）。
   const opts={
     c1:{tooltip:{trigger:"item",formatter:t("result.chart_tip_item"),backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},legend:{bottom:0,textStyle:{color:th.tipInk}},
         series:[{type:"pie",radius:["35%","65%"],data:Object.entries(byType).map(([k,v])=>({name:k,value:v})),
-                 label:{formatter:"{b}\n{c}"}}]},
+                 label:lbl({formatter:"{b}\n{c}"})}]},
     c2:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:44,right:16,top:20,bottom:24},
         xAxis:{type:"category",data:Object.keys(byReuse).map(k=>t("common.lv."+LV[k]))},yAxis:{type:"value",minInterval:1},
         series:[{type:"bar",barWidth:"45%",data:Object.values(byReuse),itemStyle:{color:th.brand}}]},
     c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:90,right:30,top:10,bottom:24},
         xAxis:{type:"value"},yAxis:{type:"category",inverse:true,data:sysArr.map(x=>x.name)},
         series:[{type:"bar",barWidth:"55%",data:sysArr.map(x=>x.us),itemStyle:{color:th.brand},
-                 label:{show:true,position:"right",formatter:"{c} US"}}]},
+                 label:lbl({show:true,position:"right",formatter:"{c} US"})}]},
     c4:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:60,right:30,top:24,bottom:24},
         xAxis:{type:"category",data:[t("result.kpi.low"),t("result.kpi.mid"),t("result.kpi.high")]},yAxis:{type:"value"},
         series:[{type:"bar",barWidth:"40%",data:[gSummary?gSummary.work.low:0,gSummary?gSummary.work.mid:0,gSummary?gSummary.work.high:0],
-                 itemStyle:{color:th.brand},label:{show:true,position:"top"}}]}};
+                 itemStyle:{color:th.brand},label:lbl({show:true,position:"top"})}]}};
   ["c1","c2","c3","c4"].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     if(_charts[id]){_charts[id].dispose();delete _charts[id];}
