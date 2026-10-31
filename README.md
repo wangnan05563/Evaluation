@@ -115,6 +115,10 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 前端源码在 `frontend/src/`（`index.src.html` + `js/*` + `css/*`），由 `python scripts/build_frontend.py`
 打包成单文件 `frontend/index.html`；改完 `src` 必须重新构建，否则运行的仍是旧产物（`index.html` 入库，构建后一并提交）。
 
+产品介绍 Word（`docs/工作量评估助手-产品介绍.docx`）由仓库内图版重建：
+`python tools/docs/product-intro/build.py`。图版在 `docs/assets/product-intro/`，重采界面底图 /
+重拼图版 / 逐页目检的参数见 [tools/docs/product-intro/README.md](tools/docs/product-intro/README.md)。
+
 > 清理失败时的排查：脚本会自动列出删不掉的文件与占用进程
 > （`python scripts\_rm_locks.py release`）。历史遗留的 `release\*\win-unpacked\resources\app.asar`
 > 若被 WorkBuddy.exe 索引句柄占住（err=32），需要**重启 WorkBuddy 后**再跑一次清理脚本。
@@ -165,6 +169,7 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 ├── tpl/template.xlsx          # 成品母版（公式/样式保真基座）
 ├── 工作量评估工具.spec         # 手写 PyInstaller 构建定义（datas/hiddenimports/图标），sidecar exe 依赖它
 ├── tests/                     # 回归套件（S1–S12：Python 单测 + API 冒烟 + UI 冒烟）
+├── tools/docs/product-intro/  # 产品介绍文档生成链（图版拼装 + docx 生成 + 可选界面采集）
 ├── docs/                      # 设计与方法论文档（见下方「设计文档」）
 ├── dev-shell/                 # Electron 壳（main.js 拉起 sidecar 并托管窗口）
 ├── assets/                    # 应用图标、README 徽章与社交预览图
