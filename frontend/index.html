@@ -199,6 +199,9 @@ body[data-page="pert"] #pg-pert{display:block}
 .filebar .elim{width:16px;height:16px}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .f-w{font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+/* 表头内的小勾选（如「记住」）不能吃 .fill input 的 100% 宽/内边距，否则把文字挤成多行 */
+.f-w label{white-space:nowrap}
+.f-w label input[type=checkbox]{width:auto;height:auto;padding:0;border:0;background:transparent;flex:none;accent-color:var(--brand)}
 .fill select,.fill input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);font-family:var(--ff);font-size:13px;color:var(--ink);background:var(--card);outline:none}
 .fill select:focus,.fill input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
 .q-chip{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);margin-bottom:10px;font-size:13px}
