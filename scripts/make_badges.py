@@ -25,7 +25,7 @@ BADGES = [
     ("platform", "platform", "Windows 10+", "2563EB"),
     ("python", "python", "3.10+", "3776AB"),
     ("electron", "electron", "desktop", "47848F"),
-    ("tests", "npm test", "12/12 passing", "16A34A"),
+    ("tests", "npm test", "17/17 passing", "16A34A"),
     ("i18n", "i18n", "中 / EN", "8B5CF6"),
 ]
 

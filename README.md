@@ -246,7 +246,7 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 ├── tpl/template.xlsx          # 成品母版（公式/样式保真基座）
 ├── tpl/pert-template.xlsx     # PERT 成品母版（可选，需自备；也可用 WE_TPL_PERT 指定，缺省则提示需自备）
 ├── 工作量评估工具.spec         # 手写 PyInstaller 构建定义（datas/hiddenimports/图标），sidecar exe 依赖它
-├── tests/                     # 回归套件（S1–S12：Python 单测 + API 冒烟 + UI 冒烟）
+├── tests/                     # 回归套件（S1–S17：Python/node 单测 + API 冒烟 + UI 冒烟 + 实机烟测）
 ├── tools/docs/product-intro/  # 产品介绍文档生成链（图版拼装 + docx 生成 + 可选界面采集）
 ├── docs/                      # 设计与方法论文档（见下方「设计文档」）
 ├── dev-shell/                 # Electron 壳（main.js 拉起 sidecar 并托管窗口）
@@ -264,11 +264,11 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 ## 测试
 
 ```bash
-npm test                  # 全量 12 套件
+npm test                  # 全量 17 套件
 npm test -- --only=S3,S4  # 只跑指定套件
 ```
 
-编排器（`tests/run.mjs`）跑 S1–S12 共 12 个套件，默认全部纳入（S6 的偶发卡死已在 T01079 根因修复，夹具改绝对路径后转为 default-on）：
+编排器（`tests/run.mjs`）跑 S1–S17 共 17 个套件，默认全部纳入（S6 的偶发卡死已在 T01079 根因修复，夹具改绝对路径后转为 default-on；S17 需真实桌面会话，不满足时 SKIP 而非 FAIL）：
 
 | 套件 | 内容 |
 |---|---|
@@ -276,8 +276,11 @@ npm test -- --only=S3,S4  # 只跑指定套件
 | S3 | API 冒烟（隔离实例全链路） |
 | S4 / S5 / S7 / S8 / S9 / S11 / S12 | UI 冒烟（无头 Chrome + CDP）：上传→识别→审核→生成→导出、表格增强与规则沉淀、版本 diff、主题定制、键盘可达、动效空态、界面多语言 |
 | S6 | UI 进度/失败/超时 |
+| S13 / S14 | 桌面壳单测（纯 node，不起服务）：窗口关闭偏好存储、壳侧文案双语表 |
+| S15 / S16 | UI 冒烟：配置中心「窗口行为」卡片、费率/规则降级态提示 |
+| S17 | Electron 实机烟测：真起壳 + 真点原生弹框（UIA/BM_CLICK），覆盖关闭决策、记住选择与双语文案 8 个场景 |
 
-辅助校验：`python tests/i18n_check.py`（双语 key 对齐、JSON 重复键检测、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**12/12 全绿为交付线。**
+辅助校验：`python tests/i18n_check.py`（双语 key 对齐、JSON 重复键检测、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**17/17 全绿为交付线**（无桌面环境允许 S17 记 SKIP）。
 
 ## 主要接口
 
@@ -310,12 +313,13 @@ npm test -- --only=S3,S4  # 只跑指定套件
 - `docs/概要设计说明.md` — 总体架构、模块划分、数据模型、计算口径（含 NESMA 与国标造价）
 - `docs/设计-结果页与导出.md` — 结果页四图、导出管线、信息架构与可访问性
 - `docs/设计-前端架构与交互.md` — 前端拆分与构建、复核表格、规则沉淀、设计令牌与主题、生态扩展
-- `docs/设计-数据与运维.md` — 估算历史与版本、入参校验、日志诊断、备份迁移、S1–S12 测试体系
+- `docs/设计-数据与运维.md` — 估算历史与版本、入参校验、日志诊断、备份迁移、S1–S17 测试体系
 - `docs/设计-多语言边界-交付物恒为中文.md` — 界面双语与交付物语言边界
 
 ## 常见问题
 
-- **S3~S12 集体报「API 实例未就绪」**：默认 `python` 缺 `openpyxl` 会连片假失败，改用带依赖的解释器：`PYTHON="/f/Program Files/Python3.14/python" npm test`。
+- **S3~S16 集体报「API 实例未就绪」**：默认 `python` 缺 `openpyxl` 会连片假失败，改用带依赖的解释器：`PYTHON="/f/Program Files/Python3.14/python" npm test`。
+- **S17 显示 SKIP**：`Electron 关闭行为实机烟测`要真的起壳并点原生模态框，非 Windows、未装 `dev-shell/node_modules/electron`、或会话里没有交互桌面（服务/CI）时会被门住并打印原因，属预期不判红。要强制跑用 `WE_SHELL_TEST=1 npm test -- --only=S17`，强制跳用 `WE_SHELL_TEST=0`。
 - **`release/` 删不掉、改不了名**：历史遗留的 `release\*\win-unpacked\resources\app.asar` 可能被索引进程句柄占住（err=32）。`python scripts\_rm_locks.py release` 会列出占用者，重启 WorkBuddy 后再跑一次清理脚本。
 - **内网/离线构建拉不到 electron**：镜像源集中在 `scripts/publish.config.json` 的 `env` 段（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`），不在脚本里硬编码；前端本身无 CDN 依赖。
 - **界面切成英文后导出的表还是中文**：这是设计边界，交付物（成品 xlsx / PERT 表 / 用户故事）恒为中文，理由与影响面见 `docs/设计-多语言边界-交付物恒为中文.md`。
@@ -330,7 +334,7 @@ npm test -- --only=S3,S4  # 只跑指定套件
    - 改计算口径：必须过金标准 `python scripts/generate_xlsx.py --verify`（US 合计 = `105.07`）；
    - 加界面文案：`data/i18n/zh-CN.json` 与 `en-US.json` **同时**补 key，跑 `python tests/i18n_check.py`（key 对齐 + 服务端 msgKey 覆盖）；
    - 加服务端提示：用 `scripts/server.py` 的 `_m(key, 中文兜底)` 返回 msgKey，前端经 `lm()` 查字典渲染，不要直接硬编码中文给英文态。
-3. 交付线：`npm test` **12/12 全绿**；只跑单套件用 `npm test -- --only=S4`。
+3. 交付线：`npm test` **17/17 全绿**（S17 无桌面会话时允许 SKIP）；只跑单套件用 `npm test -- --only=S4`。
 4. 不要提交：`data/` 运行时产物（`config.json`、`*.db`、`generated/`、`uploads/`）、`release/`、`logs/`、根目录 `.env`（`.gitignore` 已覆盖；`data/i18n/` 与 `data/testdocs/` 是例外，属源码/夹具必须入库）。
 5. 发布：本地 `scripts\构建打包.bat` 出包，或 `scripts\一键发布.bat` 构建 + 发布 GitHub Releases（先 `set GH_DRY_RUN=1` 演练一遍）。
 

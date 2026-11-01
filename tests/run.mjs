@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /** M4/FR-5.2 编排器：npm test 一条命令跑核心链路自动化测试。
  *  用法：npm test [-- --only=S1,S3] [-- --with-flaky]
- *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)，12 套全部默认纳入。
+ *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
+ *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测，17 套全部默认纳入。
  *  （--with-flaky 为历史开关：S6 曾在 T01079 前被标 flaky 默认跳过，夹具改绝对路径后已转 default-on，现无套件挂 flaky。）
+ *  S17 要真起 Electron 并驱动原生模态框（UIA + BM_CLICK），非 Windows／未装 dev-shell 依赖／无交互桌面时
+ *  显式 SKIP 并打印原因（不能让它假失败拖红基线）；用 WE_SHELL_TEST=1 强制跑、=0 强制跳。
  *  另有独立 WCAG 对比度审计：python tests/a11y_contrast.py（FR-UI05，非 npm test 套件）。
  *  ⚠ 须用带依赖的解释器：PYTHON="/f/Program Files/Python3.14/python" npm test
  *    （默认 python 缺 openpyxl，会导致 S3~S12 全部「API 实例未就绪」假失败）。 */
@@ -72,6 +75,20 @@ function runSuite(cmd, cargs, env, timeoutMs = 300000) {
   });
 }
 
+// 桌面会话能力探测（T03955）：S17 需要能真的看见并点原生模态框，缺任一条件都只能 skip。
+// 返回 null 表示可跑，否则返回给用户看的跳过原因。
+function desktopGate() {
+  if (process.env.WE_SHELL_TEST === '1') return null;
+  if (process.env.WE_SHELL_TEST === '0') return 'WE_SHELL_TEST=0 显式跳过实机烟测';
+  if (process.platform !== 'win32') return `非 Windows（${process.platform}）：原生弹框/托盘驱动不可用`;
+  const exe = path.join(ROOT, 'dev-shell', 'node_modules', 'electron', 'dist', 'electron.exe');
+  if (!fs.existsSync(exe)) return '未安装桌面壳依赖：先 cd dev-shell && npm install（缺 dev-shell/node_modules/electron）';
+  // 服务会话/CI 里没有可交互窗口站，TaskDialog 弹不出来也点不到；explorer 在跑是最低门槛判据
+  const r = spawnSync('tasklist', ['/FI', 'IMAGENAME eq explorer.exe', '/NH'], { encoding: 'utf8' });
+  if (!/explorer\.exe/i.test(r.stdout || '')) return '当前会话无交互桌面（explorer.exe 未运行）：无法驱动原生模态框';
+  return null;
+}
+
 const suites = [
   { id: 'S1', title: '识别规则表驱动单测（对拍/回退/坏正则）', kind: 'py', script: 'tests/unit_rules.py' },
   { id: 'S2', title: '引擎口径单测', kind: 'py', script: 'tests/unit_engine.py' },
@@ -85,6 +102,15 @@ const suites = [
   { id: 'S10', title: '命令行/无人值守模式（FR-FE10）', kind: 'py', script: 'tests/unit_cli.py' },
   { id: 'S11', title: 'UI 动效/骨架屏/空态插画（FR-UI04/UI07）', kind: 'ui', script: 'tests/ui_motion.mjs' },
   { id: 'S12', title: 'UI 界面多语言（FR-5.5）', kind: 'ui', script: 'tests/ui_i18n.mjs' },
+  { id: 'S13', title: '桌面壳窗口偏好存储单测（T03779）', kind: 'node', script: 'tests/unit_window_prefs.mjs' },
+  { id: 'S14', title: '桌面壳文案双语单测（T03957）', kind: 'node', script: 'tests/unit_shell_i18n.mjs' },
+  { id: 'S15', title: 'UI 配置中心「窗口行为」卡片（T03779）', kind: 'ui', script: 'tests/ui_window_behavior.mjs' },
+  { id: 'S16', title: 'UI 配置中心降级态（T03956）', kind: 'ui', script: 'tests/ui_rates_unavail.mjs' },
+  // 实机烟测：自己起 Electron（不占 8032/9334），8 个场景轮转启动+真点弹框。
+  // 空载实测 1m37s，但本机多会话并发时退出链能被拖到 20s+/场景，故预算给到 15min，
+  // 并把用例内自杀看门狗同步抬高——否则负载下它会先把自己判死，基线出现假红。
+  { id: 'S17', title: 'Electron 关闭行为实机烟测（需桌面会话）', kind: 'shell', script: 'tests/shell_close_smoke.mjs',
+    env: { WE_SHELL_WATCHDOG_MS: '840000' }, timeoutMs: 900000 },
 ];
 
 let server = null, chrome = null;
@@ -106,28 +132,39 @@ if (chrome) killTree(chrome.pid); });
   for (const port of [API_PORT, CDP_PORT]) {
     if (!(await portFree(port))) { log(`端口 ${port} 被占用，请先释放（避免双监听）`); process.exit(2); }
   }
-  const list = suites.filter(s => (!only || only.split(',').includes(s.id)) && (withFlaky || !s.flaky));
+  // 分层：--only 选中的才进队列；跑不了的（flaky 开关、实机烟测缺桌面）进 skipped 并保留原因
+  const shellSkip = desktopGate();
+  const list = [], skipped = [];
+  for (const s of suites) {
+    if (only && !only.split(',').includes(s.id)) continue;
+    if (s.flaky && !withFlaky) { skipped.push({ s, why: 'flaky（--with-flaky 开启）' }); continue; }
+    if (s.kind === 'shell' && shellSkip) { skipped.push({ s, why: shellSkip }); continue; }
+    list.push(s);
+  }
   for (const s of list) {
     log(`\n== ${s.id} ${s.title} ==`);
     let code = 1;
     try {
       if (s.kind === 'py') {
-        ({ code } = await runSuite(PY, [s.script], {}));
+        ({ code } = await runSuite(PY, [s.script], {}, s.timeoutMs));
       } else if (s.kind === 'api') {
         const dataDir = path.join(TMP, s.id.toLowerCase(), 'data');
         fs.mkdirSync(dataDir, { recursive: true });
         server = startServer(dataDir);
         if (!(await waitHealth())) throw new Error('API 实例未就绪');
-        ({ code } = await runSuite(PY, [s.script, String(API_PORT)], {}));
+        ({ code } = await runSuite(PY, [s.script, String(API_PORT)], {}, s.timeoutMs));
         killTree(server.pid); server = null;
         await sleep(800);
+      } else if (s.kind === 'node' || s.kind === 'shell') {
+        // 脚本自带运行环境：壳单测纯 node 即可，实机烟测自己起 Electron（不共用 8032 实例/CDP Chrome）
+        ({ code } = await runSuite(process.execPath, [s.script], { ...s.env }, s.timeoutMs));
       } else if (s.kind === 'ui') {
         if (!chrome) chrome = await startChrome(path.join(TMP, 'chrome'));
         const dataDir = path.join(TMP, s.id.toLowerCase(), 'data');
         fs.mkdirSync(dataDir, { recursive: true });
         server = startServer(dataDir);
         if (!(await waitHealth())) throw new Error('API 实例未就绪');
-        ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...(s.env || {}) }));
+        ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...(s.env || {}) }, s.timeoutMs));
         killTree(server.pid); server = null;
         await sleep(800);
       }
@@ -141,15 +178,15 @@ if (chrome) killTree(chrome.pid); });
     results.push({ id: s.id, title: s.title, ok, skipped: false });
     log(`== ${s.id} ${ok ? '全绿' : '失败'} ==\n`);
   }
-  for (const s of suites.filter(x => x.flaky && !withFlaky)) {
-    results.push({ id: s.id, title: s.title, ok: true, skipped: true });
-    log(`== ${s.id} SKIP（flaky，--with-flaky 开启）==`);
+  for (const { s, why } of skipped) {
+    results.push({ id: s.id, title: s.title, ok: true, skipped: true, why });
+    log(`== ${s.id} SKIP（${why}）==`);
   }
   await cleanup();
 
   const rep = ['# 核心链路自动化测试报告', `${new Date().toLocaleString('zh-CN')}`, '',
     '| 套件 | 说明 | 结果 |', '|---|---|---|',
-    ...results.map(r => `| ${r.id} | ${r.title} | ${r.skipped ? 'SKIP' : r.ok ? 'PASS' : '**FAIL**'} | |`), ''];
+    ...results.map(r => `| ${r.id} | ${r.title}${r.why ? `（跳过原因：${r.why}）` : ''} | ${r.skipped ? 'SKIP' : r.ok ? 'PASS' : '**FAIL**'} | |`), ''];
   const repPath = path.join(ROOT, 'logs', `test_report_${Date.now()}.md`);
   fs.writeFileSync(repPath, rep.join('\n'));
   log(`\n==== 汇总 ==== 通过 ${results.filter(r => r.ok && !r.skipped).length}/${results.filter(r => !r.skipped).length}` +
