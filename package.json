@@ -27,6 +27,7 @@
       "main.js",
       "preload.js",
       "window-prefs.js",
+      "i18n-shell.js",
       "package.json"
     ],
     "extraResources": [

@@ -19,13 +19,17 @@ const ELECTRON = path.join(ROOT, 'dev-shell', 'node_modules', 'electron', 'dist'
 const APP_DIR = path.join(ROOT, 'dev-shell')
 const SHELL_LOG = path.join(ROOT, 'logs', 'shell.log')
 const res = []
+// 退出耗时预算：本机波动很大——空闲时 0.4~0.7s（T03779 实测 401/648ms），多个会话并发挤满时
+// 用 probe 对照复测：HEAD 原码 22.2s、本单改动版 15.3s，说明与本单无关，是环境负载。
+// 因此默认给到 45s；仍可用 WE_SHELL_EXIT_WAIT 收紧，用来量真实退出耗时。
+const EXIT_WAIT = Number(process.env.WE_SHELL_EXIT_WAIT || 45000)
 const check = (n, ok, d = '') => {
   res.push({ n, ok: !!ok })
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`)
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 const killTree = pid => { try { spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' }) } catch { /* noop */ } }
-setTimeout(() => { console.error('[bk] WATCHDOG'); process.exit(3) }, 180000)
+setTimeout(() => { console.error('[bk] WATCHDOG'); process.exit(3) }, Number(process.env.WE_SHELL_WATCHDOG_MS || 420000))
 
 async function waitCdpPage(port, timeoutMs = 30000) {
   const t0 = Date.now()
@@ -41,7 +45,7 @@ async function waitCdpPage(port, timeoutMs = 30000) {
 }
 
 // 每个场景独立 user-data-dir：隔离偏好文件与单实例锁
-async function scenario(name, port, prefs) {
+async function scenario(name, port, prefs, extraArgs = []) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), `we_shell_${name}_`))
   const ud = path.join(base, 'ud')
   fs.mkdirSync(ud, { recursive: true })
@@ -50,7 +54,7 @@ async function scenario(name, port, prefs) {
   delete env.ELECTRON_RUN_AS_NODE
   delete env.NODE_OPTIONS
   env.WE_DEV_URL = 'data:text/html,<html><head><meta charset="utf-8"><title>shell smoke</title></head><body>shell smoke</body></html>'
-  const child = spawn(ELECTRON, [APP_DIR, `--remote-debugging-port=${port}`, `--user-data-dir=${ud}`], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(ELECTRON, [APP_DIR, `--remote-debugging-port=${port}`, `--user-data-dir=${ud}`, ...extraArgs], { env, stdio: ['ignore', 'pipe', 'pipe'] })
   let tail = ''
   child.stdout.on('data', d => { tail = (tail + d).slice(-4000) })
   child.stderr.on('data', d => { tail = (tail + d).slice(-4000) })
@@ -119,6 +123,7 @@ const UIA_PS = String.raw`param(
   [Parameter(Mandatory = $true)][int]$ProcId,
   [int]$Tick = 0,
   [int]$Button = 0,
+  [int]$Dump = 0,
   [int]$WaitMs = 20000
 )
 $ErrorActionPreference = 'Continue'
@@ -132,10 +137,22 @@ public class WD {
   [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc cb, IntPtr l);
   public delegate bool EnumProc(IntPtr h, IntPtr l);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr h, uint msg, IntPtr w, IntPtr l);
 }
 "@
+# 文案以 \uXXXX 转义输出：PowerShell 控制台是 GBK，直接打印中文会被活动代码页毁字节，
+# Node 侧再 JSON.parse 还原，比对结果与代码页无关（T03957 双语断言用）。
+function Esc([string]$s) {
+  $o = ''
+  foreach ($c in $s.ToCharArray()) {
+    $n = [int][char]$c
+    # 反斜杠与双引号也转义掉，输出里的 \uXXXX 才不会有歧义，Node 侧可直接 JSON.parse 还原
+    if ($n -ge 32 -and $n -lt 127 -and $c -ne '\' -and $c -ne '"') { $o += $c } else { $o += '\u' + $n.ToString('x4') }
+  }
+  return $o
+}
 $AE = [System.Windows.Automation.AutomationElement]
 $TS = [System.Windows.Automation.TreeScope]
 $PC = [System.Windows.Automation.PropertyCondition]
@@ -171,19 +188,30 @@ $before = [string]$chk.GetCurrentPropertyValue($sp)
 if ($Tick -eq 1) { $null = $tp.Toggle() }
 $after = [string]$chk.GetCurrentPropertyValue($sp)
 Write-Output ('CHECKBOX_BEFORE=' + $before + ' CHECKBOX_AFTER=' + $after)
+if ($Dump -eq 1) {
+  Write-Output ('DLG_NAME=' + (Esc $dlg.Current.Name))
+  $tcond = New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::Text)
+  foreach ($t in $dlg.FindAll($TS::Descendants, $tcond)) { Write-Output ('TEXT=' + (Esc $t.Current.Name)) }
+  Write-Output ('CHK_NAME=' + (Esc $chk.Current.Name))
+  foreach ($h in $btnHwnds) {
+    $sb2 = New-Object System.Text.StringBuilder 512
+    $null = [WD]::GetWindowTextW($h, $sb2, 512)
+    Write-Output ('BTN=' + (Esc $sb2.ToString()))
+  }
+}
 if ($Button -ge $btnHwnds.Count) { Write-Output 'BUTTON=missing'; exit 3 }
 $null = [WD]::SendMessageW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
 Write-Output 'INVOKE=ok'
 `
 let uiaScript = null
-function driveDialog(pid, { tick = 0, button = 0 } = {}) {
+function driveDialog(pid, { tick = 0, button = 0, dump = 0 } = {}) {
   if (!uiaScript) {
     // BOM：Windows PowerShell 5.1 无 BOM 时脚本内容解析不稳
     uiaScript = path.join(os.tmpdir(), `we_uia_dialog_${process.pid}.ps1`)
     fs.writeFileSync(uiaScript, '\ufeff' + UIA_PS)
   }
   const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', uiaScript,
-    '-ProcId', String(pid), '-Tick', String(tick), '-Button', String(button)], { encoding: 'utf8' })
+    '-ProcId', String(pid), '-Tick', String(tick), '-Button', String(button), '-Dump', String(dump)], { encoding: 'utf8' })
   return { out: (r.stdout || '').trim() + (r.stderr ? ' | ERR:' + r.stderr.trim() : ''), code: r.status }
 }
 
@@ -220,7 +248,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('B 退出场景可启动', false, s.detail)
   } else {
     requestClose(s.child.pid)
-    const { exited, ms } = await waitExit(s.child, Number(process.env.WE_SHELL_EXIT_WAIT || 12000))
+    const { exited, ms } = await waitExit(s.child, EXIT_WAIT)
     check('B 关窗后进程退出', exited, exited ? `耗时 ${ms}ms` : (s.tail() || `${ms}ms 内未退出`))
     if (!exited) killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
@@ -281,7 +309,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     requestClose(s.child.pid)
     await sleep(1500)
     const drv = driveDialog(s.child.pid, { tick: 1, button: 1 })
-    const { exited, ms } = await waitExit(s.child, Number(process.env.WE_SHELL_EXIT_WAIT || 15000))
+    const { exited, ms } = await waitExit(s.child, EXIT_WAIT)
     check('E 模态框出现且按钮可驱动', drv.out.includes('DIALOG=found') && drv.out.includes('INVOKE=ok') && drv.out.includes('BUTTONS=2'), drv.out)
     check('E 勾选「记住此选择」生效', drv.out.includes('CHECKBOX_BEFORE=Off') && drv.out.includes('CHECKBOX_AFTER=On'), drv.out)
     check('E 选「直接关闭应用」后进程退出', exited, exited ? `耗时 ${ms}ms` : (s.tail() || `${ms}ms 内未退出`))
@@ -316,6 +344,68 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     try { s.ws.close() } catch { /* noop */ }
     try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
   }
+}
+
+// ---- G/H：关闭决策弹框文案随语言切换（T03957）----
+// 原生 TaskDialog 的文案由主进程内置中英表给出，这里用真实弹框验证「选表」确实生效：
+// 同一份代码分别以 --lang=en-US / --lang=zh-CN 启动，读回屏幕上的标题/正文/按钮/复选框文本。
+// 期望串在此逐字硬编码（不复用表内容）——表写错了也必须被测出来，否则测试没有判定力。
+const CLOSE_TEXTS = {
+  'en-US': {
+    title: 'Close Window',
+    message: 'What should happen when you close the window?',
+    detail: '"Minimize to tray" keeps the app running in the background, ready to restore from the tray icon. "Close the app" quits the program.',
+    buttons: ['Minimize to tray', 'Close the app'],
+    checkbox: 'Remember this choice and do not ask again'
+  },
+  'zh-CN': {
+    title: '关闭窗口',
+    message: '关闭窗口时要执行什么操作？',
+    detail: '「最小化到托盘」会让应用继续在后台运行，可从托盘图标恢复；「直接关闭应用」将退出程序。',
+    buttons: ['最小化到托盘', '直接关闭应用'],
+    checkbox: '记住此选择，下次不再提示'
+  }
+}
+// PS 侧把非 ASCII、反斜杠、双引号统一转成 \uXXXX，这里还原即可——比对不受控制台代码页影响
+const unesc = s => JSON.parse('"' + s + '"')
+function readDialogTexts(out) {
+  const r = { title: '', texts: [], checkbox: '', buttons: [] }
+  for (const line of out.split(/\r?\n/)) {
+    if (line.startsWith('DLG_NAME=')) r.title = unesc(line.slice('DLG_NAME='.length))
+    else if (line.startsWith('CHK_NAME=')) r.checkbox = unesc(line.slice('CHK_NAME='.length))
+    else if (line.startsWith('TEXT=')) r.texts.push(unesc(line.slice('TEXT='.length)))
+    else if (line.startsWith('BTN=')) r.buttons.push(unesc(line.slice('BTN='.length)))
+  }
+  return r
+}
+for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
+  const want = CLOSE_TEXTS[lang]
+  const s = await scenario('dlg_' + lang.replace('-', '_'), port, null, [`--lang=${lang}`])
+  if (!s.ok) {
+    check(`${tag} ${lang} 弹框场景可启动`, false, s.detail)
+    continue
+  }
+  requestClose(s.child.pid)
+  await sleep(1500)
+  // button 0 = 「最小化到托盘」：顺带触发 ensureTray，让 shell.log 落下 lang= 证据
+  const drv = driveDialog(s.child.pid, { tick: 0, button: 0, dump: 1 })
+  await sleep(2000)
+  const got = readDialogTexts(drv.out)
+  const miss = []
+  if (got.title !== want.title) miss.push(`title="${got.title}"`)
+  if (!got.texts.includes(want.message)) miss.push('message 未出现')
+  if (!got.texts.includes(want.detail)) miss.push('detail 未出现')
+  if (got.checkbox !== want.checkbox) miss.push(`checkbox="${got.checkbox}"`)
+  check(`${tag} ${lang} 弹框标题/正文/复选框为目标语言`, miss.length === 0, miss.join(' / ') || `title=${got.title}`)
+  check(`${tag} ${lang} 两个按钮文案与顺序正确`,
+    got.buttons.length === 2 && got.buttons[0] === want.buttons[0] && got.buttons[1] === want.buttons[1], got.buttons.join(' | '))
+  const logAfter = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').slice(logBefore) } catch { return '' } })()
+  check(`${tag} 主进程按 ${lang} 选表（shell.log 记录 lang=${lang}）`,
+    logAfter.includes('[tray] created lang=' + lang), logAfter.split('\n').filter(l => l.includes('tray')).slice(-1)[0])
+  check(`${tag} 关闭后未落盘偏好（未勾选记住）`, !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
+  killTree(s.child.pid)
+  try { s.ws.close() } catch { /* noop */ }
+  try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
 }
 
 try { if (uiaScript) fs.rmSync(uiaScript, { force: true }) } catch { /* noop */ }

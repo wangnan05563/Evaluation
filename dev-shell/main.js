@@ -13,6 +13,7 @@ const net = require('node:net')
 const http = require('node:http')
 const { spawn, spawnSync } = require('node:child_process')
 const { createStore: createWindowPrefs, CLOSE_ACTIONS, needsPrompt } = require('./window-prefs')
+const { createT } = require('./i18n-shell')
 
 // ---------- 配置 ----------
 // 8020：otherProjects 全域端口普查后的专属端口（8000 与 MorningBrief/20_News 冲突，详见 README）
@@ -21,13 +22,23 @@ const DEFAULT_W = 1280
 const DEFAULT_H = 900
 const MIN_W = 960
 const MIN_H = 640
-const APP_NAME = '工作量评估工具'
+const APP_NAME = '工作量评估工具'   // 仅作为 sidecar exe 文件名与日志标识，不用于界面文案（T03957）
 
 const ROOT = resolveRoot()
 const LOGDIR = path.join(ROOT, 'logs')
 const BACKEND_LOG = path.join(LOGDIR, 'backend.log')
 const PRELOAD = path.join(__dirname, 'preload.js')
 const ICON = path.join(__dirname, '..', 'assets', 'we_icon.ico')
+
+// ---------- 壳侧文案（T03957） ----------
+// 关闭决策弹框、托盘菜单、任务确认框都在渲染进程之外（原生 TaskDialog / Tray），
+// 拿不到前端 i18n 字典，故按 app.getLocale()（Chromium 语言，可用 --lang 覆盖）选内置中英表。
+// 语言在应用生命周期内不变，首次使用时解析一次即可（Tray 菜单也只在建托盘时取文案）。
+function shellI18n() {
+  if (!shellI18n.cache) shellI18n.cache = createT(app.getLocale())
+  return shellI18n.cache
+}
+const tr = (key, vars) => shellI18n().t(key, vars)
 
 let children = [] // sidecar 子进程，退出时回收
 let backendPid = null
@@ -275,16 +286,16 @@ function ensureTray() {
   trayCreating = (async () => {
     try {
       tray = new Tray(await trayIcon())
-      tray.setToolTip(APP_NAME)
+      tray.setToolTip(tr('app_name'))
       tray.setContextMenu(Menu.buildFromTemplate([
-        { label: '显示主窗口', click: showMainWindow },
-        { label: '最小化到托盘', click: () => { const w = mainWindow; if (w && !w.isDestroyed()) w.hide() } },
+        { label: tr('tray_show'), click: showMainWindow },
+        { label: tr('tray_minimize'), click: () => { const w = mainWindow; if (w && !w.isDestroyed()) w.hide() } },
         { type: 'separator' },
-        { label: '退出', click: () => requestQuit() }
+        { label: tr('tray_quit'), click: () => requestQuit() }
       ]))
       tray.on('click', showMainWindow)
       tray.on('double-click', showMainWindow)
-      rotateAppend(SHELL_LOG, '[tray] created\n')
+      rotateAppend(SHELL_LOG, `[tray] created lang=${shellI18n().lang}\n`)
       return tray
     } catch (e) {
       rotateAppend(SHELL_LOG, `[tray] create failed: ${e && e.stack ? e.stack : e}\n`)
@@ -303,7 +314,7 @@ async function hideToTray(win) {
   if (tray && process.platform === 'win32' && !trayBalloonShown) {
     trayBalloonShown = true
     try {
-      tray.displayBalloon({ title: APP_NAME, content: '已最小化到托盘，点击托盘图标可重新打开。' })
+      tray.displayBalloon({ title: tr('app_name'), content: tr('tray_balloon') })
     } catch (_) {}
   }
 }
@@ -311,13 +322,14 @@ async function hideToTray(win) {
 async function confirmCloseWithRunningJobs(win) {
   const jobs = await fetchRunningJobs()
   if (!jobs.length) return true
-  const names = jobs.map((j) => `· ${j.name}${typeof j.pct === 'number' ? `（${j.pct}%）` : ''}`).join('\n')
+  const names = jobs.map((j) => tr('jobs_item', { name: j.name }) +
+    (typeof j.pct === 'number' ? tr('jobs_item_pct', { pct: j.pct }) : '')).join('\n')
   const opts = {
     type: 'warning',
-    title: '有正在进行的任务',
-    message: '以下任务仍在进行中，现在关闭将中断它们：',
+    title: tr('jobs_title'),
+    message: tr('jobs_message'),
     detail: names,
-    buttons: ['取消关闭', '强制关闭'],
+    buttons: [tr('jobs_cancel'), tr('jobs_force')],
     defaultId: 0,
     cancelId: 0,
     noLink: true
@@ -332,13 +344,13 @@ async function confirmCloseWithRunningJobs(win) {
 async function askCloseAction(win) {
   const opts = {
     type: 'question',
-    title: '关闭窗口',
-    message: '关闭窗口时要执行什么操作？',
-    detail: '「最小化到托盘」会让应用继续在后台运行，可从托盘图标恢复；「直接关闭应用」将退出程序。',
-    buttons: ['最小化到托盘', '直接关闭应用'],
+    title: tr('close_title'),
+    message: tr('close_message'),
+    detail: tr('close_detail'),
+    buttons: [tr('close_minimize'), tr('close_exit')],
     defaultId: 0,
     cancelId: 0,
-    checkboxLabel: '记住此选择，下次不再提示',
+    checkboxLabel: tr('close_remember'),
     checkboxChecked: false,
     noLink: true
   }
@@ -368,7 +380,7 @@ async function handleCloseRequest(win) {
     const prefs = prefsStore().read()
     const prompted = needsPrompt(prefs)
     const action = prompted ? await askCloseAction(win) : prefs.close_action
-    rotateAppend(SHELL_LOG, `[close] action=${action} prompted=${prompted} remembered=${prefs.remember_choice}\n`)
+    rotateAppend(SHELL_LOG, `[close] action=${action} prompted=${prompted} remembered=${prefs.remember_choice} lang=${shellI18n().lang}\n`)
     if (action === CLOSE_ACTIONS.MINIMIZE) {
       await hideToTray(win)
       return
@@ -414,7 +426,7 @@ function createWindow(url) {
     minWidth: MIN_W,
     minHeight: MIN_H,
     icon: fs.existsSync(ICON) ? ICON : undefined,
-    title: APP_NAME,
+    title: tr('app_name'),
     show: false,
     webPreferences: {
       preload: PRELOAD,
