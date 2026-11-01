@@ -713,6 +713,7 @@
   "rates.prompt_add": "New version name (e.g. CSBMK-2025):",
   "rates.saved": "Rate version saved (v{v}); it is recorded once selected in an estimate",
   "rates.srv_unavail": "Rate version table unavailable",
+  "rates.unavail": "Rates unavailable: {msg}",
   "rates.ver_count": "v{v} · {n} sets",
   "result.alert.desc": "Candidates produced by the local engine; review them before generating.",
   "result.alert.title": "Recognition complete",

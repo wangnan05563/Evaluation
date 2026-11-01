@@ -16,6 +16,9 @@ async function ratesGet(force){  // FR-2.3：费率版本（缓存 + 强刷）
   const v=(__rates.versions||{})[name]||{};
   return {name,v,pdr:+v.pdr||6.96,rate:+v.rate||28000,dnhc:+v.dnhc||0,source:v.source||"CSBMK 基准",swf:v.swf||{},rdf:v.rdf||{}};
 }
+function ratesVers(){  // T03956：后端降级时 /api/rates 返回 {ok:false,msgKey} 而无 versions 字段，
+  return (__rates&&__rates.versions)||{};}   // 取用点统一走这里，避免 Object.keys(undefined) 抛错
+function ratesReady(){return !!Object.keys(ratesVers()).length;}
 /* FR-2.1：NESMA 快算（输入即算） */
 function fastMode(m){fastModeV=m;fastRender();}
 function fastRender(){
@@ -55,8 +58,9 @@ function fastResultHTML(){  // 同步绘制：费率走 __rates 缓存（fastCal
     `<br><small>${tf("ne.res_cocomo",{kloc:(ufp*locPerFp/1000).toFixed(1),loc:locPerFp,pm:cc.pm,tdev:cc.tdev})}</small>`+
     `<br><small>${tf("ne.res_pert",{o:Math.round(pertRef*0.8),m:pertRef,p:Math.round(pertRef*1.2)})}</small>`;}
 function ratesCur(){  // 同步版 ratesGet（依赖 __rates 缓存；dyn 绘制函数不可异步）
-  const name=__rates.selected||Object.keys(__rates.versions||{})[0];
-  const v=(__rates.versions||{})[name]||{};
+  const vers=ratesVers();
+  const name=(__rates&&__rates.selected)||Object.keys(vers)[0];
+  const v=vers[name]||{};
   return {name,v,pdr:+v.pdr||6.96,rate:+v.rate||28000,dnhc:+v.dnhc||0,source:v.source||"CSBMK 基准",swf:v.swf||{},rdf:v.rdf||{}};}
 async function fastCalc(){
   if(!__rates)await ratesGet();
@@ -129,8 +133,9 @@ function gbChange(){
   gbRender();}
 function gbToggle(k){
   if(gbState.custom[k]!==undefined){delete gbState.custom[k];gbRender();return;}
-  const nm=__rates.selected||Object.keys(__rates.versions)[0];
-  const ver=__rates.versions[nm]||{};
+  const vers=ratesVers();
+  const nm=(__rates&&__rates.selected)||Object.keys(vers)[0];
+  const ver=vers[nm]||{};
   const base={swf:((ver.swf||{})[gbState.domain]||{})[gbState.app],
               rdf:((ver.rdf||{})[gbState.lang]||{})[gbState.team],
               pdr:+ver.pdr,rate:+ver.rate,gsc:gbState.gsc,cf:GB_CF[gbState.stage]}[k];
@@ -162,36 +167,49 @@ function gbCalc(r){  // 实时联动：S/AE/费用 + 出处 + 人工调整标注
 /* FR-2.3：费率与基准卡片（多版本增删改查） */
 async function ratesLoad(){
   if(!document.getElementById("ratesSel"))return;
-  const r=await ratesGet(true);
-  document.getElementById("ratesVer").textContent=tf("rates.ver_count",{v:__rates.version,n:Object.keys(__rates.versions).length});
-  const sel=document.getElementById("ratesSel");
-  sel.innerHTML=Object.keys(__rates.versions).map(n=>`<option ${n===(__rates.selected||r.name)?"selected":""}>${n}</option>`).join("");
-  ratesPaint(r.name,r.v);}
+  try{
+    const r=await ratesGet(true);
+    const vers=ratesVers();
+    if(!Object.keys(vers).length){ratesMarkUnavailable(lm(__rates)||t("rates.srv_unavail"));return;}   // T03956
+    document.getElementById("ratesVer").textContent=tf("rates.ver_count",{v:__rates.version,n:Object.keys(vers).length});
+    const sel=document.getElementById("ratesSel");
+    sel.innerHTML=Object.keys(vers).map(n=>`<option ${n===(__rates.selected||r.name)?"selected":""}>${n}</option>`).join("");
+    ratesPaint(r.name,r.v);
+  }catch(e){ratesMarkUnavailable(e.message);}   // 网络/后端不可达同样落到可读状态，不再抛未捕获异常
+}
+function ratesMarkUnavailable(msg){  // T03956：费率卡片「不可用」态——清空版本选择并提示原因，编辑按钮由 ratesReady() 守卫
+  const sel=document.getElementById("ratesSel");if(sel)sel.innerHTML="";
+  document.getElementById("ratesVer").textContent=tf("rates.unavail",{msg});}
 function ratesPaint(name,v){document.getElementById("ratesPdr").value=v.pdr;
   document.getElementById("ratesRate").value=v.rate;document.getElementById("ratesPrice").value=v.unit_price||0;
   document.getElementById("ratesDnhc").value=v.dnhc||0;document.getElementById("ratesSource").value=v.source||"";}
 function ratesPick(){const name=document.getElementById("ratesSel").value;
   const v=(__rates.versions||{})[name];if(v)ratesPaint(name,v);}
 function ratesCollect(){const name=document.getElementById("ratesSel").value;
+  if(!ratesReady())return null;   // T03956：无版本表时不组装（原样取 doc.versions[name] 会抛）
   const doc=structuredClone(__rates);doc.selected=name;
   doc.versions[name]={...doc.versions[name],
     pdr:+document.getElementById("ratesPdr").value,rate:+document.getElementById("ratesRate").value,
     unit_price:+document.getElementById("ratesPrice").value,dnhc:+document.getElementById("ratesDnhc").value,
     source:document.getElementById("ratesSource").value};
   return doc;}
+function ratesBlock(){toast(lm(__rates)||t("rates.srv_unavail"));}   // T03956：不可用时按钮给出可读提示
 async function ratesSave(){try{
+  const doc=ratesCollect();if(!doc)return ratesBlock();
   const r=await(await fetch(API+"/api/rates/save",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(ratesCollect())})).json();
+    body:JSON.stringify(doc)})).json();
   if(!r.ok)throw new Error(r.msg?lm(r):t("common.save_fail"));
   __rates=null;await ratesLoad();toast(tf("rates.saved",{v:r.version.version}));
 }catch(e){toast(tf("common.save_failed",{msg:e.message}));}}
 async function ratesAdd(){const name=prompt(t("rates.prompt_add"));if(!name||!name.trim())return;
-  const doc=ratesCollect();doc.versions[name.trim()]=structuredClone(doc.versions[doc.selected]||{pdr:6.96,rate:28000});
+  const doc=ratesCollect();if(!doc)return ratesBlock();
+  doc.versions[name.trim()]=structuredClone(doc.versions[doc.selected]||{pdr:6.96,rate:28000});
   doc.selected=name.trim();
   const r=await(await fetch(API+"/api/rates/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(doc)})).json();
   if(!r.ok){toast(t("rates.add_fail")+"："+lm(r));return;}__rates=null;await ratesLoad();toast(t("rates.added"));}
 async function ratesDel(){const name=document.getElementById("ratesSel").value;
-  if(Object.keys(__rates.versions).length<=1){toast(t("rates.del_last"));return;}
+  if(!ratesReady())return ratesBlock();
+  if(Object.keys(ratesVers()).length<=1){toast(t("rates.del_last"));return;}
   if(!confirm(tf("rates.del_confirm",{name})))return;
   const doc=ratesCollect();delete doc.versions[name];doc.selected=Object.keys(doc.versions)[0];
   const r=await(await fetch(API+"/api/rates/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(doc)})).json();

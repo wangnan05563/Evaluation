@@ -713,6 +713,7 @@
   "rates.prompt_add": "新版本名称（如 CSBMK-2025）：",
   "rates.saved": "费率版本已保存（v{v}），估算时选用即记录",
   "rates.srv_unavail": "费率版本表不可用",
+  "rates.unavail": "费率表不可用：{msg}",
   "rates.ver_count": "v{v} · {n} 套",
   "result.alert.desc": "候选来自本地引擎，请在审核页完成复核后生成。",
   "result.alert.title": "识别完成",

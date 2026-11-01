@@ -171,7 +171,7 @@ function rulesLoad(){
   // FR-UI04：取数前铺骨架屏（8 列表头较宽，缺骨架会出现明显空窗）
   $("#rulesRows").innerHTML=skeletonTable(8,4);
   fetch(API+"/api/rules",{cache:"no-store"}).then(r=>r.json()).then(j=>{
-  if(!j.ok){$("#rulesRows").innerHTML=`<tr><td colspan="8" style="color:var(--muted)">${tf("rules.unavail",{msg:lm(j.msg||"")})}</td></tr>`;return;}
+  if(!j.ok||!Array.isArray(j.rules)){$("#rulesRows").innerHTML=`<tr><td colspan="8" style="color:var(--muted)">${tf("rules.unavail",{msg:lm(j.msg||"")})}</td></tr>`;return;}   // T03956：ok 与字段存在性一并判，缺 rules 不再走 map 抛错
   $("#rulesMeta").textContent=tf("rules.meta",{v:j.version,n:j.rules.length});
   $("#rulesRows").innerHTML=j.rules.map((r,i)=>`<tr>
     <td><input data-ri="${i}" data-rk="id" value="${histEsc(r.id)}" style="width:100px"></td>
