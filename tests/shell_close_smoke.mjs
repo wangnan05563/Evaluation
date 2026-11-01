@@ -235,6 +235,10 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('A 配置未被本次关闭改写', prefsBack && prefsBack.close_action === 'minimize_to_tray' && prefsBack.remember_choice === true, JSON.stringify(prefsBack))
     const logAfter = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').slice(logBefore) } catch { return '' } })()
     check('A 托盘已建立（shell.log 记录）', logAfter.includes('[tray] created'), logAfter.split('\n').filter(l => l.includes('tray')).slice(-2).join(' | '))
+    // T03958：图标来源必须落日志——回退到 getFileIcon 就是「通用图标」，肉眼难查，只能靠这条断言兜住
+    const iconSrc = (logAfter.match(/\[tray\] created \S+ icon=(\S+)/) || [])[1] || ''
+    check('A 托盘图标取自 ico 资源（非通用 exe 图标回退）',
+      /\.ico$/i.test(iconSrc) && fs.existsSync(iconSrc), iconSrc || '日志缺 icon= 字段')
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
     try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }

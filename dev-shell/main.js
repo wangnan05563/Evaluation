@@ -252,20 +252,29 @@ function resolveTrayIcon() {
   for (const p of candidates) {
     if (p && fs.existsSync(p)) {
       const img = nativeImage.createFromPath(p)
-      if (!img.isEmpty()) return img
+      if (!img.isEmpty()) return { img, src: p }
     }
   }
   return null
 }
 
+let trayIconSource = 'unset'
+
 async function trayIcon() {
   const fromAsset = resolveTrayIcon()
-  if (fromAsset) return fromAsset
+  if (fromAsset) {
+    trayIconSource = fromAsset.src
+    return fromAsset.img
+  }
   // 生产态 asar 内不带 assets：退化为可执行文件自身的图标
   try {
     const img = await app.getFileIcon(process.execPath, { size: 'small' })
-    if (!img.isEmpty()) return img
+    if (!img.isEmpty()) {
+      trayIconSource = 'FALLBACK-execIcon'
+      return img
+    }
   } catch (_) {}
+  trayIconSource = 'EMPTY'
   return nativeImage.createEmpty()
 }
 
@@ -295,7 +304,7 @@ function ensureTray() {
       ]))
       tray.on('click', showMainWindow)
       tray.on('double-click', showMainWindow)
-      rotateAppend(SHELL_LOG, `[tray] created lang=${shellI18n().lang}\n`)
+      rotateAppend(SHELL_LOG, `[tray] created lang=${shellI18n().lang} icon=${trayIconSource}\n`)
       return tray
     } catch (e) {
       rotateAppend(SHELL_LOG, `[tray] create failed: ${e && e.stack ? e.stack : e}\n`)
