@@ -26,12 +26,17 @@
     "files": [
       "main.js",
       "preload.js",
+      "window-prefs.js",
       "package.json"
     ],
     "extraResources": [
       {
         "from": "release/exe/工作量评估工具.exe",
         "to": "we-eval/工作量评估工具.exe"
+      },
+      {
+        "from": "assets/we_icon.ico",
+        "to": "we-icon.ico"
       }
     ],
     "compression": "maximum",

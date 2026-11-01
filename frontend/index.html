@@ -750,6 +750,24 @@ tr.rowr.showb .basis{display:block}
       <p class="cfg-note" style="margin-top:10px"><span data-i18n="config.appearance.note">切换即时生效并记忆（localStorage）；跟随系统模式实时响应系统深浅色变化。</span></p>
     </div>
 
+    <div class="glass pad" id="windowBehaviorCard" style="margin-top:16px;display:none">
+      <div class="card-title"><i aria-hidden="true" data-lucide="app-window"></i><span data-i18n="config.card.window">窗口行为</span></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        <span data-i18n="config.window.note">设置点击窗口右上角关闭按钮时的行为；该设置由桌面壳保存，重启应用后仍生效。</span>
+      </p>
+      <div class="cfg-row"><span data-i18n="config.window.action">关闭窗口时</span>
+        <span id="closeActionSeg" role="radiogroup" data-i18n="aria-label=config.window.action" aria-label="关闭窗口时">
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;cursor:pointer"><input type="radio" name="closeAction" value="minimize_to_tray"><span data-i18n="config.window.minimize">最小化到托盘</span></label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="closeAction" value="exit_app"><span data-i18n="config.window.exit">直接关闭应用</span></label>
+        </span></div>
+      <div class="cfg-row"><span data-i18n="config.window.remember">记住选择，下次不再提示</span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <span class="switch" id="rememberChoiceSwitch" role="switch" tabindex="0" aria-checked="false" data-i18n="aria-label=config.window.remember" aria-label="记住选择，下次不再提示"></span>
+          <span style="font-size:12px;color:var(--muted)" data-i18n="config.window.remember_tip">开启后点击关闭将直接按上面的设置执行，不再弹窗。</span>
+        </span></div>
+      <p class="cfg-note" style="margin-top:10px"><span data-i18n="config.window.tray_tip">在托盘图标上右键可随时重新打开窗口或退出应用。</span></p>
+    </div>
+
     <div class="glass pad" style="margin-top:16px">
       <div class="card-title"><i data-lucide="wrench"></i><span data-i18n="config.card.ops">运维（M8/FR-5.4、5.6）</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -1398,6 +1416,7 @@ function goPage(p){
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
   if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
+  if(p==="config"&&typeof initWindowBehavior==="function")initWindowBehavior();   // T03779 窗口关闭行为
   if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
@@ -3691,6 +3710,61 @@ function bindDropZone(el, onFile){
     if (f && onFile) onFile(f);
   });
 }
+
+/* 窗口关闭行为（T03779）：最小化到托盘 / 直接关闭 + 记住选择。
+ * 配置由 Electron 主进程持有（userData/window-prefs.json），经 preload 的
+ * window.weval.windowBehavior 读写；纯浏览器环境没有该 bridge，卡片保持隐藏。 */
+function windowBehaviorBridge(){
+  return window.weval && window.weval.windowBehavior ? window.weval.windowBehavior : null;
+}
+function renderWindowBehavior(prefs){
+  const action=(prefs&&prefs.close_action)||"minimize_to_tray";
+  document.querySelectorAll('input[name="closeAction"]').forEach(r=>{r.checked=r.value===action;});
+  const sw=document.querySelector("#rememberChoiceSwitch");
+  if(sw){
+    const on=!!(prefs&&prefs.remember_choice);
+    sw.classList.toggle("on",on);
+    sw.setAttribute("aria-checked",on?"true":"false");
+  }
+}
+async function initWindowBehavior(){
+  const card=document.querySelector("#windowBehaviorCard");
+  if(!card)return;
+  const bridge=windowBehaviorBridge();
+  if(!bridge){card.style.display="none";return;}
+  card.style.display="block";
+  try{
+    renderWindowBehavior(await bridge.get());
+  }catch(e){
+    toast(tf("config.window.load_failed",{msg:e&&e.message?e.message:String(e)}));
+  }
+}
+async function saveWindowBehavior(patch){
+  const bridge=windowBehaviorBridge();
+  if(!bridge)return;
+  try{
+    renderWindowBehavior(await bridge.set(patch));
+    toast(t("config.window.saved"));
+  }catch(e){
+    toast(tf("config.window.save_failed",{msg:e&&e.message?e.message:String(e)}));
+    try{renderWindowBehavior(await bridge.get());}catch(_){/* 回读失败保持当前显示 */}
+  }
+}
+(function(){
+  const card=document.querySelector("#windowBehaviorCard");
+  if(!card)return;
+  card.addEventListener("change",e=>{
+    if(e.target&&e.target.name==="closeAction")saveWindowBehavior({close_action:e.target.value});
+  });
+  const sw=document.querySelector("#rememberChoiceSwitch");
+  if(sw){
+    // 全局 .switch 监听已先切换 on/aria，这里只负责状态变化后持久化
+    const persist=()=>saveWindowBehavior({remember_choice:sw.classList.contains("on")});
+    sw.addEventListener("click",persist);
+    sw.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")persist();});
+  }
+  window.addEventListener("DOMContentLoaded",()=>{initWindowBehavior();});
+})();
 
 </script>
 <div id="pasteModal" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:60;align-items:center;justify-content:center">

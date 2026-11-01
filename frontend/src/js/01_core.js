@@ -215,6 +215,7 @@ function goPage(p){
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
   if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
+  if(p==="config"&&typeof initWindowBehavior==="function")initWindowBehavior();   // T03779 窗口关闭行为
   if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页

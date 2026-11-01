@@ -349,6 +349,24 @@
       <p class="cfg-note" style="margin-top:10px"><span data-i18n="config.appearance.note">切换即时生效并记忆（localStorage）；跟随系统模式实时响应系统深浅色变化。</span></p>
     </div>
 
+    <div class="glass pad" id="windowBehaviorCard" style="margin-top:16px;display:none">
+      <div class="card-title"><i aria-hidden="true" data-lucide="app-window"></i><span data-i18n="config.card.window">窗口行为</span></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        <span data-i18n="config.window.note">设置点击窗口右上角关闭按钮时的行为；该设置由桌面壳保存，重启应用后仍生效。</span>
+      </p>
+      <div class="cfg-row"><span data-i18n="config.window.action">关闭窗口时</span>
+        <span id="closeActionSeg" role="radiogroup" data-i18n="aria-label=config.window.action" aria-label="关闭窗口时">
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;cursor:pointer"><input type="radio" name="closeAction" value="minimize_to_tray"><span data-i18n="config.window.minimize">最小化到托盘</span></label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="closeAction" value="exit_app"><span data-i18n="config.window.exit">直接关闭应用</span></label>
+        </span></div>
+      <div class="cfg-row"><span data-i18n="config.window.remember">记住选择，下次不再提示</span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <span class="switch" id="rememberChoiceSwitch" role="switch" tabindex="0" aria-checked="false" data-i18n="aria-label=config.window.remember" aria-label="记住选择，下次不再提示"></span>
+          <span style="font-size:12px;color:var(--muted)" data-i18n="config.window.remember_tip">开启后点击关闭将直接按上面的设置执行，不再弹窗。</span>
+        </span></div>
+      <p class="cfg-note" style="margin-top:10px"><span data-i18n="config.window.tray_tip">在托盘图标上右键可随时重新打开窗口或退出应用。</span></p>
+    </div>
+
     <div class="glass pad" style="margin-top:16px">
       <div class="card-title"><i data-lucide="wrench"></i><span data-i18n="config.card.ops">运维（M8/FR-5.4、5.6）</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">

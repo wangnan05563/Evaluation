@@ -6,12 +6,13 @@
 //   3) 应用退出时统一回收子进程与端口
 // 生产打包由 electron-builder 复用同一 main.js，区别仅在于资源根路径（resourcesPath）。
 
-const { app, BrowserWindow, screen, shell, dialog } = require('electron')
+const { app, BrowserWindow, screen, shell, dialog, Tray, Menu, nativeImage, ipcMain } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const net = require('node:net')
 const http = require('node:http')
 const { spawn, spawnSync } = require('node:child_process')
+const { createStore: createWindowPrefs, CLOSE_ACTIONS, needsPrompt } = require('./window-prefs')
 
 // ---------- 配置 ----------
 // 8020：otherProjects 全域端口普查后的专属端口（8000 与 MorningBrief/20_News 冲突，详见 README）
@@ -30,6 +31,12 @@ const ICON = path.join(__dirname, '..', 'assets', 'we_icon.ico')
 
 let children = [] // sidecar 子进程，退出时回收
 let backendPid = null
+let windowPrefsStore = null
+let tray = null
+let trayCreating = null
+let trayBalloonShown = false
+let quitting = false
+let lastWindowUrl = ''
 
 // ---------- 资源根路径 ----------
 // 开发态：dev-shell -> 项目根（..）
@@ -101,10 +108,22 @@ async function waitPort(port, timeoutMs) {
 
 function killPort(port) {
   try {
-    spawnSync('powershell', ['-NoProfile', '-Command',
-      `$p=${port};try{$id=(Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue|Select-Object -First 1).OwningProcess;if($id -ne $null){Stop-Process -Id $id -Force -ErrorAction SilentlyContinue;Write-Host ('[STOP] port '+$p+' PID='+$id)}}catch{}`],
-      { stdio: 'ignore' })
+    spawnSync('powershell', ['-NoProfile', '-Command', killPortCommand(port)], { stdio: 'ignore' })
   } catch (_) {}
+}
+
+// 退出路径改用异步进程：PowerShell 冷启动可达数秒，同步等待会让「直接关闭应用」
+// 表现为点 X 后十几秒才消失（T03779 实测 24s）。
+function killPortAsync(port) {
+  try {
+    const p = spawn('powershell', ['-NoProfile', '-Command', killPortCommand(port)],
+      { stdio: 'ignore', windowsHide: true, detached: true })
+    p.unref()
+  } catch (_) {}
+}
+
+function killPortCommand(port) {
+  return `$p=${port};try{$id=(Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue|Select-Object -First 1).OwningProcess;if($id -ne $null){Stop-Process -Id $id -Force -ErrorAction SilentlyContinue;Write-Host ('[STOP] port '+$p+' PID='+$id)}}catch{}`
 }
 
 // 强杀指定 PID 的整个进程树（Windows 下 detached 子进程 SIGTERM 无效，必须 taskkill /T）
@@ -208,6 +227,173 @@ function fetchRunningJobs(timeoutMs = 1500) {
   })
 }
 
+// ---------- 窗口关闭行为（T03779） ----------
+function prefsStore() {
+  if (!windowPrefsStore) windowPrefsStore = createWindowPrefs(app.getPath('userData'))
+  return windowPrefsStore
+}
+
+function resolveTrayIcon() {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'we-icon.ico') : '',
+    path.join(__dirname, '..', 'assets', 'we_icon.ico')
+  ]
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) {
+      const img = nativeImage.createFromPath(p)
+      if (!img.isEmpty()) return img
+    }
+  }
+  return null
+}
+
+async function trayIcon() {
+  const fromAsset = resolveTrayIcon()
+  if (fromAsset) return fromAsset
+  // 生产态 asar 内不带 assets：退化为可执行文件自身的图标
+  try {
+    const img = await app.getFileIcon(process.execPath, { size: 'small' })
+    if (!img.isEmpty()) return img
+  } catch (_) {}
+  return nativeImage.createEmpty()
+}
+
+function showMainWindow() {
+  const w = mainWindow
+  if (!w || w.isDestroyed()) {
+    if (lastWindowUrl) mainWindow = createWindow(lastWindowUrl)
+    return
+  }
+  if (w.isMinimized()) w.restore()
+  w.show()
+  w.focus()
+}
+
+function ensureTray() {
+  if (tray) return Promise.resolve(tray)
+  if (trayCreating) return trayCreating
+  trayCreating = (async () => {
+    try {
+      tray = new Tray(await trayIcon())
+      tray.setToolTip(APP_NAME)
+      tray.setContextMenu(Menu.buildFromTemplate([
+        { label: '显示主窗口', click: showMainWindow },
+        { label: '最小化到托盘', click: () => { const w = mainWindow; if (w && !w.isDestroyed()) w.hide() } },
+        { type: 'separator' },
+        { label: '退出', click: () => requestQuit() }
+      ]))
+      tray.on('click', showMainWindow)
+      tray.on('double-click', showMainWindow)
+      rotateAppend(SHELL_LOG, '[tray] created\n')
+      return tray
+    } catch (e) {
+      rotateAppend(SHELL_LOG, `[tray] create failed: ${e && e.stack ? e.stack : e}\n`)
+      return null
+    } finally {
+      trayCreating = null
+    }
+  })()
+  return trayCreating
+}
+
+async function hideToTray(win) {
+  await ensureTray()
+  if (win && !win.isDestroyed()) win.hide()
+  // 仅首次提示，避免每次关闭都弹气泡打扰
+  if (tray && process.platform === 'win32' && !trayBalloonShown) {
+    trayBalloonShown = true
+    try {
+      tray.displayBalloon({ title: APP_NAME, content: '已最小化到托盘，点击托盘图标可重新打开。' })
+    } catch (_) {}
+  }
+}
+
+async function confirmCloseWithRunningJobs(win) {
+  const jobs = await fetchRunningJobs()
+  if (!jobs.length) return true
+  const names = jobs.map((j) => `· ${j.name}${typeof j.pct === 'number' ? `（${j.pct}%）` : ''}`).join('\n')
+  const opts = {
+    type: 'warning',
+    title: '有正在进行的任务',
+    message: '以下任务仍在进行中，现在关闭将中断它们：',
+    detail: names,
+    buttons: ['取消关闭', '强制关闭'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true
+  }
+  const parent = win && !win.isDestroyed() && win.isVisible() ? win : null
+  const { response } = parent ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts)
+  return response === 1
+}
+
+// 未记住选择时弹模态框：两个选项 + 「记住此选择」复选框。
+// 勾选才落盘（写 close_action 与 remember_choice=true）；不勾选仅执行本次操作。
+async function askCloseAction(win) {
+  const opts = {
+    type: 'question',
+    title: '关闭窗口',
+    message: '关闭窗口时要执行什么操作？',
+    detail: '「最小化到托盘」会让应用继续在后台运行，可从托盘图标恢复；「直接关闭应用」将退出程序。',
+    buttons: ['最小化到托盘', '直接关闭应用'],
+    defaultId: 0,
+    cancelId: 0,
+    checkboxLabel: '记住此选择，下次不再提示',
+    checkboxChecked: false,
+    noLink: true
+  }
+  const parent = win && !win.isDestroyed() && win.isVisible() ? win : null
+  const { response, checkboxChecked } = parent ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts)
+  const action = response === 1 ? CLOSE_ACTIONS.EXIT : CLOSE_ACTIONS.MINIMIZE
+  if (checkboxChecked) {
+    try {
+      prefsStore().write({ close_action: action, remember_choice: true })
+    } catch (e) {
+      rotateAppend(SHELL_LOG, `[prefs] save failed: ${e && e.stack ? e.stack : e}\n`)
+    }
+  }
+  return action
+}
+
+function quitApp(win) {
+  quitting = true
+  if (win && !win.isDestroyed()) win.__forceClose = true
+  app.quit()
+}
+
+async function handleCloseRequest(win) {
+  if (win.__closeBusy) return
+  win.__closeBusy = true
+  try {
+    const prefs = prefsStore().read()
+    const prompted = needsPrompt(prefs)
+    const action = prompted ? await askCloseAction(win) : prefs.close_action
+    rotateAppend(SHELL_LOG, `[close] action=${action} prompted=${prompted} remembered=${prefs.remember_choice}\n`)
+    if (action === CLOSE_ACTIONS.MINIMIZE) {
+      await hideToTray(win)
+      return
+    }
+    if (!(await confirmCloseWithRunningJobs(win))) return
+    quitApp(win)
+  } catch (e) {
+    // 决策链异常时保底最小化：宁可退到托盘也不能让用户关不掉窗口
+    rotateAppend(SHELL_LOG, `[close] decision failed: ${e && e.stack ? e.stack : e}\n`)
+    await hideToTray(win).catch(() => {})
+  } finally {
+    win.__closeBusy = false
+  }
+}
+
+// 托盘「退出」：显式退出同样先查进行中任务（T01835），不受关闭行为配置影响
+async function requestQuit() {
+  if (quitting) return
+  if (!(await confirmCloseWithRunningJobs(mainWindow))) return
+  quitApp(mainWindow)
+}
+
+ipcMain.handle('weval:window-behavior:get', () => prefsStore().read())
+ipcMain.handle('weval:window-behavior:set', (_e, patch) => prefsStore().write(patch))
+
 // ---------- 窗口自适应 ----------
 function computeSize() {
   const area = screen.getPrimaryDisplay().workAreaSize
@@ -220,6 +406,7 @@ function computeSize() {
 }
 
 function createWindow(url) {
+  lastWindowUrl = url
   const size = computeSize()
   const win = new BrowserWindow({
     width: size.maximize ? MIN_W : size.width,
@@ -239,30 +426,13 @@ function createWindow(url) {
 
   win.loadURL(url)
 
-  // T01835：close 事件拦截（区别于 window-all-closed）。后端不可达/查询失败一律放行，
-  // 保证「关不掉」永远不会发生；确认框列出任务名与进度，提供「取消关闭 / 强制关闭」。
-  win.on('close', async (e) => {
-    if (win.__forceClose || win.__closeChecking) return
-    win.__closeChecking = true
-    let jobs = []
-    try { jobs = await fetchRunningJobs() } finally { win.__closeChecking = false }
-    if (!jobs.length) return
+  // T03779：关闭按钮先按「关闭窗口行为」决策（未记住选择时弹模态框），
+  // 选择退出再走 T01835 进行中任务确认；最小化到托盘不中断任务，无需确认。
+  // 决策异常一律保底最小化，保证「关不掉」永远不会发生。
+  win.on('close', (e) => {
+    if (win.__forceClose || quitting) return
     e.preventDefault()
-    const names = jobs.map((j) => `· ${j.name}${typeof j.pct === 'number' ? `（${j.pct}%）` : ''}`).join('\n')
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'warning',
-      title: '有正在进行的任务',
-      message: '以下任务仍在进行中，现在关闭将中断它们：',
-      detail: names,
-      buttons: ['取消关闭', '强制关闭'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true
-    })
-    if (response === 1) {
-      win.__forceClose = true
-      win.close()
-    }
+    handleCloseRequest(win)
   })
 
   win.once('ready-to-show', () => {
@@ -293,14 +463,20 @@ function createWindow(url) {
 }
 
 // ---------- 进程回收 ----------
+// before-quit 与 will-quit 都会调用，必须一次性：重复清理会让退出路径上的
+// 子进程回收与端口释放做两遍，放大关闭延迟（T03779）。
+let sidecarStopped = false
 function stopSidecar() {
+  if (sidecarStopped) return
+  sidecarStopped = true
   killTreePid(backendPid)
   backendPid = null
   for (const c of children) {
     try { c.kill('SIGTERM') } catch (_) {}
   }
   children = []
-  killPort(PORT)
+  // WE_DEV_URL 模式下后端由外部（dev server）持有，壳无权释放该端口
+  if (!process.env.WE_DEV_URL) killPortAsync(PORT)
 }
 
 // ---------- Shell 集成：单实例锁 ----------
@@ -311,12 +487,17 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    const w = BrowserWindow.getAllWindows()[0]
-    if (w) { if (w.isMinimized()) w.restore(); w.focus() }
+    showMainWindow()
   })
 
-  app.on('before-quit', stopSidecar)
-  app.on('will-quit', stopSidecar)
+  app.on('before-quit', () => {
+    quitting = true
+    stopSidecar()
+  })
+  app.on('will-quit', () => {
+    if (tray) { tray.destroy(); tray = null }
+    stopSidecar()
+  })
 
   app.whenReady().then(async () => {
     let initialUrl = process.env.WE_DEV_URL
@@ -327,7 +508,7 @@ if (!gotLock) {
     }
     mainWindow = createWindow(initialUrl)
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow(initialUrl)
+      showMainWindow()
     })
   })
 }
