@@ -20,7 +20,8 @@
   },
   "build": {
     "builder_bat": "scripts\\构建打包.bat",
-    "timeout_ms": 1800000
+    "timeout_ms": 1800000,
+    "win_unpacked": "release\\win-unpacked"
   },
   "publish": {
     "repo": "wangnan05563/evaluation",

@@ -2,7 +2,9 @@
 /** M4/FR-5.2 编排器：npm test 一条命令跑核心链路自动化测试。
  *  用法：npm test [-- --only=S1,S3] [-- --with-flaky]
  *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
- *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测，17 套全部默认纳入。
+ *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测 · S18 免安装产物冒烟，18 套全部默认纳入。
+ *  S18 只在「已构建 release/win-unpacked」时才真判，产物没构建就整套 SKIP（原因逐条打印）；
+ *  发布门 scripts/publish.ps1 里它排在 electron-builder 之后、上传之前，那里产物必定存在。
  *  （--with-flaky 为历史开关：S6 曾在 T01079 前被标 flaky 默认跳过，夹具改绝对路径后已转 default-on，现无套件挂 flaky。）
  *  S17 要真起 Electron 并驱动原生模态框（UIA + BM_CLICK），非 Windows／未装 dev-shell 依赖／无交互桌面时
  *  显式 SKIP 并打印原因（不能让它假失败拖红基线）；用 WE_SHELL_TEST=1 强制跑、=0 强制跳。
@@ -111,6 +113,11 @@ const suites = [
   // 并把用例内自杀看门狗同步抬高——否则负载下它会先把自己判死，基线出现假红。
   { id: 'S17', title: 'Electron 关闭行为实机烟测（需桌面会话）', kind: 'shell', script: 'tests/shell_close_smoke.mjs',
     env: { WE_SHELL_WATCHDOG_MS: '840000' }, timeoutMs: 900000 },
+  // 免安装产物冒烟（T04014）：装包态才成立的三条前提（extraResources 的托盘 ico、asar 里的
+  // window-prefs.js、sidecar 是 exe）S1~S17 都守不住——回归全绿仍可能交付打不开/图标不对的包。
+  // 不进 desktopGate：它跳过与否取决于「产物是否已构建」，脚本自己逐条判并打印原因，缺什么就 SKIP 什么。
+  { id: 'S18', title: '免安装产物冒烟（T04014，需 release/win-unpacked）', kind: 'node',
+    script: 'tests/prod_smoke.mjs', timeoutMs: 900000 },
 ];
 
 let server = null, chrome = null;

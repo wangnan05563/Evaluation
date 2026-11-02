@@ -4,7 +4,7 @@
     WorkloadEval 一键发布：构建（PyInstaller + electron-builder）→ 发布 GitHub Release。
 .DESCRIPTION
     纯 logic 脚本（UTF-8 BOM），由 一键发布.bat 委派调用。
-    流程：前置检查 → 调用 构建打包.bat 出包 → 定位 setup.exe → 生成/复用发布说明 → publish-release.py 上传。
+    流程：前置检查 → 调用 构建打包.bat 出包 → 免安装产物冒烟（win-unpacked，非 0 即阻断）→ 定位 setup.exe → 生成/复用发布说明 → publish-release.py 上传。
 .PARAMETER SkipBuild
     跳过构建，仅发布已存在的 release/WorkloadEstimate-*-setup.exe（用于 CI 或重发）。
 .PARAMETER DryRun
@@ -57,7 +57,7 @@ function Fail($msg) {
 }
 
 # ---- 0) 前置检查 ----
-Step "0/5 前置检查"
+Step "0/6 前置检查"
 if (-not $Py) { Fail "未找到 Python（配置 runtime.python_candidates 均未命中，且不在 PATH）" }
 if (-not $Node) { Fail "未找到 Node.js（配置 runtime.node_candidates 均未命中，且不在 PATH）" }
 Write-Host ("  Python: " + $Py)
@@ -73,7 +73,7 @@ $env:ELECTRON_MIRROR = $cfg.env.ELECTRON_MIRROR
 $env:ELECTRON_BUILDER_BINARIES_MIRROR = $cfg.env.ELECTRON_BUILDER_BINARIES_MIRROR
 
 # ---- 1) 版本号 ----
-Step "1/5 读取版本号"
+Step "1/6 读取版本号"
 $pkgPath = Join-Path $RepoRoot 'package.json'
 if (-not (Test-Path $pkgPath)) { Fail ("找不到 package.json: " + $pkgPath) }
 $pkg = Get-Content -Raw -Encoding UTF8 $pkgPath | ConvertFrom-Json
@@ -84,7 +84,7 @@ $tag = ($cfg.version.tag_prefix + $version)
 
 # ---- 2) 构建 ----
 if (-not $SkipBuild) {
-    Step "2/5 构建（调用 构建打包.bat）"
+    Step "2/6 构建（调用 构建打包.bat）"
     $buildBat = Join-Path $RepoRoot $cfg.build.builder_bat
     if (-not (Test-Path $buildBat)) { Fail ("找不到构建脚本: " + $buildBat) }
     # 构建脚本复用同一份配置解析出的解释器（构建打包.bat 读 WE_PYTHON/WE_NODE），
@@ -120,11 +120,37 @@ if (-not $SkipBuild) {
     $tag = ($cfg.version.tag_prefix + $version)
     Write-Host ("  构建后版本: " + $version)
 } else {
-    Step "2/5 跳过构建（-SkipBuild）"
+    Step "2/6 跳过构建（-SkipBuild）"
 }
 
-# ---- 3) 定位安装包 ----
-Step "3/5 定位安装包"
+# ---- 3) 免安装产物冒烟 ----
+# npm test 全绿只覆盖开发态（electron.exe + 源码）。装包态另有三条前提只在成品里才成立：
+# extraResources 的托盘 ico、asar 里必须含 window-prefs.js、sidecar 是 PyInstaller exe；
+# 配错了回归套件也不会红——所以发布前必须拿真产物跑一遍（T04014）。
+# 跳过口径由脚本自己管（无桌面会话 / 8020 被占 → 逐条 SKIP 并返回 0），
+# 因此这里非 0 就代表产物真有问题，必须挡住上传。
+Step "3/6 免安装产物冒烟（win-unpacked）"
+if (-not $cfg.build.win_unpacked) { Fail "配置缺少 build.win_unpacked（免安装产物目录），无法定位冒烟目标" }
+$smokeJs = Join-Path $RepoRoot 'tests\prod_smoke.mjs'
+if (-not (Test-Path $smokeJs)) { Fail ("找不到冒烟脚本: " + $smokeJs) }
+$Unpacked = Join-Path $RepoRoot $cfg.build.win_unpacked
+if (-not (Test-Path $Unpacked)) {
+    if ($SkipBuild) {
+        Write-Warning ("免安装产物不存在（" + $Unpacked + "），-SkipBuild 场景跳过冒烟；正式构建发布请勿跳过这一步")
+    } else {
+        Fail ("构建未产出免安装目录: " + $Unpacked + "（electron-builder 只出了 setup.exe？查 logs\build_installer.log）")
+    }
+} else {
+    # 冒烟脚本默认取 release\win-unpacked，这里仍以配置为准注入，避免两处各写一遍路径
+    $env:WE_PROD_DIR = $Unpacked
+    Write-Host ("  产物: " + $Unpacked)
+    & $Node $smokeJs
+    if ($LASTEXITCODE -ne 0) { Fail ("免安装产物冒烟未通过（exit=" + $LASTEXITCODE + "），已阻断发布：" + $Unpacked) }
+    Write-Host "  冒烟通过"
+}
+
+# ---- 4) 定位安装包 ----
+Step "4/6 定位安装包"
 $setupGlob = Join-Path $RepoRoot $cfg.publish.setup_glob
 $setupDir = Split-Path -Parent $setupGlob
 $setupFilter = Split-Path -Leaf $setupGlob
@@ -133,8 +159,8 @@ if (-not $cands) { Fail ("未找到安装包: " + $setupGlob + "（请先构建�
 $setup = $cands[0].FullName
 Write-Host ("  安装包: " + $setup)
 
-# ---- 4) 发布说明 ----
-Step "4/5 准备发布说明"
+# ---- 5) 发布说明 ----
+Step "5/6 准备发布说明"
 $notesName = $cfg.publish.notes_glob -replace '\$\{version\}', $version
 $notesPath = Join-Path $RepoRoot $notesName
 if (-not (Test-Path $notesPath)) {
@@ -155,8 +181,8 @@ if (-not (Test-Path $notesPath)) {
 }
 Write-Host ("  说明  : " + $notesPath)
 
-# ---- 5) 发布 ----
-Step "5/5 发布到 GitHub Releases"
+# ---- 6) 发布 ----
+Step "6/6 发布到 GitHub Releases"
 if ($DryRun) { $env:GH_DRY_RUN = '1' }
 if ($env:GH_DRY_RUN -eq '1') { Write-Host "  [DRY-RUN] 不会真正发布，仅打印动作" }
 $env:GH_REPO = $cfg.publish.repo
