@@ -82,6 +82,18 @@ if (-not $version) { Fail "package.json 缺少 version 字段" }
 Write-Host ("  版本: " + $version)
 $tag = ($cfg.version.tag_prefix + $version)
 
+# 手写的 NSIS 片段（build/installer.nsh）不在构建产物里，靠 git 跟踪才随仓库走。
+# 曾被目录级 build/ 规则一并忽略：本地有文件所以一路绿，干净克隆到别的机器才在 NSIS 步骤断
+# —— 提前在这里断言它已被跟踪，报错点比构建中途清楚得多（T04013）。
+$nsh = $pkg.build.nsis.include
+if ($nsh) {
+    $tracked = (git -C $RepoRoot ls-files -- $nsh)
+    if (-not $tracked) {
+        Fail ("nsis.include 指向的文件未被 git 跟踪: " + $nsh + "（干净克隆缺它，构建会在 NSIS 步骤断；先 .gitignore 放行并提交）")
+    }
+    Write-Host ("  NSIS 片段: " + $nsh + "（已跟踪）")
+}
+
 # ---- 2) 构建 ----
 if (-not $SkipBuild) {
     Step "2/6 构建（调用 构建打包.bat）"

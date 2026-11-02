@@ -9,7 +9,11 @@ __pycache__/
 .ruff_cache/
 
 # ─── 构建产物与发布物 ────────────────────────────────────────────────
-build/
+# build/ 是 PyInstaller 的 workpath 与 electron-builder 输出，整体可重建；
+# 但 build/installer.nsh 是手写的 NSIS 安装脚本（被 package.json 的 electron-builder
+# 配置引用），此前被目录级 build/ 规则一并吞掉。改为 build/* + 取反放行该文件。
+build/*
+!build/installer.nsh
 dist/
 out/
 release/
