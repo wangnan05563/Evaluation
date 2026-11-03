@@ -264,11 +264,11 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 ## 测试
 
 ```bash
-npm test                  # 全量 17 套件
+npm test                  # 全量 18 套件
 npm test -- --only=S3,S4  # 只跑指定套件
 ```
 
-编排器（`tests/run.mjs`）跑 S1–S17 共 17 个套件，默认全部纳入（S6 的偶发卡死已在 T01079 根因修复，夹具改绝对路径后转为 default-on；S17 需真实桌面会话，不满足时 SKIP 而非 FAIL）：
+编排器（`tests/run.mjs`）跑 S1–S18 共 18 个套件，默认全部纳入（S6 的偶发卡死已在 T01079 根因修复，夹具改绝对路径后转为 default-on；S17 需真实桌面会话、S18 需已构建免安装产物，不满足时 SKIP 而非 FAIL）：
 
 | 套件 | 内容 |
 |---|---|
@@ -279,8 +279,24 @@ npm test -- --only=S3,S4  # 只跑指定套件
 | S13 / S14 | 桌面壳单测（纯 node，不起服务）：窗口关闭偏好存储、壳侧文案双语表 |
 | S15 / S16 | UI 冒烟：配置中心「窗口行为」卡片、费率/规则降级态提示 |
 | S17 | Electron 实机烟测：真起壳 + 真点原生弹框（UIA/BM_CLICK），覆盖关闭决策、记住选择与双语文案 8 个场景 |
+| S18 | 免安装产物冒烟（`release/win-unpacked`）：静态核对 extraResources/asar 落位，再在成品上跑关闭决策与退出耗时门；产物没构建就 31 条逐项 SKIP |
 
-辅助校验：`python tests/i18n_check.py`（双语 key 对齐、JSON 重复键检测、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**17/17 全绿为交付线**（无桌面环境允许 S17 记 SKIP）。
+辅助校验：`python tests/i18n_check.py`（双语 key 对齐、JSON 重复键检测、服务端 msgKey 覆盖）、`python tests/refactor_guard.py <基线.json> [--save]`（重构前后对本地引擎 8092 端口的 API 响应做归一化快照逐字节对拍，需先起服务）、`python scripts/generate_xlsx.py --verify`（金标准）。**18/18 全绿为交付线**（无桌面环境允许 S17 记 SKIP、未构建产物允许 S18 记 SKIP）。
+
+### 测试临时目录
+
+跑回归只会往系统临时目录写 **`we_` 前缀**的目录（`we_test_*` 本轮夹具总目录、`we_shell_*`/`we_prod_*` 各场景独立 user-data-dir、`we_prefs_*`/`we_cli_*` 单测夹具），约定与回收见 `tests/tmp_janitor.mjs`：
+
+- 正常跑完自动删除；被 Ctrl-C／看门狗／超时 taskkill 打断时，退出钩子补删本进程登记过的目录；
+- 刚杀掉的 Chrome/Electron 常有几百毫秒才放开的句柄，所以删除带 5 次有界重试（约 1.5s）；
+- 仍删不掉的只打 WARN、不把用例判红，留给下一轮的超龄门收（本机实测的钉子户是 Excel 重算实例：`taskkill` 杀掉 python 后它不跟着退，会一直占住 `generated/` 里的成品表）；
+- 硬 kill（`taskkill /F`）不触发钩子，所以下次开跑前会按 mtime 收掉**超过 24 小时**的同前缀孤儿目录——阈值这么松是因为本机常有多个会话并行跑回归，太激进会删掉别人正在用的现场；
+- 想留着现场查问题：`WE_KEEP_TMP=1 npm test`（此时连孤儿回收一起关掉，目录路径会打印在首行）；孤儿年龄用 `WE_TMP_RECLAIM_HOURS=6` 调；
+- 手动清理（Windows PowerShell，只删本项目前缀，不动别的临时内容）：
+
+```powershell
+Get-ChildItem $env:TEMP -Directory -Filter 'we_*' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+```
 
 ## 主要接口
 

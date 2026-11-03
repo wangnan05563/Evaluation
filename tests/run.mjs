@@ -9,6 +9,8 @@
  *  S17 要真起 Electron 并驱动原生模态框（UIA + BM_CLICK），非 Windows／未装 dev-shell 依赖／无交互桌面时
  *  显式 SKIP 并打印原因（不能让它假失败拖红基线）；用 WE_SHELL_TEST=1 强制跑、=0 强制跳。
  *  另有独立 WCAG 对比度审计：python tests/a11y_contrast.py（FR-UI05，非 npm test 套件）。
+ *  临时目录约定：跑测试只往 os.tmpdir() 里写 we_* 前缀的目录，跑完自动回收；
+ *  要留着查现场就 WE_KEEP_TMP=1（届时也不会去收孤儿），手动清理见 README「测试临时目录」。
  *  ⚠ 须用带依赖的解释器：PYTHON="/f/Program Files/Python3.14/python" npm test
  *    （默认 python 缺 openpyxl，会导致 S3~S12 全部「API 实例未就绪」假失败）。 */
 import { spawn, spawnSync } from 'node:child_process';
@@ -17,6 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reclaimStaleTmp, registerTmp, removeTmp } from './tmp_janitor.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PY = process.env.PYTHON || 'python';
@@ -27,7 +30,8 @@ const CDP = `http://127.0.0.1:${CDP_PORT}`;
 const args = process.argv.slice(2);
 const only = (args.find(a => a.startsWith('--only=')) || '').split('=')[1];
 const withFlaky = args.includes('--with-flaky');
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'we_test_'));
+// 本轮夹具总目录：登记后即使被 Ctrl-C／看门狗打断也会补删（WE_KEEP_TMP=1 时保留查现场）
+const TMP = registerTmp(fs.mkdtempSync(path.join(os.tmpdir(), 'we_test_')));
 const results = [];
 const log = (...a) => console.log(...a);
 
@@ -135,6 +139,10 @@ if (chrome) killTree(chrome.pid); });
 // 主体改用顶层 await（S7785：不再用 async IIFE）
 {
   log(`# 核心链路自动化测试（M4/FR-5.2） ${new Date().toLocaleString('zh-CN')}`);
+  // 开跑前收一次上一轮硬 kill 留下的孤儿（runSuite 超时用 taskkill /F，子进程钩子不会跑）
+  const jan = reclaimStaleTmp();
+  if (jan.removed || jan.stuck) log(`# 临时目录回收：清掉 ${jan.removed} 个超龄孤儿` +
+    (jan.stuck ? `，${jan.stuck} 个被占用删不掉` : '') + `（保留 ${jan.keptFresh} 个未超龄）`);
   log(`# 夹具: ${ROOT}/data/testdocs · 临时数据: ${TMP} · flaky: ${withFlaky ? '开启' : '跳过'}\n`);
   for (const port of [API_PORT, CDP_PORT]) {
     if (!(await portFree(port))) { log(`端口 ${port} 被占用，请先释放（避免双监听）`); process.exit(2); }
@@ -198,4 +206,8 @@ if (chrome) killTree(chrome.pid); });
   fs.writeFileSync(repPath, rep.join('\n'));
   log(`\n==== 汇总 ==== 通过 ${results.filter(r => r.ok && !r.skipped).length}/${results.filter(r => !r.skipped).length}` +
     `（skip ${results.filter(r => r.skipped).length}）报告: ${path.relative(ROOT, repPath)}`);
+  // 汇总之后才回收：留着 TMP 到这一步是为了失败时还能翻现场，报完数就该还给机器
+  if (process.env.WE_KEEP_TMP === '1') log(`# WE_KEEP_TMP=1，保留临时目录: ${TMP}`);
+  else if (removeTmp(TMP)) log('# 临时目录已回收');
+  else log('# 主夹具没删净（多为 Excel 重算实例仍占着 generated/）：下一轮超龄后自动收，手动清法见 README「测试临时目录」');
 }

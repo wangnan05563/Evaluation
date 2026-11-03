@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
+import { reclaimStaleTmp, registerTmp, removeTmp } from './tmp_janitor.mjs'
 
 export const killTree = pid => {
   try { spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' }) } catch { /* noop */ }
@@ -44,9 +45,15 @@ export function isPortOpen(port) {
  *  cfg = { exe, baseArgs, baseEnv, waitCdpMs } */
 export function makeLauncher(cfg) {
   const waitCdpMs = cfg.waitCdpMs || 60000
+  // 开跑前收一次上一轮崩溃留下的孤儿目录（本套件自己造的都走下面 registerTmp）
+  const jan = reclaimStaleTmp()
+  if (jan.removed || jan.stuck) {
+    console.log(`  临时目录回收：清掉 ${jan.removed} 个超龄孤儿` +
+      (jan.stuck ? `，${jan.stuck} 个被占用删不掉` : '') + `（保留 ${jan.keptFresh} 个未超龄）`)
+  }
   return async function scenario(name, port, prefs, opts = {}) {
     const { extraArgs = [], udDir = null } = opts
-    const base = udDir ? path.dirname(udDir) : fs.mkdtempSync(path.join(os.tmpdir(), `we_${name}_`))
+    const base = udDir ? path.dirname(udDir) : registerTmp(fs.mkdtempSync(path.join(os.tmpdir(), `we_${name}_`)))
     const ud = udDir || path.join(base, 'ud')
     fs.mkdirSync(ud, { recursive: true })
     // prefs 为 null 时不预写文件——「首启无偏好」本身就是要验的状态

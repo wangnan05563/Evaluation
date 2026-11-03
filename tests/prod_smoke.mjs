@@ -23,6 +23,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { makeLauncher, waitExit, requestClose, killTree, sleep, isPortOpen } from './electron_cdp.mjs'
 import { CLOSE_TEXTS, driveDialog, readDialogTexts, cleanupDialogScript, probeWindow } from './win_dialog.mjs'
+import { removeTmp } from './tmp_janitor.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
@@ -79,7 +80,7 @@ async function teardown(s, rmBase = true) {
   try { if (s.ws) s.ws.close() } catch { /* noop */ }
   if (s.child && s.child.exitCode === null) killTree(s.child.pid)
   await freeSidecarPort()
-  if (rmBase && s.base) { try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ } }
+  if (rmBase && s.base) removeTmp(s.base)
 }
 
 // sidecar 是 detached 启动的，强杀壳可能留下仍在监听 8020 的孤儿；下一轮 startBackend()

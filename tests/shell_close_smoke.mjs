@@ -14,6 +14,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { makeLauncher, waitExit, requestClose, killTree, sleep } from './electron_cdp.mjs'
+import { removeTmp } from './tmp_janitor.mjs'
 import { CLOSE_TEXTS, driveDialog, readDialogTexts, cleanupDialogScript, probeWindow } from './win_dialog.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -67,7 +68,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
       /\.ico$/i.test(iconSrc) && fs.existsSync(iconSrc), iconSrc || '日志缺 icon= 字段')
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -82,7 +83,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('B 关窗后进程退出', exited, exited ? `耗时 ${ms}ms` : (s.tail() || `${ms}ms 内未退出`))
     if (!exited) killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -100,7 +101,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('C 未做选择时不落盘配置', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -125,7 +126,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('D 落盘无临时文件残留', tmpLeft.length === 0, tmpLeft.join(','))
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -148,7 +149,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
       onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
     if (!exited) killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -170,7 +171,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     check('F 未勾选「记住」则不落盘（下次仍弹窗）', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
-    try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+    removeTmp(s.base)
   }
 }
 
@@ -205,7 +206,7 @@ for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
   check(`${tag} 关闭后未落盘偏好（未勾选记住）`, !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
   killTree(s.child.pid)
   try { s.ws.close() } catch { /* noop */ }
-  try { fs.rmSync(s.base, { recursive: true, force: true }) } catch { /* noop */ }
+  removeTmp(s.base)
 }
 
 cleanupDialogScript()

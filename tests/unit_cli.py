@@ -12,6 +12,7 @@ FR-FE10 的验收要点是「退出码语义明确」，调度脚本据此判成
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -87,10 +88,14 @@ else:
 # 4) 端到端：真实 docx → 成品 xlsx（仅在夹具存在时跑）
 if os.path.isfile(DOCX):
     outdir = tempfile.mkdtemp(prefix='we_cli_')
-    out_xlsx = os.path.join(outdir, 'e2e.xlsx')
-    code, out = run(['--docx', DOCX, '--out', out_xlsx])
-    check('端到端生成 → 0', code == 0, f'(实际 {code}) {out.strip()[-200:] if code else ""}')
-    check('成品 xlsx 落盘', os.path.isfile(out_xlsx) and os.path.getsize(out_xlsx) > 0)
+    try:
+        out_xlsx = os.path.join(outdir, 'e2e.xlsx')
+        code, out = run(['--docx', DOCX, '--out', out_xlsx])
+        check('端到端生成 → 0', code == 0, f'(实际 {code}) {out.strip()[-200:] if code else ""}')
+        check('成品 xlsx 落盘', os.path.isfile(out_xlsx) and os.path.getsize(out_xlsx) > 0)
+    finally:
+        # 成品 xlsx 只在断言期间有用，断言结论已经落到 fails 里，不留孤儿目录
+        shutil.rmtree(outdir, ignore_errors=True)
 else:
     print(f"  SKIP  端到端（夹具缺失: {DOCX}）")
 
