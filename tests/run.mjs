@@ -139,10 +139,12 @@ if (chrome) killTree(chrome.pid); });
 // 主体改用顶层 await（S7785：不再用 async IIFE）
 {
   log(`# 核心链路自动化测试（M4/FR-5.2） ${new Date().toLocaleString('zh-CN')}`);
-  // 开跑前收一次上一轮硬 kill 留下的孤儿（runSuite 超时用 taskkill /F，子进程钩子不会跑）
+  // 开跑前收一次：上一轮记下的钉子户 + 上一轮硬 kill 留下的超龄孤儿
+  // （runSuite 超时用 taskkill /F，子进程钩子不会跑，只能靠这道门兜）
   const jan = reclaimStaleTmp();
-  if (jan.removed || jan.stuck) log(`# 临时目录回收：清掉 ${jan.removed} 个超龄孤儿` +
-    (jan.stuck ? `，${jan.stuck} 个被占用删不掉` : '') + `（保留 ${jan.keptFresh} 个未超龄）`);
+  if (jan.removed || jan.stuck) log(`# 临时目录回收：清掉 ${jan.removed} 个` +
+    (jan.listed ? `（其中上一轮记名 ${jan.listed} 个）` : '') +
+    (jan.stuck ? `，${jan.stuck} 个仍被占用` : '') + `（保留 ${jan.keptFresh} 个未超龄）`);
   log(`# 夹具: ${ROOT}/data/testdocs · 临时数据: ${TMP} · flaky: ${withFlaky ? '开启' : '跳过'}\n`);
   for (const port of [API_PORT, CDP_PORT]) {
     if (!(await portFree(port))) { log(`端口 ${port} 被占用，请先释放（避免双监听）`); process.exit(2); }

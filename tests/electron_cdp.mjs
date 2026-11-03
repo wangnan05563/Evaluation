@@ -45,11 +45,13 @@ export function isPortOpen(port) {
  *  cfg = { exe, baseArgs, baseEnv, waitCdpMs } */
 export function makeLauncher(cfg) {
   const waitCdpMs = cfg.waitCdpMs || 60000
-  // 开跑前收一次上一轮崩溃留下的孤儿目录（本套件自己造的都走下面 registerTmp）
+  // 开跑前收一次：上一轮记名的钉子户 + 上一轮硬 kill 留下的超龄孤儿
+  // （本套件自己造的目录都走下面 registerTmp）
   const jan = reclaimStaleTmp()
   if (jan.removed || jan.stuck) {
-    console.log(`  临时目录回收：清掉 ${jan.removed} 个超龄孤儿` +
-      (jan.stuck ? `，${jan.stuck} 个被占用删不掉` : '') + `（保留 ${jan.keptFresh} 个未超龄）`)
+    console.log(`  临时目录回收：清掉 ${jan.removed} 个` +
+      (jan.listed ? `（上一轮记名 ${jan.listed} 个）` : '') +
+      (jan.stuck ? `，${jan.stuck} 个仍被占用` : '') + `（保留 ${jan.keptFresh} 个未超龄）`)
   }
   return async function scenario(name, port, prefs, opts = {}) {
     const { extraArgs = [], udDir = null } = opts
