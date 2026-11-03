@@ -44,12 +44,69 @@ const portFree = port => new Promise(res => {
 });
 const killTree = pid => { try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* noop */ } };
 
+// T04125：Excel 重算实例是 COM 起的，不在 python 的进程树里，killTree(/T) 带不走它，
+// 硬 kill sidecar 后它就变成钉住 generated/ 的孤儿。sidecar 把生命周期写进台账
+// （`BEGIN <py>` / `PID <py> <excel>` / `NOPID <py>`，只有设了 WE_EXCEL_LEDGER 才写，生产不写）。
+// 关键在 BEGIN：DispatchEx 会阻塞 5~15s，这期间 Excel 已经被 DCOM 拉起、PID 却还没人知道，
+// 套件一跑完就杀 sidecar 正好落在这个窗口里（实测单跑 S3 必漏一个）——所以杀之前先有界地
+// 等在飞的 Dispatch 报上 PID。回收本身只认台账里的 PID，且先确认它确实是 EXCEL.EXE
+// （防 PID 复用），绝不按映像名杀——那会连带杀掉用户自己打开的 Excel。
+const LEDGER = path.join(TMP, 'we_excel_ledger.txt');
+const readLedger = () => {
+  try { return fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/).map(l => l.trim().split(/\s+/)).filter(r => r.length); }
+  catch { return []; }
+};
+const procAlive = pid => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+};
+const pendingDispatches = () => {
+  const begun = new Map();
+  for (const r of readLedger()) {
+    if (r[0] === 'BEGIN') begun.set(r[1], (begun.get(r[1]) || 0) + 1);
+    else if (r[0] === 'PID' || r[0] === 'NOPID') begun.set(r[1], Math.max(0, (begun.get(r[1]) || 0) - 1));
+  }
+  // sidecar 若在 Dispatch 途中就没了（被硬 kill／崩溃），这条 BEGIN 永远不会落地，
+  // 再等下去只是白等满预算——按 python PID 判活，死了的不计入待等。
+  let n = 0;
+  for (const [pyPid, cnt] of begun) {
+    if (cnt > 0 && procAlive(Number(pyPid))) n += cnt;
+  }
+  return n;
+};
+const settleLedger = async (maxMs = 25000) => {
+  const t0 = Date.now();
+  while (pendingDispatches() && Date.now() - t0 < maxMs) await sleep(500);
+  return pendingDispatches() === 0;
+};
+const reapOwnedExcel = () => {
+  const owned = readLedger().filter(r => r[0] === 'PID' && Number.isInteger(+r[2]) && +r[2] > 0);
+  let n = 0;
+  for (const [, , pidStr] of owned) {
+    const pid = Number(pidStr);
+    const t = spawnSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8' });
+    if (!/EXCEL\.EXE/i.test(t.stdout || '')) continue;
+    spawnSync('taskkill', ['/F', '/PID', String(pid)], { stdio: 'ignore' });
+    n++;
+  }
+  if (n) log(`# 定向回收 sidecar 起的 Excel 实例 ${n} 个（按 PID，不碰用户自己的 Excel）`);
+  return n;
+};
+
 function startServer(dataDir, port = API_PORT) {
   const p = spawn(PY, ['-u', 'scripts/server.py', String(port), '--serve-frontend'],
-    { cwd: ROOT, env: { ...process.env, WE_DATA: dataDir }, stdio: ['ignore', 'pipe', 'pipe'] });
+    { cwd: ROOT, env: { ...process.env, WE_DATA: dataDir, WE_EXCEL_LEDGER: LEDGER }, stdio: ['ignore', 'pipe', 'pipe'] });
   p.stdout.resume(); p.stderr.resume();
   return p;
 }
+const stopServer = async () => {
+  if (!server) return;
+  if (!(await settleLedger())) log('# 台账里有 Dispatch 迟迟未落地，本次不再等（可能有实例认领不到）');
+  killTree(server.pid); server = null;
+  await sleep(300);
+  reapOwnedExcel();
+  await sleep(800);
+};
 async function waitHealth(timeoutMs = 30000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
@@ -126,14 +183,14 @@ const suites = [
 
 let server = null, chrome = null;
 async function cleanup() {
-  if (server) { killTree(server.pid); server = null; }
+  await stopServer();
   if (chrome) { killTree(chrome.pid); chrome = null; }
   // 端口回收确认：占用的 python/chrome 子树已随 killTree 终止
   process.exitCode = results.some(r => !r.ok) ? 1 : 0;
 }
 
 process.on('exit', () => { if (server) killTree(server.pid); 
-if (chrome) killTree(chrome.pid); });
+if (chrome) killTree(chrome.pid); reapOwnedExcel(); });
 ['SIGINT', 'SIGTERM'].forEach(sig => process.on(sig, async () => { await cleanup(); process.exit(130); }));
 
 // 主体改用顶层 await（S7785：不再用 async IIFE）
@@ -170,8 +227,7 @@ if (chrome) killTree(chrome.pid); });
         server = startServer(dataDir);
         if (!(await waitHealth())) throw new Error('API 实例未就绪');
         ({ code } = await runSuite(PY, [s.script, String(API_PORT)], {}, s.timeoutMs));
-        killTree(server.pid); server = null;
-        await sleep(800);
+        await stopServer();
       } else if (s.kind === 'node' || s.kind === 'shell') {
         // 脚本自带运行环境：壳单测纯 node 即可，实机烟测自己起 Electron（不共用 8032 实例/CDP Chrome）
         ({ code } = await runSuite(process.execPath, [s.script], { ...s.env }, s.timeoutMs));
@@ -182,14 +238,13 @@ if (chrome) killTree(chrome.pid); });
         server = startServer(dataDir);
         if (!(await waitHealth())) throw new Error('API 实例未就绪');
         ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...(s.env || {}) }, s.timeoutMs));
-        killTree(server.pid); server = null;
-        await sleep(800);
+        await stopServer();
       }
     } catch (e) {
       log(`  FAIL  套件异常: ${e.message}`);
       code = 1;
     } finally {
-      if (server) { killTree(server.pid); server = null; }
+      await stopServer();
     }
     const ok = code === 0;
     results.push({ id: s.id, title: s.title, ok, skipped: false });

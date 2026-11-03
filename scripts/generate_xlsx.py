@@ -4,7 +4,7 @@
 
 校验模式 (--verify)：读取母版既有明细原样写回，用规则引擎断言 US 合计复现金标准。
 """
-import argparse, json, os, re, shutil, sys, threading, time
+import argparse, atexit, json, os, re, shutil, sys, threading, time
 from copy import copy
 from pathlib import Path
 import openpyxl
@@ -275,7 +275,10 @@ def schedule_excel_recalc(out, on_progress=None, mode=None, timeout=None, on_sta
         state("skipped")
         return False, "busy"
     out = Path(out)
-    tmp = out.with_name(out.stem + ".recalc.xlsx")
+    # T04125：副本名里带上本进程 PID——进程被杀时它就成了无主残留，
+    # sweep_recalc_leftovers 靠这个 PID 判归属，才不会误删在飞/并发那一份。
+    tmp = out.with_name(out.stem + f".recalc{os.getpid()}.xlsx")
+    _track_recalc_file(tmp)
 
     def work():
         try:
@@ -307,6 +310,8 @@ def schedule_excel_recalc(out, on_progress=None, mode=None, timeout=None, on_sta
         except Exception as e:
             print(f"[recalc] 后台重算异常: {type(e).__name__}: {e}", flush=True)
             state("failed")
+            if tmp.exists():
+                _remove_save_tmp(str(tmp))   # T04125：异常路径也别把副本留在产物目录里
         finally:
             _RECALC_SLOT.release()
 
@@ -495,23 +500,215 @@ def _excel_pid(xl):
         return None
 
 
-def _reap_excel(pid, done_flag, grace):
-    """超时后的定向回收：只终止我们自己 Dispatch 出来的隐藏实例（按 PID），
-    绝不碰用户自己打开的 Excel。宽限 grace 秒，期间工作线程若已收尾则不杀（T00960）。"""
-    for _ in range(max(1, int(grace // 2))):
-        time.sleep(2)
-        if done_flag.get("done"):
-            print(f"[recalc] PID={pid} 已自行收尾，无需定向回收", flush=True)
-            return
+# ---------------- T04125：Excel 重算实例的生命周期收口 ----------------
+# 现场取证（探针见工单结论）：
+#   ① 正常路径 xl.Quit() 返回后进程并不退出，要等 COM 引用（含 xl.Workbooks 集合代理）
+#      全部放开之后才走；旧代码只在超时分支回收，正常路径从不确认「进程真的没了」。
+#   ② 重算跑在 daemon 线程里；进程一退出线程连同 finally 一起被冻结，根本没走到 Quit。
+#      async 模式 3 轮里 2 轮留下孤儿实例，且同轮 generated 里的副本删不掉（PermissionError）
+#      ——这就是 T04089 主夹具被钉住的直接原因。
+#   ③ COM 起的 EXCEL.EXE 不在 python 的进程树里（父进程是 DCOM 启动器），
+#      所以按 PID 树杀服务端带不走它，只能自己收。
+# 约定：回收只有一个入口 reap_my_excel，且只认「本进程 Dispatch 出来的 PID」。
+#      绝不按映像名 kill——那会连带杀掉用户自己打开的 Excel。
+
+_LIVE_RECALC = {}                    # ident -> (thread, result)，供 atexit 接住在飞的重算
+_LIVE_RECALC_LOCK = threading.Lock()
+_MY_RECALC_FILES = set()             # 本进程建过的 recalc 中间产物绝对路径，供退出时清扫
+
+
+def _track_recalc_file(p):
+    """登记本进程创建的 recalc 中间产物（副本/保存临时件）。
+
+    只做内存登记：文件已随原子替换消失时，退出后再删一次是无害的空操作，
+    因此不需要「取消登记」，也就不会在每条返回路径上散落清理代码（T04125）。
+    """
+    try:
+        _MY_RECALC_FILES.add(str(Path(p).resolve()))
+    except Exception:
+        pass
+
+
+def _is_excel_pid(pid):
+    """PID 仍在且确实是 EXCEL.EXE。用于防 PID 复用后误杀别的进程。"""
     try:
         import subprocess
-        r = subprocess.run(["taskkill", "/F", "/PID", str(pid), "/T"],
+        r = subprocess.run(["tasklist", "/FI", f"PID eq {int(pid)}", "/FO", "CSV", "/NH"],
                            capture_output=True, text=True, timeout=15)
-        ok = r.returncode == 0
-        print(f"[recalc] 定向回收卡死实例 PID={pid}：{'成功' if ok else '失败 ' + (r.stderr or '').strip()[:120]}",
-              flush=True)
+        return f'"EXCEL.EXE","{int(pid)}"' in (r.stdout or "")
+    except Exception:
+        return False
+
+
+def _wait_excel_exit(pid, secs):
+    """等我们自己那个实例消失；退出返回用时秒，超时返回 None。
+
+    用 OpenProcess 判活（零成本），不在轮询里起 tasklist——一次重算要轮二十来次。
+    """
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        if not _proc_alive(pid):
+            return time.time() - t0
+        time.sleep(0.4)
+    return None
+
+
+def reap_my_excel(pid, done_flag=None, grace=0.0, exit_wait=8.0):
+    """「回收我自己起的 Excel」的唯一入口，超时路径与正常路径共用（T04125）。
+
+    先给工作线程 grace 秒收尾（保留 T00960 的宽限语义），再确认进程真的退出；
+    确实没退且 PID 仍是那个 EXCEL.EXE，才按 PID 定点终止。
+    返回 exited|killed|reused|stuck|none，供上层如实记日志。
+    """
+    if not pid:
+        return "none"
+    spent = 0.0
+    while done_flag is not None and spent < grace and not done_flag.get("done"):
+        time.sleep(2)
+        spent += 2
+    if _wait_excel_exit(pid, exit_wait) is not None:
+        return "exited"
+    if not _is_excel_pid(pid):
+        return "reused"                       # PID 已被别的进程拿去用，绝不能动
+    try:
+        import subprocess
+        subprocess.run(["taskkill", "/F", "/PID", str(int(pid)), "/T"],
+                       capture_output=True, text=True, timeout=15)
     except Exception as e:
         print(f"[recalc] 定向回收 PID={pid} 异常（留待自然退出）: {type(e).__name__}: {e}", flush=True)
+        return "stuck"
+    return "killed" if _wait_excel_exit(pid, 5) is not None else "stuck"
+
+
+def _recalc_exit_wait():
+    """Quit 之后确认实例退出的预算（秒）。"""
+    try:
+        return max(0.0, float(os.environ.get("WE_RECALC_EXIT_GRACE") or 8))
+    except ValueError:
+        return 8.0
+
+
+def _ledger_write(tag, pid=None):
+    """向 WE_EXCEL_LEDGER 记一行「本进程的重算生命周期」（`BEGIN|PID|NOPID pythonPid [excelPid]`）。
+
+    BEGIN = 即将 DispatchEx（此刻 Excel 的 PID 尚不可知）；PID = Dispatch 已返回并取到 PID；
+    NOPID = 已返回但取不到 PID（Hwnd 异常）。只有测试跑器设了 WE_EXCEL_LEDGER 才写，生产不写。
+    为什么要 BEGIN：`DispatchEx` 会阻塞 5~15s，而跑器套件一跑完就 taskkill /F sidecar——
+    那会儿 Excel 进程已被 DCOM 拉起、python 却还没返回，于是这个实例「谁都不认识」，
+    既进不了台账、也活该被留在机器上（实测 S3 单跑必漏一个）。跑器看到未落地的 BEGIN
+    就先等它落地，再动手杀。定点回收只认 PID，绝不按映像名（T04125）。
+    """
+    f = os.environ.get("WE_EXCEL_LEDGER")
+    if not f:
+        return
+    try:
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(f"{tag} {os.getpid()}" + (f" {int(pid)}" if pid else "") + "\n")
+    except Exception:
+        pass                                    # 记不上只是少一份名单，不影响重算
+
+
+def _recalc_pid_wait():
+    """进程退出前，最多愿意等多久让在飞的 Dispatch 报上 PID（秒）。"""
+    try:
+        return max(0.0, float(os.environ.get("WE_RECALC_EXIT_PID_WAIT") or 10))
+    except ValueError:
+        return 10.0
+
+
+def _on_process_exit():
+    """atexit：把在飞的重算接住，避免守护线程被冻结成孤儿实例与无主副本（T04125 探针②）。
+
+    副本名里带着本进程 PID，所以硬 kill 带不走时下一轮还能按归属清扫掉；这里能删就当场删。
+    等待预算分两段，因为两种「在飞」的后果不一样：
+      - 已经报上 PID：只差收尾，join 2s 拿不到就地按 PID 回收，不必拖住退出；
+      - 还卡在 DispatchEx 里、PID 未知：这一走就再也认领不回来了——它不在本进程的
+        子树里（父进程是 DCOM 启动器），产物名里也还没写上我们的 PID，谁都不认识它
+        （同驱动 A/B 实测 hold=8s 仍漏 1/3）。所以这一段宁可多等一会儿，但必须有界，
+        退出被拖死比留一个孤儿更糟。
+    """
+    with _LIVE_RECALC_LOCK:
+        pend = list(_LIVE_RECALC.values())
+        _LIVE_RECALC.clear()
+    budget = _recalc_pid_wait()
+    for th, res in pend:
+        t0 = time.time()
+        while th.is_alive() and not res.get("pid") and time.time() - t0 < budget:
+            time.sleep(0.25)
+        th.join(max(0.0, 2 - (time.time() - t0)))
+        pid = res.get("pid")
+        if pid:
+            st = reap_my_excel(pid, exit_wait=2)
+            if st != "exited":
+                print(f"[recalc] 退出收尾 PID={pid}: {st}", flush=True)
+        elif th.is_alive():
+            print(f"[recalc] 退出时 Dispatch 仍未落地（>{budget:.0f}s），"
+                  f"这个实例没人认领，留给下一轮按归属清扫", flush=True)
+    for p in sorted(_MY_RECALC_FILES):
+        if Path(p).exists():
+            _remove_save_tmp(p)
+    _MY_RECALC_FILES.clear()
+
+
+atexit.register(_on_process_exit)
+
+
+def _reap_excel(pid, done_flag, grace):
+    """超时后的定向回收（薄封装，保留旧调用形状；实现见 reap_my_excel）。"""
+    st = reap_my_excel(pid, done_flag, grace=grace, exit_wait=_recalc_exit_wait())
+    print(f"[recalc] 超时实例 PID={pid} 回收结果：{st}", flush=True)
+
+
+_RECALC_OWNED = re.compile(r"(?:~\$)?[^/\\]*\.recalc(\d+)(?:\.\d+\.tmp|\.xlsx)$")
+
+
+def _pid_of_recalc_name(name):
+    """取 recalc 中间产物的主人 PID；只认我们产出的两种形状：
+
+    `<产物名>.recalc<pid>.<tid>.tmp`、`<stem>.recalc<pid>.xlsx`（及其 `~$` owner 文件）。
+    锚全名而不是「串里出现过 .recalc<数字>」，是为了不去碰普通产物名。
+    """
+    m = _RECALC_OWNED.match(name)
+    return int(m.group(1)) if m else None
+
+
+def sweep_recalc_leftovers(directory):
+    """开跑前清扫上一位主人已经不在的 recalc 中间产物（T04125：覆盖「进程被杀」场景）。
+
+    只按文件名里带的 PID 判归属，主人还活着的一律不碰——并发/在飞都安全。
+    返回清掉的文件名，便于日志与探针断言。
+    """
+    removed = []
+    d = Path(directory)
+    if not d.is_dir():
+        return removed
+    for f in d.iterdir():
+        if not f.is_file():
+            continue
+        pid = _pid_of_recalc_name(f.name)
+        if pid is None or _proc_alive(pid):
+            continue                          # 认不出主人 / 主人还活着（含本进程在飞的那份）：不动
+        _remove_save_tmp(str(f))              # 同 T01481：绕开 os.remove 的回收站钩子
+        if not f.exists():
+            removed.append(f.name)
+    if removed:
+        print(f"[recalc] 清扫历史残留 {len(removed)} 个: {removed[:4]}", flush=True)
+    return removed
+
+
+def _proc_alive(pid):
+    """通用进程存活判断（不限于 Excel）——用于 recalc 中间产物的主人判活。"""
+    try:
+        import ctypes
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid))   # QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return bool(ok) and code.value == 259                             # STILL_ACTIVE
+    except Exception:
+        return True                       # 判不准就当作活着，宁可不动
 
 
 def _try_excel_recalc(path, on_progress=None, timeout=None):
@@ -548,15 +745,21 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
     def work():
         pythoncom.CoInitialize()          # COM 需按线程初始化（已在独立线程内执行）
         xl = None
+        wbs = None
         wb = None
+        tmp_recalc = None
         try:
             _emit(on_progress, 66, "正在启动 Excel 进程…")
+            sweep_recalc_leftovers(Path(path).parent)   # T04125：先收掉上一位主人已死的残留
+            _ledger_write("BEGIN")                      # T04125：Dispatch 在飞，跑器杀我之前等它落地
             xl = win32com.client.DispatchEx("Excel.Application")
             xl.Visible = False
             xl.DisplayAlerts = False      # 抑制对话框：多数"卡住"其实是在等一个看不见的弹窗
             result["pid"] = _excel_pid(xl)   # 记下实例 PID：超时后只回收这一个进程（T00960）
+            _ledger_write("PID", result["pid"]) if result["pid"] else _ledger_write("NOPID")
             _emit(on_progress, 72, "正在打开成品表…")
-            wb = xl.Workbooks.Open(str(Path(path).resolve()))
+            wbs = xl.Workbooks            # 集合代理也要有名可放，否则 Quit 后进程仍不退（T04125）
+            wb = wbs.Open(str(Path(path).resolve()))
             _emit(on_progress, 82, "正在重算母版公式…")
             xl.Calculate()
             _emit(on_progress, 90, "正在写回计算结果并关闭 Excel…")
@@ -564,8 +767,9 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
             # 会与并发同名请求的原子替换互相踩踏（实测 "File is not a zip file"）。
             tmp_recalc = str(Path(path).with_name(
                 Path(path).name + f".recalc{os.getpid()}.{threading.get_ident()}.tmp"))
+            _track_recalc_file(tmp_recalc)
             wb.SaveAs(tmp_recalc)
-            wb.Close(); wb = None
+            wb.Close(); wb = None           # 必须先放开句柄，否则原子替换会撞 EPERM
             xl.Quit(); xl = None
             _atomic_replace(tmp_recalc, str(path))
             tmp_recalc = None
@@ -581,7 +785,9 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
             except Exception:
                 pass
         finally:
-            # 无论成功/失败都尽量收尾，避免残留 EXCEL.EXE 与文件句柄
+            # 无论成功/失败都尽量收尾，避免残留 EXCEL.EXE 与文件句柄。
+            # T04125：Quit 返回不等于进程退出——COM 引用必须全部放开，
+            # 实例才会在稍后自行结束；确认退出交给调用方的统一回收口。
             try:
                 if wb is not None:
                     wb.Close(False)
@@ -592,6 +798,11 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
                     xl.Quit()
             except Exception:
                 pass
+            wb = None
+            wbs = None
+            xl = None
+            if not result.get("pid"):
+                _ledger_write("NOPID")       # 永远不会有 PID 了，别让跑器为一个 BEGIN 白等一轮
             try:
                 pythoncom.CoUninitialize()
             except Exception:
@@ -599,10 +810,14 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
             result["done"] = True          # 工作线程生命周期结束（含收尾）的标记
 
     th = threading.Thread(target=work, name="we-excel-recalc", daemon=True)
+    with _LIVE_RECALC_LOCK:                # 供 atexit 接住：进程退出会冻结守护线程（T04125）
+        _LIVE_RECALC[th.ident] = (th, result)
     th.start()
     th.join(timeout)
+    with _LIVE_RECALC_LOCK:
+        _LIVE_RECALC.pop(th.ident, None)
+    pid = result.get("pid")
     if th.is_alive():
-        pid = result.get("pid")
         print(f"[recalc] 超时：{timeout:.0f}s 内未完成，放弃本次 COM 重算"
               f"（后台线程继续收尾，不阻塞本次生成返回；如需放宽可设 WE_RECALC_TIMEOUT）", flush=True)
         if pid:
@@ -612,6 +827,12 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
             print(f"[recalc] 已启动定向回收：PID={pid}，宽限 {grace:.0f}s", flush=True)
         _emit(on_progress, 95, f"Excel 重算超时（>{timeout:.0f}s），已跳过；母版公式将由 Excel 打开时自动重算")
         return False
+    # T04125：正常路径同样要确认实例真的退出——旧代码在这里从不确认，Quit 返回就走，
+    # 于是隐藏实例可以一直活着并把 generated/ 里的副本钉住。走与超时路径同一套回收。
+    if pid:
+        st = reap_my_excel(pid, exit_wait=_recalc_exit_wait())
+        if st != "exited":
+            print(f"[recalc] 正常收尾后 PID={pid} 未自行退出，回收结果：{st}", flush=True)
     return bool(result["ok"])
 
 
