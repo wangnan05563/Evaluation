@@ -211,5 +211,5 @@ if (chrome) killTree(chrome.pid); });
   // 汇总之后才回收：留着 TMP 到这一步是为了失败时还能翻现场，报完数就该还给机器
   if (process.env.WE_KEEP_TMP === '1') log(`# WE_KEEP_TMP=1，保留临时目录: ${TMP}`);
   else if (removeTmp(TMP)) log('# 临时目录已回收');
-  else log('# 主夹具没删净（多为 Excel 重算实例仍占着 generated/）：下一轮超龄后自动收，手动清法见 README「测试临时目录」');
+  else log('# 主夹具没删净（多为 Excel 重算实例仍占着 generated/）：已记名，下一轮开跑先收；手动清法见 README「测试临时目录」');
 }
