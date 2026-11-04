@@ -9,6 +9,14 @@
  *  说明：原生弹框不是 DOM，CDP 无法触达，改用 Windows UIA 定位并点击按钮/复选框。
  *  「窗口在不在屏幕上」一律用 Win32 IsWindowVisible 判：document.visibilityState 会把
  *  被其它窗口遮住的已显示窗口也记成 hidden（本机实测），拿它判「已隐藏」会假绿、判「仍可见」会假红。
+ *  日志类断言（托盘/选表）只认本进程自己那一条：shell.log 全机共享，靠偏移不靠归属会读到别的
+ *  进程写的行（T04450：H 项被 A 的 zh-CN 行喂成恒绿，而它自己压根没落行）。
+ *  「点了按钮」不等于「主进程收到了」：BM_CLICK 有偶发被对话框吃掉的时候（prod_smoke 实测过
+ *  同一脚本 run1 生效、run3 无反应；T04450 这轮的整轮回归里 H 就是这样：found+INVOKE=ok，
+ *  但本进程既不落 [close] 也不落托盘行）。本机空载复现不了（6/6 首点 ≤115ms 就落地），
+ *  所以按「并发负载下的偶发」处理：点击按到本进程 [close] 行落地为止，最多三次，
+ *  并把重按次数写进证据。断言本身不重试——判据始终是本进程自己那一条，三次都没落地就报红。
+ *  这条打法用仿真正控制验过：把首按强制成「只 dump 不点」，E/F/G/H 全部在第 2 按救回、34/34 绿。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -43,10 +51,88 @@ const scenario = makeLauncher({
 // 原生弹框驱动与期望文案表见 tests/win_dialog.mjs（与免安装产物冒测 tests/prod_smoke.mjs 共用）
 
 
-const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').length } catch { return 0 } })()
+// 日志观测（T04450）：logs/shell.log 是全机共享的单个文件，同机并发会话和上一轮残留都往里写。
+// 因此每个要读日志的场景先把基线拨到「当前末尾」，再只认「本进程自己落的那一条」：
+// 托盘行带 pid=（见 dev-shell/main.js ensureTray），偏移只用来缩小范围，pid 才是归属判据。
+// 只按「套件开头偏移 + 整段 includes」判会读到别人的行——H 被 A/F 的 zh-CN 喂成恒绿，
+// G 真的缺行时打印出来的「证据」也是别人的 zh-CN，看着像「选表选错了」，其实本进程压根没落行。
+const readStr = f => { try { return fs.readFileSync(f, 'utf8') } catch { return '' } }
+let logBase = readStr(SHELL_LOG).length
+const resetLogBase = () => { logBase = readStr(SHELL_LOG).length }
+// 变小了说明日志刚被 rotateAppend 转走（shell.log → shell.log.old）：基线作废，退回从头读，
+// 反正归属判据是行尾的 pid=，不是偏移。
+const tail = () => {
+  const text = readStr(SHELL_LOG)
+  if (text.length < logBase) logBase = 0
+  return text.slice(logBase)
+}
+const trayLines = text => text.split(/\r?\n/).filter(l => l.startsWith('[tray] created'))
+const trayLineOf = (text, pid) => trayLines(text).filter(l => l.endsWith(` pid=${pid}`)).slice(-1)[0] || ''
+// 主进程落日志与断言读取有先后：轮询到本进程那条托盘行落地为止（最多 tries×250ms），
+// 不再用写死的 sleep 赌它已经落完。本机实测「点下按钮→托盘行落地」空载 ≤114ms、
+// 压满（10 个自旋进程 + 持续磁盘写）≤170ms，5s 是实测上限的 ~30 倍：
+// 这门要挡的是「压根没建托盘/本进程没走到关闭链」，不是毫秒级抖动。
+const TRAY_TRIES = Number(process.env.WE_SHELL_TRAY_TRIES || 20)
+async function waitTrayLine(pid) {
+  for (let i = 0; i < TRAY_TRIES; i++) {
+    const l = trayLineOf(tail(), pid)
+    if (l) return l
+    await sleep(250)
+  }
+  return ''
+}
+const processAlive = pid => {
+  try { process.kill(pid, 0); return true } catch { return false }
+}
+const closeLineOf = (text, pid) =>
+  text.split(/\r?\n/).filter(l => l.startsWith('[close]') && l.endsWith(` pid=${pid}`)).slice(-1)[0] || ''
+const lineCount = (text, prefix, pid) =>
+  text.split(/\r?\n/).filter(l => l.startsWith(prefix) && !l.endsWith(` pid=${pid}`)).length
+const trayEvidence = pid => {
+  return `本进程 pid=${pid} 没落 [tray] created 行；段内其它进程的托盘行 ${lineCount(tail(), '[tray] created', pid)} 条` +
+    `；进程存活=${processAlive(pid)}`
+}
+// 「没落 [close] 行」有两种成因，证据里都要说清，别只报一种：点击被对话框吞掉 / 决策里抛了异常
+// （后者 main.js 会落 '[close] decision failed:'，那行没有 pid=，不能混进「其它进程的行」计数里）。
+const closeEvidence = pid => {
+  const t = tail()
+  const failed = t.split(/\r?\n/).filter(l => l.startsWith('[close] decision failed')).slice(-1)[0] || ''
+  return `本进程 pid=${pid} 没落 [close] 行；` +
+    (failed ? `本段有失败行 ${failed.slice(0, 140)}；` :
+      `本段没有 decision failed 行（即主进程还停在等这次决策，点击没被接住），其它进程的 [close] 行 ${lineCount(t, '[close] action', pid)} 条；`) +
+    `进程存活=${processAlive(pid)}`
+}
+/** 等本进程那条 [close] 行：它是「用户/驱动点的按钮真的被执行了」的凭据（写在决策之后）。 */
+async function waitCloseLine(pid, tries = TRAY_TRIES) {
+  for (let i = 0; i < tries; i++) {
+    const l = closeLineOf(tail(), pid)
+    if (l) return l
+    await sleep(250)
+  }
+  return ''
+}
+/** 点原生弹框的按钮，按到本进程真落了 [close] 行为止，最多三次。
+ *  重试的是「驱动动作」，不是把红用例赌第二次：判据始终是「本进程自己那一条」。
+ *  弹框已销毁时报 not_found 即停手，不会误触第二个动作（与 tests/prod_smoke.mjs P-A 同一打法）。
+ *  重按时只补 button 不再补 tick：勾选是同一个对话框实例上的状态，再 tick 一次会被翻回 Off。 */
+async function clickDialog(pid, { tick, button, dump = 0 }) {
+  const first = driveDialog(pid, { tick, button, dump })
+  let landed = await waitCloseLine(pid)
+  let retries = 0
+  for (let i = 0; i < 2 && !landed; i++) {
+    const again = driveDialog(pid, { button })
+    if (again.out.includes('DIALOG=not_found')) break
+    retries++
+    landed = await waitCloseLine(pid)
+  }
+  // 文案/勾选只看第一次（带 dump+tick）的输出；重按只补按钮，不再翻勾
+  return { drv: first, landed, retries }
+}
+const landedNote = ({ landed, retries }) => landed + (retries ? `（重按 ${retries} 次才生效）` : '')
 
 // ---- A：记住选择 = 最小化到托盘 ----
 {
+  resetLogBase()
   const s = await scenario('min', 9451, { close_action: 'minimize_to_tray', remember_choice: true })
   if (!s.ok) {
     check('A 最小化场景可启动', false, s.detail)
@@ -60,10 +146,10 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
     let prefsBack = null
     try { prefsBack = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* 文件应存在 */ }
     check('A 配置未被本次关闭改写', prefsBack && prefsBack.close_action === 'minimize_to_tray' && prefsBack.remember_choice === true, JSON.stringify(prefsBack))
-    const logAfter = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').slice(logBefore) } catch { return '' } })()
-    check('A 托盘已建立（shell.log 记录）', logAfter.includes('[tray] created'), logAfter.split('\n').filter(l => l.includes('tray')).slice(-2).join(' | '))
+    const tray = await waitTrayLine(s.child.pid)
+    check('A 托盘已建立（shell.log 记录本进程那条）', !!tray, tray || trayEvidence(s.child.pid))
     // T03958：图标来源必须落日志——回退到 getFileIcon 就是「通用图标」，肉眼难查，只能靠这条断言兜住
-    const iconSrc = (logAfter.match(/\[tray\] created \S+ icon=(\S+)/) || [])[1] || ''
+    const iconSrc = (tray.match(/ icon=(\S+)/) || [])[1] || ''
     check('A 托盘图标取自 ico 资源（非通用 exe 图标回退）',
       /\.ico$/i.test(iconSrc) && fs.existsSync(iconSrc), iconSrc || '日志缺 icon= 字段')
     killTree(s.child.pid)
@@ -136,11 +222,14 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
   if (!s.ok) {
     check('E 弹框退出场景可启动', false, s.detail)
   } else {
+    resetLogBase()
     requestClose(s.child.pid)
     await sleep(1500)
-    const drv = driveDialog(s.child.pid, { tick: 1, button: 1 })
+    const { drv, landed, retries } = await clickDialog(s.child.pid, { tick: 1, button: 1 })
     const { exited, ms } = await waitExit(s.child, EXIT_WAIT)
-    check('E 模态框出现且按钮可驱动', drv.out.includes('DIALOG=found') && drv.out.includes('INVOKE=ok') && drv.out.includes('BUTTONS=2'), drv.out)
+    check('E 模态框出现且「直接关闭应用」被本进程接住',
+      drv.out.includes('DIALOG=found') && drv.out.includes('BUTTONS=2') && !!landed,
+      landed ? landedNote({ landed, retries }) : drv.out)
     check('E 勾选「记住此选择」生效', drv.out.includes('CHECKBOX_BEFORE=Off') && drv.out.includes('CHECKBOX_AFTER=On'), drv.out)
     check('E 选「直接关闭应用」后进程退出', exited, exited ? `耗时 ${ms}ms` : (s.tail() || `${ms}ms 内未退出`))
     let onDisk = null
@@ -159,11 +248,13 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
   if (!s.ok) {
     check('F 弹框最小化场景可启动', false, s.detail)
   } else {
+    resetLogBase()
     requestClose(s.child.pid)
     await sleep(1500)
-    const drv = driveDialog(s.child.pid, { tick: 0, button: 0 })
+    const { drv, landed, retries } = await clickDialog(s.child.pid, { tick: 0, button: 0 })
     await sleep(2500)
-    check('F 模态框按「最小化到托盘」执行', drv.out.includes('DIALOG=found') && drv.out.includes('INVOKE=ok'), drv.out)
+    check('F 模态框按「最小化到托盘」执行（本进程落了 [close] 行）',
+      drv.out.includes('DIALOG=found') && !!landed, landed ? landedNote({ landed, retries }) : drv.out)
     check('F 未勾选时复选框保持 Off', drv.out.includes('CHECKBOX_AFTER=Off'), drv.out)
     check('F 应用进程未退出（最小化到托盘）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
     const vis = probeWindow(s.child.pid)
@@ -181,6 +272,7 @@ const logBefore = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').lengt
 // 期望文案表 CLOSE_TEXTS 见 tests/win_dialog.mjs（逐字硬编码，不复用表内容）。
 for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
   const want = CLOSE_TEXTS[lang]
+  resetLogBase()
   const s = await scenario('dlg_' + lang.replace('-', '_'), port, null, { extraArgs: [`--lang=${lang}`] })
   if (!s.ok) {
     check(`${tag} ${lang} 弹框场景可启动`, false, s.detail)
@@ -189,8 +281,7 @@ for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
   requestClose(s.child.pid)
   await sleep(1500)
   // button 0 = 「最小化到托盘」：顺带触发 ensureTray，让 shell.log 落下 lang= 证据
-  const drv = driveDialog(s.child.pid, { tick: 0, button: 0, dump: 1 })
-  await sleep(2000)
+  const { drv, landed, retries } = await clickDialog(s.child.pid, { tick: 0, button: 0, dump: 1 })
   const got = readDialogTexts(drv.out)
   const miss = []
   if (got.title !== want.title) miss.push(`title="${got.title}"`)
@@ -200,9 +291,14 @@ for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
   check(`${tag} ${lang} 弹框标题/正文/复选框为目标语言`, miss.length === 0, miss.join(' / ') || `title=${got.title}`)
   check(`${tag} ${lang} 两个按钮文案与顺序正确`,
     got.buttons.length === 2 && got.buttons[0] === want.buttons[0] && got.buttons[1] === want.buttons[1], got.buttons.join(' | '))
-  const logAfter = (() => { try { return fs.readFileSync(SHELL_LOG, 'utf8').slice(logBefore) } catch { return '' } })()
-  check(`${tag} 主进程按 ${lang} 选表（shell.log 记录 lang=${lang}）`,
-    logAfter.includes('[tray] created lang=' + lang), logAfter.split('\n').filter(l => l.includes('tray')).slice(-1)[0])
+  // 没找到/没点着弹框时本进程压根不会走 hideToTray，也就不会落托盘行——
+  // 这种情况必须报「弹框没被驱动/点击没生效」，不能让它伪装成「选表选错语言」（T04450 的红就是这么来的）。
+  check(`${tag} ${lang} 弹框被找到且「最小化到托盘」被本进程接住（落了 [close] 行）`,
+    drv.out.includes('DIALOG=found') && !!landed,
+    landed ? landedNote({ landed, retries }) : (drv.out.split('\n')[0] || '(驱动无输出)') + ' / ' + closeEvidence(s.child.pid))
+  const tray = await waitTrayLine(s.child.pid)
+  check(`${tag} 主进程按 ${lang} 选表（本进程托盘行 lang=${lang}）`,
+    tray.includes('lang=' + lang), tray || `本进程 [close] 行：${landed || '无'}；${trayEvidence(s.child.pid)}`)
   check(`${tag} 关闭后未落盘偏好（未勾选记住）`, !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
   killTree(s.child.pid)
   try { s.ws.close() } catch { /* noop */ }

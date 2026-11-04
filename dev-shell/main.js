@@ -304,7 +304,9 @@ function ensureTray() {
       ]))
       tray.on('click', showMainWindow)
       tray.on('double-click', showMainWindow)
-      rotateAppend(SHELL_LOG, `[tray] created lang=${shellI18n().lang} icon=${trayIconSource}\n`)
+      // pid= 是给测试用的：logs/shell.log 是全机共享的一个文件，同机并发会话、上一轮残留都往里写，
+      // 不带归属就只能靠日志偏移猜「这条是不是本进程写的」——猜错会把「本进程没落行」读成「选表选错语言」（T04450）。
+      rotateAppend(SHELL_LOG, `[tray] created lang=${shellI18n().lang} icon=${trayIconSource} pid=${process.pid}\n`)
       return tray
     } catch (e) {
       rotateAppend(SHELL_LOG, `[tray] create failed: ${e && e.stack ? e.stack : e}\n`)
@@ -389,7 +391,9 @@ async function handleCloseRequest(win) {
     const prefs = prefsStore().read()
     const prompted = needsPrompt(prefs)
     const action = prompted ? await askCloseAction(win) : prefs.close_action
-    rotateAppend(SHELL_LOG, `[close] action=${action} prompted=${prompted} remembered=${prefs.remember_choice} lang=${shellI18n().lang}\n`)
+    // pid= 同上（[tray] 行）：这行是「用户/测试的点击真的被本进程接住了」的唯一凭据，
+    // 测试拿它判断点击有没有落地，没落地才重按一次原生按钮。
+    rotateAppend(SHELL_LOG, `[close] action=${action} prompted=${prompted} remembered=${prefs.remember_choice} lang=${shellI18n().lang} pid=${process.pid}\n`)
     if (action === CLOSE_ACTIONS.MINIMIZE) {
       await hideToTray(win)
       return
