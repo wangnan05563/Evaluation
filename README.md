@@ -290,7 +290,8 @@ npm test -- --only=S3,S4  # 只跑指定套件
 - 正常跑完自动删除；被 Ctrl-C／看门狗／超时 taskkill 打断时，退出钩子补删本进程登记过的目录；
 - 刚杀掉的 Chrome/Electron 常有几百毫秒才放开的句柄，所以删除带 5 次有界重试（约 1.5s）；
 - 重试到点仍删不掉的目录**记名**到 `we_tmp_stuck.json`：句柄真正松开要几十秒到 1 分钟（实测强杀 headless Chrome 后连续重试 30s 仍 EPERM，`tasklist` 里已经没有一个 chrome.exe），在退出路径上死等会拖长整轮回归，所以交给**下一轮开跑先按名单收**（不看年龄，名单 7 天后弃记）；
-- 仍删不掉的只打 WARN、不把用例判红，留给下一轮的超龄门收（本机实测的钉子户是 Excel 重算实例：COM 起的 `EXCEL.EXE` 不在 python 的进程树里，`taskkill` 杀掉 python 它不跟着退，会一直占住 `generated/` 里的成品表。T04125 已收口：正常收尾会确认实例真的退出、进程退出前接住在飞的重算；只有硬 kill sidecar 仍可能留下孤儿，下一轮开跑由 `sweep_recalc_leftovers`（按残留文件名里的 PID 判归属）连同本名单一起收掉）；
+- 当场删不掉的只打 WARN、不把用例判红，进名单交给下一轮收；WARN 那行**带持有者实证**：`holdersOf()` 用 Restart Manager（`rstrtmgr.dll`，与安装程序「文件被占用」提示同源，免管理员权限）按目录里最新动过的文件问出「哪个 PID、哪个进程」在持有，本机实测报出过 `pid=10212 Windows/RmConsole`；查不到就照实说「RM 未报持有者」，**不回填猜测**。以前这里写的是「多为 Excel 重算实例仍占着 `generated/`」——那是猜的，T04451 那一轮的 EPERM 跟 Excel 无关（机器上没有我们起的存活 Excel），被钉住的是 Chrome/Electron 的弹框目录，归因写错会把人往错方向引；
+- Excel 重算实例本身已由 T04125 收口：正常收尾会确认实例真的退出、进程退出前接住在飞的重算；只有硬 kill sidecar 仍可能留下孤儿，下一轮开跑由 `sweep_recalc_leftovers`（按残留文件名里的 PID 判归属）连同名单一起收掉；
 - 硬 kill（`taskkill /F`）不触发钩子，所以下次开跑前会按 mtime 收掉**超过 24 小时**的同前缀孤儿目录——阈值这么松是因为本机常有多个会话并行跑回归，太激进会删掉别人正在用的现场；
 - 想留着现场查问题：`WE_KEEP_TMP=1 npm test`（此时连孤儿回收一起关掉，目录路径会打印在首行）；孤儿年龄用 `WE_TMP_RECLAIM_HOURS=6` 调；
 - 手动清理（Windows PowerShell，只删本项目前缀，不动别的临时内容）：
