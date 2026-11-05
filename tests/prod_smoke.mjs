@@ -268,7 +268,7 @@ async function runScenarios() {
       const got = readDialogTexts(dump.out)
       check('P-A 模态框出现且暴露两个按钮', dump.out.includes('DIALOG=found') && got.buttons.length === 2,
         dump.out.split('\n')[0] + ' buttons=' + got.buttons.length)
-      // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测约 1/3；与「对话框还在初始化」无关，
+      // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测 30 次吞 7 次；与「对话框还在初始化」无关，
       // 0ms/400ms 延时都吞），主进程既没落 [close] 也没隐藏窗口（run1 生效、run3 无反应）。
       // 点一次没反应就再点一次，最多三次；对话框已销毁时 driveDialog 报 not_found 即停手，
       // 不会误触第二个动作（这枚 token 在 T04475 之前与驱动输出的 absent 对不上，保险是空的）。
@@ -329,7 +329,7 @@ async function runScenarios() {
       // 「直接关闭应用」按实机 dump 出的文案定位，取两种语言表里的第二个按钮名
       const exitIdx = got.buttons.findIndex(b => b === CLOSE_TEXTS['zh-CN'].buttons[1] || b === CLOSE_TEXTS['en-US'].buttons[1])
       const drv = exitIdx >= 0 ? driveDialog(s.child.pid, { tick: 1, button: exitIdx }) : { out: 'BUTTON=missing' }
-      // 与 P-A 同一个首按被吞（T04475 实测约 1/3，与对话框是否还在初始化无关）：
+      // 与 P-A 同一个首按被吞（T04475 实测约 1/4，与对话框是否还在初始化无关）：
       // 8s 内没退出就补点一次，补点只按按钮、不再勾复选框，免得把已勾上的「记住」又取消掉。
       let waited = exitIdx >= 0 ? await waitExit(s.child, 8000) : { exited: false, ms: 0 }
       let retries = 0

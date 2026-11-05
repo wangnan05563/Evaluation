@@ -155,7 +155,7 @@ if ($Button -ge $btnHwnds.Count) { Write-Output 'BUTTON=missing'; exit 3 }
 $sbB = New-Object System.Text.StringBuilder 512
 $null = [WD]::GetWindowTextW($btnHwnds[$Button], $sbB, 512)
 Write-Output ('BTN_CLICKED=' + (Esc $sbB.ToString()))
-# T04475：BM_CLICK 的返回不代表「决策被接住」——实测首按约 1/3 被 TaskDialog 吞掉，
+# T04475：BM_CLICK 的返回不代表「决策被接住」——实测首按约 1/4 被 TaskDialog 吞掉（空载 30 次吞 7 次），
 # 消息照常投递成功（SendMessageTimeout 返回 TRUE）、对话框却还开着。所以这里以
 # 「对话框窗口是否真的没了」为投递判据，超时发送还能把「目标线程不取消息」和「吞点击」分开。
 $res = [IntPtr]::Zero
