@@ -270,19 +270,22 @@ async function runScenarios() {
         dump.out.split('\n')[0] + ' buttons=' + got.buttons.length)
       // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测 30 次吞 7 次；与「对话框还在初始化」无关，
       // 0ms/400ms 延时都吞），主进程既没落 [close] 也没隐藏窗口（run1 生效、run3 无反应）。
-      // 点一次没反应就再点一次，最多三次；对话框已销毁时 driveDialog 报 not_found 即停手，
-      // 不会误触第二个动作（这枚 token 在 T04475 之前与驱动输出的 absent 对不上，保险是空的）。
+      // 判据与开发态套件 tests/shell_close_smoke.mjs 的 clickDialog() 对齐（T04506）：只看驱动自己
+      // 报出的 DIALOG_AFTER——按完对话框窗口真没了才算接住，还开着才补按（≤3 次），不再拿
+      // 「固定 sleep + 主窗可见性」当重试触发器（那既慢又是间接信号：最小化到托盘后主窗本就隐藏，
+      // 两个信号在这里恰好同向纯属巧合）。driveDialog 自己已经轮询 IsWindow 约 700ms 才报这一行，
+      // 所以这里不需要额外等。
       const first = driveDialog(s.child.pid, { button: 0 })
       let clicked = first
-      await sleep(2000)
-      let after = probeWindow(s.child.pid)
-      for (let i = 0; i < 2 && after.visible === 1; i++) {
-        const again = driveDialog(s.child.pid, { button: 0 })
-        if (again.out.includes('DIALOG=not_found')) break
-        clicked = again
-        await sleep(2000)
-        after = probeWindow(s.child.pid)
+      let retries = 0
+      for (let i = 0; i < 2 && clicked.out.includes('DIALOG_AFTER=yes'); i++) {
+        clicked = driveDialog(s.child.pid, { button: 0 })
+        retries++
+        if (clicked.out.includes('DIALOG=not_found')) break
       }
+      // 决策已接住，给主进程一点时间把窗口收进托盘，再读「窗口在不在屏幕上」这条独立断言。
+      await sleep(2000)
+      const after = probeWindow(s.child.pid)
       const closeLine = lastLine(await until('[close]'), '[close]')
       const lang = (closeLine.match(/lang=(\S+)/) || [])[1] || ''
       const want = CLOSE_TEXTS[lang]
@@ -297,13 +300,14 @@ async function runScenarios() {
           miss.push('按钮文案/顺序不符：' + got.buttons.join('|'))
       }
       check('P-A 弹框标题/正文/复选框/按钮文案与壳侧语言一致', miss.length === 0, miss.join(' / ') || `lang=${lang}`)
+      // 勾选状态只看第一次（补按不再翻勾，但证据要落在真正带勾选动作的那次上）
       check('P-A 未勾选时复选框保持 Off',
-        clicked.out.includes('CHECKBOX_BEFORE=Off') && clicked.out.includes('CHECKBOX_AFTER=Off'), clicked.out)
+        first.out.includes('CHECKBOX_BEFORE=Off') && first.out.includes('CHECKBOX_AFTER=Off'), first.out)
       // 投递判据用 DIALOG_AFTER=no（对话框窗口真没了），不用 INVOKE：SendMessageTimeout
       // 返回 TRUE 只证明消息进了队列，首按被吞掉时它照样是 sent（T04475）。
       check('P-A 真点「最小化到托盘」后窗口隐藏、进程不退出',
         clicked.out.includes('DIALOG_AFTER=no') && s.child.exitCode === null && after.visible === 0,
-        `DIALOG_AFTER=${/DIALOG_AFTER=(\S+)/.exec(clicked.out)?.[1]} ${after.out}`)
+        `首按${retries ? `被吞、补按 ${retries} 次后 DIALOG_AFTER=no` : '即接住（0 次补按）'}；${after.out}`)
       const trayLine = lastLine(await until('[tray]'), '[tray]')
       const iconSrc = (trayLine.match(/icon=(\S+)/) || [])[1] || ''
       check('P-A 托盘图标取自打进包的 we-icon.ico（非通用 exe 图标回退）',
@@ -329,16 +333,20 @@ async function runScenarios() {
       // 「直接关闭应用」按实机 dump 出的文案定位，取两种语言表里的第二个按钮名
       const exitIdx = got.buttons.findIndex(b => b === CLOSE_TEXTS['zh-CN'].buttons[1] || b === CLOSE_TEXTS['en-US'].buttons[1])
       const drv = exitIdx >= 0 ? driveDialog(s.child.pid, { tick: 1, button: exitIdx }) : { out: 'BUTTON=missing' }
-      // 与 P-A 同一个首按被吞（T04475 实测约 1/4，与对话框是否还在初始化无关）：
-      // 8s 内没退出就补点一次，补点只按按钮、不再勾复选框，免得把已勾上的「记住」又取消掉。
-      let waited = exitIdx >= 0 ? await waitExit(s.child, 8000) : { exited: false, ms: 0 }
+      // 与 P-A 同一个首按被吞（T04475 实测约 1/4，与对话框是否还在初始化无关）。T04506 起补点的
+      // 触发条件换成驱动自己报的 DIALOG_AFTER=yes：原先拿「8s 内没退出」当信号，会把一次被吞的按
+      // 误判成「退出链慢」，最坏白等 8s 再补点、再等 45s。补点只按按钮、不再翻勾，
+      // 免得把已勾上的「记住」又取消掉。
+      let last = drv
       let retries = 0
-      while (!waited.exited && exitIdx >= 0 && retries < 2) {
-        const again = driveDialog(s.child.pid, { button: exitIdx })
+      for (let i = 0; i < 2 && exitIdx >= 0 && last.out.includes('DIALOG_AFTER=yes'); i++) {
+        last = driveDialog(s.child.pid, { button: exitIdx })
         retries++
-        if (again.out.includes('DIALOG=not_found')) break
-        waited = await waitExit(s.child, EXIT_WAIT)
+        if (last.out.includes('DIALOG=not_found')) break
       }
+      // 三按都没接住时对话框还开着，等退出必然等到超时——直接带证据判红，不再空等 EXIT_WAIT。
+      const delivered = last.out.includes('DIALOG_AFTER=no') || last.out.includes('DIALOG=not_found')
+      const waited = delivered ? await waitExit(s.child, EXIT_WAIT) : { exited: false, ms: 0 }
       const { exited, ms } = waited
       check('P-A2 模态框两个按钮都在、能按文案定位到「直接关闭应用」',
         dump.out.includes('DIALOG=found') && got.buttons.length === 2 && exitIdx >= 0, got.buttons.join(' | '))
@@ -346,7 +354,8 @@ async function runScenarios() {
         drv.out.includes('CHECKBOX_BEFORE=Off') && drv.out.includes('CHECKBOX_AFTER=On'),
         drv.out.split('\n').slice(-1)[0])
       check('P-A2 真点「直接关闭应用」后进程退出', exited,
-        exited ? `耗时 ${ms}ms${retries ? `（补点 ${retries} 次后）` : ''}` : `${ms}ms 内未退出`)
+        exited ? `耗时 ${ms}ms${retries ? `（补点 ${retries} 次后）` : '（首按即接住）'}`
+          : delivered ? `${ms}ms 内未退出` : `这一按没被接住：${last.out.split('\n').slice(-1)[0]}`)
       let onDisk = null
       try { onDisk = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* 勾选后应落盘 */ }
       check('P-A2 选择落盘为 exit_app + remember_choice=true',
