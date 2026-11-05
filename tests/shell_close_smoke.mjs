@@ -11,12 +11,15 @@
  *  被其它窗口遮住的已显示窗口也记成 hidden（本机实测），拿它判「已隐藏」会假绿、判「仍可见」会假红。
  *  日志类断言（托盘/选表）只认本进程自己那一条：shell.log 全机共享，靠偏移不靠归属会读到别的
  *  进程写的行（T04450：H 项被 A 的 zh-CN 行喂成恒绿，而它自己压根没落行）。
- *  「点了按钮」不等于「主进程收到了」：BM_CLICK 有偶发被对话框吃掉的时候（prod_smoke 实测过
- *  同一脚本 run1 生效、run3 无反应；T04450 这轮的整轮回归里 H 就是这样：found+INVOKE=ok，
- *  但本进程既不落 [close] 也不落托盘行）。本机空载复现不了（6/6 首点 ≤115ms 就落地），
- *  所以按「并发负载下的偶发」处理：点击按到本进程 [close] 行落地为止，最多三次，
- *  并把重按次数写进证据。断言本身不重试——判据始终是本进程自己那一条，三次都没落地就报红。
- *  这条打法用仿真正控制验过：把首按强制成「只 dump 不点」，E/F/G/H 全部在第 2 按救回、34/34 绿。
+ *  「点了按钮」不等于「主进程收到了」：合成 BM_CLICK 的首按实测约 1/3 被 TaskDialog 吞掉——
+ *  消息照常投递成功（SendMessageTimeout 返回 TRUE），主进程既不落 [close] 也不落托盘行
+ *  （T04450 那轮的 H 项就是这个形状）。T04475 在空载本机 15 次里复现 5 次，并否掉了
+ *  「弹框刚创建、消息循环未就绪」这条解释：0ms 与 400ms 延时都会吞，弹框始终 enabled、
+ *  前台归属也不相关；补按 6/6 在 0~50ms 内生效。
+ *  所以判据换成驱动自己能立刻观测的那一条：按完后对话框窗口真没了才算接住，没没就补按，最多三次
+ *  （旧写法是「等 5s 没等到 [close] 行再补按」，一次误判要白等 5s，且停手条件写的 not_found
+ *  与驱动实际输出的 absent 对不上，那道保险从来没生效）。断言本身不重试——判据始终是本进程自己那一条，
+ *  三次都没落地就报红。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -94,10 +97,15 @@ const trayEvidence = pid => {
 }
 // 「没落 [close] 行」有两种成因，证据里都要说清，别只报一种：点击被对话框吞掉 / 决策里抛了异常
 // （后者 main.js 会落 '[close] decision failed:'，那行没有 pid=，不能混进「其它进程的行」计数里）。
+// T04475 起再加一节直接证据：askCloseAction 进/出各落一行 [close-dialog]（main.js），
+// shown 有 resolved 无 = 弹框真弹出来了、决策链停在 await（即这一按压根没被接住）。
+const dlgLineOf = (text, pid, tag) =>
+  text.split(/\r?\n/).filter(l => l.startsWith('[close-dialog] ' + tag) && l.endsWith(` pid=${pid}`)).slice(-1)[0] || ''
 const closeEvidence = pid => {
   const t = tail()
   const failed = t.split(/\r?\n/).filter(l => l.startsWith('[close] decision failed')).slice(-1)[0] || ''
   return `本进程 pid=${pid} 没落 [close] 行；` +
+    `弹框进出行 shown=${dlgLineOf(t, pid, 'shown') ? 1 : 0} resolved=${dlgLineOf(t, pid, 'resolved') ? 1 : 0}；` +
     (failed ? `本段有失败行 ${failed.slice(0, 140)}；` :
       `本段没有 decision failed 行（即主进程还停在等这次决策，点击没被接住），其它进程的 [close] 行 ${lineCount(t, '[close] action', pid)} 条；`) +
     `进程存活=${processAlive(pid)}`
@@ -111,22 +119,25 @@ async function waitCloseLine(pid, tries = TRAY_TRIES) {
   }
   return ''
 }
-/** 点原生弹框的按钮，按到本进程真落了 [close] 行为止，最多三次。
- *  重试的是「驱动动作」，不是把红用例赌第二次：判据始终是「本进程自己那一条」。
+/** 点原生弹框的按钮。T04475 实测：合成 BM_CLICK 首按约 1/3 被 TaskDialog 吞掉——消息投递成功
+ *  （SendMessageTimeout 返回 TRUE）但决策没跑，而且与「点击距弹框创建的间隔」无关（0ms 和 400ms
+ *  都会吞），所以不能靠「等一等再按」防它。判据换成驱动自己能立刻观测的那一条：
+ *  对话框窗口真没了 = 这一按被接住；还开着就补按（实测补按 6/6 在 0~50ms 内生效）。
+ *  重试的是「驱动动作」，不是把红用例赌第二次：最终判据仍是本进程自己那条 [close] 行。
  *  弹框已销毁时报 not_found 即停手，不会误触第二个动作（与 tests/prod_smoke.mjs P-A 同一打法）。
  *  重按时只补 button 不再补 tick：勾选是同一个对话框实例上的状态，再 tick 一次会被翻回 Off。 */
 async function clickDialog(pid, { tick, button, dump = 0 }) {
   const first = driveDialog(pid, { tick, button, dump })
-  let landed = await waitCloseLine(pid)
+  let last = first
   let retries = 0
-  for (let i = 0; i < 2 && !landed; i++) {
-    const again = driveDialog(pid, { button })
-    if (again.out.includes('DIALOG=not_found')) break
+  for (let i = 0; i < 2 && last.out.includes('DIALOG_AFTER=yes'); i++) {
+    last = driveDialog(pid, { button })
     retries++
-    landed = await waitCloseLine(pid)
+    if (last.out.includes('DIALOG=not_found')) break
   }
+  const landed = await waitCloseLine(pid)
   // 文案/勾选只看第一次（带 dump+tick）的输出；重按只补按钮，不再翻勾
-  return { drv: first, landed, retries }
+  return { drv: first, landed, retries, last }
 }
 const landedNote = ({ landed, retries }) => landed + (retries ? `（重按 ${retries} 次才生效）` : '')
 
@@ -179,12 +190,21 @@ const landedNote = ({ landed, retries }) => landed + (retries ? `（重按 ${ret
   if (!s.ok) {
     check('C 首次运行场景可启动', false, s.detail)
   } else {
+    resetLogBase()
     requestClose(s.child.pid)
     await sleep(2500)
     check('C 未记住选择时进程保持运行（等待用户决策）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
     const vis = probeWindow(s.child.pid)
     check('C 窗口仍可见（模态框未替用户做选择）', vis.visible === 1, vis.out)
     check('C 未做选择时不落盘配置', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
+    // T04475 的可观测出口：shown 有、resolved 无 = 「弹框真弹出来了，但没人点/点击没被接住」。
+    // 这条是 closeEvidence 里那句推断的正面依据，缺了它只能靠「没落 [close]」反推。
+    const t = tail()
+    const shown = dlgLineOf(t, s.child.pid, 'shown')
+    check('C 弹框进入落了 [close-dialog] shown（含 parent 与 lang）',
+      !!shown && /parent=(win|none)/.test(shown) && /lang=\S+/.test(shown), shown || closeEvidence(s.child.pid))
+    check('C 未决策时不落 resolved 行（「点了没回调」与「没人点」可区分）',
+      !dlgLineOf(t, s.child.pid, 'resolved'), dlgLineOf(t, s.child.pid, 'resolved'))
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
     removeTmp(s.base)
@@ -260,6 +280,11 @@ const landedNote = ({ landed, retries }) => landed + (retries ? `（重按 ${ret
     const vis = probeWindow(s.child.pid)
     check('F 窗口已隐藏', vis.visible === 0, vis.out)
     check('F 未勾选「记住」则不落盘（下次仍弹窗）', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
+    // 出口行：response 是原生对话框返回给主进程的那个数（0=最小化）。shown 有 resolved 无
+    // 就是 T04475 描述的「点了没回调」，有这行才不用再靠「没落 [close]」反推。
+    const resolved = dlgLineOf(tail(), s.child.pid, 'resolved')
+    check('F 弹框退出落了 [close-dialog] resolved response=0（决策真回到主进程）',
+      /response=0\b/.test(resolved), resolved || closeEvidence(s.child.pid))
     killTree(s.child.pid)
     try { s.ws.close() } catch { /* noop */ }
     removeTmp(s.base)

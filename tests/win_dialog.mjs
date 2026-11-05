@@ -62,7 +62,10 @@ public class WD {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
-  [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L; public int T; public int R; public int B; }
+  [DllImport("user32.dll", SetLastError = true)] public static extern bool SendMessageTimeoutW(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint ms, out IntPtr res);
 }
 "@
 # 文案以 \uXXXX 转义输出：PowerShell 控制台是 GBK，直接打印中文会被活动代码页毁字节，
@@ -93,15 +96,29 @@ while ([datetime]::Now -lt $deadline) {
   if ($null -ne $dlg) { break }
   Start-Sleep -Milliseconds 300
 }
-if ($null -eq $dlg) { Write-Output 'DIALOG=absent'; exit 2 }
+# 停手信号必须与调用方一致：shell_close_smoke/prod_smoke 的重试循环按 'DIALOG=not_found'
+# 判断「弹框已销毁、别再补按」。写 absent 时那个判断从来没生效过（T04475 实测）。
+if ($null -eq $dlg) { Write-Output 'DIALOG=not_found'; exit 2 }
 $dlgHwnd = [IntPtr]$dlg.Current.NativeWindowHandle
-$btnHwnds = New-Object 'System.Collections.Generic.List[System.IntPtr]'
+# 按钮按「屏幕位置从左到右」编号，不按 EnumChildWindows 的返回顺序：那个顺序是 z-order，
+# 补按一次就可能翻转（T04475 实测：E 第一次按被吞、补按按同一序号点到了另一个按钮，
+# 落盘的 close_action 从 exit_app 变成 minimize_to_tray）。位置序与文案表 CLOSE_TEXTS 的
+# 左右顺序一致，才敢拿它当稳定的按钮句柄。
+$btnRaw = New-Object 'System.Collections.Generic.List[System.IntPtr]'
 $kcb = [WD+EnumProc] { param($h, $l)
   $sb = New-Object System.Text.StringBuilder 256
   $null = [WD]::GetClassNameW($h, $sb, 256)
-  if ($sb.ToString() -eq 'Button' -and [WD]::IsWindowVisible($h)) { $null = $script:btnHwnds.Add($h) }
+  if ($sb.ToString() -eq 'Button' -and [WD]::IsWindowVisible($h)) { $null = $script:btnRaw.Add($h) }
   return $true }
 $null = [WD]::EnumChildWindows($dlgHwnd, $kcb, [IntPtr]::Zero)
+$btnPairs = @()
+foreach ($h in $btnRaw) {
+  $r = New-Object WD+RECT
+  $null = [WD]::GetWindowRect($h, [ref]$r)
+  $btnPairs += , @{ H = $h; X = [int]$r.L; T = [int]$r.T }
+}
+$btnHwnds = New-Object 'System.Collections.Generic.List[System.IntPtr]'
+foreach ($b in ($btnPairs | Sort-Object -Property @{E={ $_.T }; A=$true}, @{E={ $_.X }; A=$true})) { $btnHwnds.Add($b.H) }
 Write-Output ('DIALOG=found HWND=' + ($dlgHwnd -ne [IntPtr]::Zero) + ' BUTTONS=' + $btnHwnds.Count)
 $chk = $dlg.FindFirst($TS::Descendants, (New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::CheckBox)))
 if ($null -eq $chk) { Write-Output 'CHECKBOX=absent'; exit 4 }
@@ -134,8 +151,22 @@ if ($Dump -eq 1) {
 # Button=-1 表示只取证不点击（先 dump 再按文案选按钮，避免硬编码按钮序号）
 if ($Button -lt 0) { Write-Output 'INVOKE=skip'; exit 0 }
 if ($Button -ge $btnHwnds.Count) { Write-Output 'BUTTON=missing'; exit 3 }
-$null = [WD]::SendMessageW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
-Write-Output 'INVOKE=ok'
+# 把「这一按按在哪个按钮上」写进证据：序号在不同调用之间是否同义，只有文案能自证。
+$sbB = New-Object System.Text.StringBuilder 512
+$null = [WD]::GetWindowTextW($btnHwnds[$Button], $sbB, 512)
+Write-Output ('BTN_CLICKED=' + (Esc $sbB.ToString()))
+# T04475：BM_CLICK 的返回不代表「决策被接住」——实测首按约 1/3 被 TaskDialog 吞掉，
+# 消息照常投递成功（SendMessageTimeout 返回 TRUE）、对话框却还开着。所以这里以
+# 「对话框窗口是否真的没了」为投递判据，超时发送还能把「目标线程不取消息」和「吞点击」分开。
+$res = [IntPtr]::Zero
+$sent = [WD]::SendMessageTimeoutW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 0x0002, 15000, [ref]$res)
+$err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+$stillOpen = 'yes'
+for ($q = 0; $q -lt 14; $q++) {
+  Start-Sleep -Milliseconds 50
+  if (-not [WD]::IsWindow($dlgHwnd)) { $stillOpen = 'no'; break }
+}
+Write-Output ('INVOKE=' + $(if ($sent) { 'sent' } else { 'timeout err=' + $err }) + ' DIALOG_AFTER=' + $stillOpen)
 `
 
 let uiaScript = null

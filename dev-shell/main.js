@@ -366,7 +366,11 @@ async function askCloseAction(win) {
     noLink: true
   }
   const parent = win && !win.isDestroyed() && win.isVisible() ? win : null
+  // shown/resolved 两行是「弹框弹出来了但没人点」与「点了但主进程没收到决策」的唯一区分依据：
+  // 只有 shown 没有 resolved = 决策链停在 await 里（T04475：合成点击被 TaskDialog 吞掉时就是这个形状）。
+  rotateAppend(SHELL_LOG, `[close-dialog] shown parent=${parent ? 'win' : 'none'} lang=${shellI18n().lang} pid=${process.pid}\n`)
   const { response, checkboxChecked } = parent ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts)
+  rotateAppend(SHELL_LOG, `[close-dialog] resolved response=${response} checkbox=${checkboxChecked} pid=${process.pid}\n`)
   const action = response === 1 ? CLOSE_ACTIONS.EXIT : CLOSE_ACTIONS.MINIMIZE
   if (checkboxChecked) {
     try {

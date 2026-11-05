@@ -268,9 +268,10 @@ async function runScenarios() {
       const got = readDialogTexts(dump.out)
       check('P-A 模态框出现且暴露两个按钮', dump.out.includes('DIALOG=found') && got.buttons.length === 2,
         dump.out.split('\n')[0] + ' buttons=' + got.buttons.length)
-      // 同一条驱动脚本两次跑到结果不同：BM_CLICK 偶尔被仍在初始化的对话框吞掉，主进程既没落
-      // [close] 也没隐藏窗口（run1 生效、run3 无反应）。点一次没反应就再点一次，最多三次；
-      // 对话框已销毁时 driveDialog 报 not_found 即停手，不会误触第二个动作。
+      // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测约 1/3；与「对话框还在初始化」无关，
+      // 0ms/400ms 延时都吞），主进程既没落 [close] 也没隐藏窗口（run1 生效、run3 无反应）。
+      // 点一次没反应就再点一次，最多三次；对话框已销毁时 driveDialog 报 not_found 即停手，
+      // 不会误触第二个动作（这枚 token 在 T04475 之前与驱动输出的 absent 对不上，保险是空的）。
       const first = driveDialog(s.child.pid, { button: 0 })
       let clicked = first
       await sleep(2000)
@@ -298,9 +299,11 @@ async function runScenarios() {
       check('P-A 弹框标题/正文/复选框/按钮文案与壳侧语言一致', miss.length === 0, miss.join(' / ') || `lang=${lang}`)
       check('P-A 未勾选时复选框保持 Off',
         clicked.out.includes('CHECKBOX_BEFORE=Off') && clicked.out.includes('CHECKBOX_AFTER=Off'), clicked.out)
+      // 投递判据用 DIALOG_AFTER=no（对话框窗口真没了），不用 INVOKE：SendMessageTimeout
+      // 返回 TRUE 只证明消息进了队列，首按被吞掉时它照样是 sent（T04475）。
       check('P-A 真点「最小化到托盘」后窗口隐藏、进程不退出',
-        clicked.out.includes('INVOKE=ok') && s.child.exitCode === null && after.visible === 0,
-        `INVOKE=${clicked.out.includes('INVOKE=ok')} ${after.out}`)
+        clicked.out.includes('DIALOG_AFTER=no') && s.child.exitCode === null && after.visible === 0,
+        `DIALOG_AFTER=${/DIALOG_AFTER=(\S+)/.exec(clicked.out)?.[1]} ${after.out}`)
       const trayLine = lastLine(await until('[tray]'), '[tray]')
       const iconSrc = (trayLine.match(/icon=(\S+)/) || [])[1] || ''
       check('P-A 托盘图标取自打进包的 we-icon.ico（非通用 exe 图标回退）',
@@ -326,8 +329,8 @@ async function runScenarios() {
       // 「直接关闭应用」按实机 dump 出的文案定位，取两种语言表里的第二个按钮名
       const exitIdx = got.buttons.findIndex(b => b === CLOSE_TEXTS['zh-CN'].buttons[1] || b === CLOSE_TEXTS['en-US'].buttons[1])
       const drv = exitIdx >= 0 ? driveDialog(s.child.pid, { tick: 1, button: exitIdx }) : { out: 'BUTTON=missing' }
-      // 与 P-A 同一个竞态（点击被还在初始化的对话框吞掉）：8s 内没退出就补点一次，
-      // 补点只按按钮、不再勾复选框，免得把已勾上的「记住」又取消掉。
+      // 与 P-A 同一个首按被吞（T04475 实测约 1/3，与对话框是否还在初始化无关）：
+      // 8s 内没退出就补点一次，补点只按按钮、不再勾复选框，免得把已勾上的「记住」又取消掉。
       let waited = exitIdx >= 0 ? await waitExit(s.child, 8000) : { exited: false, ms: 0 }
       let retries = 0
       while (!waited.exited && exitIdx >= 0 && retries < 2) {
