@@ -24,7 +24,7 @@
     "win_unpacked": "release\\win-unpacked"
   },
   "publish": {
-    "repo": "wangnan05563/evaluation",
+    "repo": "wangnan05563/Evaluation",
     "setup_glob": "release\\WorkloadEstimate-*-setup.exe",
     "artifact_name_template": "WorkloadEstimate-${version}-setup.exe",
     "notes_glob": "release-notes-${version}.md",
