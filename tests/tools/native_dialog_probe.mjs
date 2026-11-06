@@ -131,6 +131,13 @@ async function runMode(mode, port) {
       stats.noDialog++
       say(`  第 ${r} 轮：驱动没找到对话框（${click.notFound ? 'not_found' : '超时'}）；本进程 shown=${shownNew} —— 不计入吞按率`)
       if (shownNew > 0) stats.shown += shownNew
+      // 补一次「清场」：not_found 也可能是模态框还挂着、只是这一轮驱动没找着它。
+      // 挂着不清会导致之后每一轮的 WM_CLOSE 都被模态吞掉（实测通道 2 第 2~5 轮全废），
+      // 所以这里按投递判据再试两次把可能存在的弹框收掉，收掉的动作不计入任何通道结论。
+      for (let k = 0; k < 2; k++) {
+        const clr = parseOut(driveDialog(pid, { button: TRAY_BUTTON, mode: 0 }).out)
+        if (clr.delivered || clr.notFound) break
+      }
       await waitWindowHidden(pid, 8)
       continue
     }
