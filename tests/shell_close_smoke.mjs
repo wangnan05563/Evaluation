@@ -21,6 +21,16 @@
  *  （旧写法是「等 5s 没等到 [close] 行再补按」，一次误判要白等 5s，且停手条件写的 not_found
  *  与驱动实际输出的 absent 对不上，那道保险从来没生效）。断言本身不重试——判据始终是本进程自己那一条，
  *  三次都没落地就报红。
+ *  T04505 量完三条对照通道后的口径（本套件的打法不变，仍走驱动 -Mode 0 = BM_CLICK）：
+ *  · UIA InvokePattern / LegacyIAccessible 这两条**压根发不出点击**，不是「发出去被吞」：TaskDialog 的按钮
+ *    在 UIA 里是 ControlType.Pane（子树 6 元素、Button 0 个、带 pattern 0 个，按文案命中那个 Pane 也没 pattern），
+ *    本机 UIA COM 客户端 ProgID 又未注册（0x80040154），managed 客户端压根没有 LegacyIAccessiblePattern 类型。
+ *    所以「换 UIA 通道就能把吞按打到 0」这个假设从未成立过，别照它改驱动。
+ *  · 「抢前台+给焦点再 BM_CLICK」当天 0/15 吞按，但接住耗时中位 298ms/max 525ms，比 BM_CLICK 的 159~184ms
+ *    慢一倍、逼近本套件 700ms 判据窗口，且必须先自证真抢到（裸 SetForegroundWindow 会被前台锁挡掉，
+ *    抢不到时它就等于通道 0，数字全是假的）——不作为替代打法。
+ *  · 吞按率随负载波动很大：T04475 是 7/30，T04505 当天三批 30 轮只有 1/30。某一天的 0/N 不等于问题消失，
+ *    「按投递结果补按」这条兜底保留。逐轮数字与探针用法见 docs/设计-数据与运维.md 关键决策第 7 条。
  */
 import fs from 'node:fs'
 import path from 'node:path'
