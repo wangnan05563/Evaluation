@@ -78,6 +78,152 @@ public class WD {
   [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool alt);
   [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, IntPtr extra);
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+  [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
+}
+"@
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+// T04539 通道 4：不经 UIA 的原生 MSAA。UIA 那两条（通道 1/2）在本机问不出 pattern，
+// 所以「默认动作到底能不能发出去」这个问题一直没被真正量过——oleacc 才是 TaskDialog 按钮
+// 背后那一层（系统控件的 IAccessible 由 oleacc 代理提供），走它才能把「客户端问不出来」
+// 与「控件不支持」分开。
+// 两个必须写死的坑（都是本机实测撞出来的）：
+//  · IAccessible 是 IDispatch 派生的 dual 接口，vtable = IUnknown 3 + IDispatch 4 + 自身 20。
+//    声明成 InterfaceIsIUnknown 会少算 IDispatch 那 4 个槽，第一次 get_accName 直接打进
+//    GetTypeInfoCount → System.AccessViolationException，整个 PS 进程当场崩。
+//  · 走查逻辑必须写在 C# 里，不能写在 PowerShell 里：PowerShell 拿到 RCW 后按 __ComObject
+//    做晚期绑定，typed interface 的方法名根本绑不上，每条调用都抛
+//    「System.__ComObject 不包含名为 get_accName 的方法」。若外面裹了 try/catch，
+//    这就会被读成「CHILDCOUNT=0、代理没给子表」——假结论就是这么来的。
+[ComImport]
+[Guid("618736e0-3c3d-11cf-810c-00aa00389b71")]
+[InterfaceType(ComInterfaceType.InterfaceIsDual)]
+public interface MSAA_IAccessible {
+  [PreserveSig] int get_accParent([MarshalAs(UnmanagedType.Interface)] out MSAA_IAccessible ppaccParent);
+  [PreserveSig] int get_accChildCount([MarshalAs(UnmanagedType.Struct)] out object pvarChildCount);
+  [PreserveSig] int get_accChild([In] object varChildId, [MarshalAs(UnmanagedType.Interface)] out MSAA_IAccessible ppaccChild);
+  [PreserveSig] int get_accName([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszName);
+  [PreserveSig] int get_accValue([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszValue);
+  [PreserveSig] int get_accDescription([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszDescription);
+  [PreserveSig] int get_accRole([In] object varChildId, [MarshalAs(UnmanagedType.Struct)] out object pvarRole);
+  [PreserveSig] int get_accState([In] object varChildId, [MarshalAs(UnmanagedType.Struct)] out object pvarState);
+  [PreserveSig] int get_accHelp([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszHelp);
+  [PreserveSig] int get_accHelpTopic([MarshalAs(UnmanagedType.BStr)] out string pszHelpFile, [In] object varChildId, [Out] out int pidHelpTopic);
+  [PreserveSig] int get_accKeyboardShortcut([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszKeyboardShortcut);
+  [PreserveSig] int get_accFocus([MarshalAs(UnmanagedType.Struct)] out object pvarChild);
+  [PreserveSig] int get_accSelection([MarshalAs(UnmanagedType.Struct)] out object pvarChildren);
+  [PreserveSig] int get_accDefaultAction([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] out string pszDefaultAction);
+  [PreserveSig] int accSelect(int flagsSelect, [In] object varChildId);
+  [PreserveSig] int accLocation(out int pxLeft, out int pyTop, out int pcxWidth, out int pcyHeight, [In] object varChildId);
+  [PreserveSig] int accNavigate(int navDir, [In] object varChildStart, [MarshalAs(UnmanagedType.Struct)] out object pvarChild);
+  [PreserveSig] int accHitTest(int xLeft, int yTop, [MarshalAs(UnmanagedType.Struct)] out object pvarChild);
+  [PreserveSig] int accDoDefaultAction([In] object varChildId);
+  [PreserveSig] int put_accValue([In] object varChildId, [MarshalAs(UnmanagedType.BStr)] string pszNewValue);
+}
+public static class MSAAW {
+  // ROLE_SYSTEM_PUSHBUTTON = 0x2B = 43。不是 22——22 是 ROLE_SYSTEM_ANIMATION，
+  // 早先按 22 匹配过，永远匹配不上，那时误当成「代理不给子对象」。
+  public const int PB = 43;
+  [DllImport("oleacc.dll")] public static extern int AccessibleObjectFromWindow(IntPtr hwnd, int dwId, ref Guid riid, out IntPtr ppvObject);
+  struct PT { public int X; public int Y; }
+  [DllImport("user32.dll")] static extern bool GetCursorPos(out PT p);
+  static string Hex(int hr) { return "0x" + hr.ToString("x8"); }
+  static int RoleOf(object r) { try { return Convert.ToInt32(r); } catch { return -1; } }
+  // 与 PS 侧 Esc 同一口径：非 ASCII、反斜杠、双引号转 \uXXXX，Node 侧 JSON.parse 还原。
+  static string Esc(string s) {
+    if (s == null) return "";
+    StringBuilder o = new StringBuilder();
+    foreach (char c in s) {
+      if (c >= 32 && c < 127 && c != '\\' && c != '"') o.Append(c);
+      else o.Append("\\u").Append(((int) c).ToString("x4"));
+    }
+    return o.ToString();
+  }
+
+  // doAct=1 且命中「role=43 且 accName 与目标文案逐字相等」的子对象时，真的把默认动作发出去。
+  // 命中判据只认文案，不认序号（T04475 z-order 教训）。返回一行取证串，RESULT 是唯一口径：
+  //   sent=调用带 0 的 HRESULT 回来；not_issued=命中了但这一路只取证不点；其余
+  //   （accessible_object_failed / no_children / name_unmatched / hr=0x…）都是「压根没发到控件」，
+  //   必须与「发出去但被对话框吞掉」分开计。
+  public static string Run(IntPtr hwnd, int objid, string wantName, int doAct) {
+    StringBuilder sb = new StringBuilder();
+    sb.Append("OBJID=" + objid + " ");
+    Guid iid = new Guid("618736e0-3c3d-11cf-810c-00aa00389b71");
+    IntPtr ptr;
+    int hrGet = AccessibleObjectFromWindow(hwnd, objid, ref iid, out ptr);
+    sb.Append("GET_HR=" + Hex(hrGet) + " ");
+    if (hrGet != 0 || ptr == IntPtr.Zero) return sb.ToString() + "RESULT=accessible_object_failed";
+    MSAA_IAccessible acc = null;
+    try { acc = Marshal.GetTypedObjectForIUnknown(ptr, typeof(MSAA_IAccessible)) as MSAA_IAccessible; }
+    catch (Exception e) { return sb.ToString() + "WRAP_THREW=" + Esc(e.GetType().Name + ":" + e.Message) + " RESULT=wrap_failed"; }
+    if (acc == null) return sb.ToString() + "RESULT=wrap_null";
+
+    string selfName = null; object selfRole = null; object cc = null;
+    int hrN = acc.get_accName(0, out selfName);
+    int hrR = acc.get_accRole(0, out selfRole);
+    int hrC = acc.get_accChildCount(out cc);
+    int n = 0; try { n = Convert.ToInt32(cc); } catch { }
+    sb.Append("SELF_NAME_HR=" + Hex(hrN) + " SELF_NAME=" + Esc(selfName) +
+      " SELF_ROLE_HR=" + Hex(hrR) + " SELF_ROLE=" + RoleOf(selfRole) +
+      " CC_HR=" + Hex(hrC) + " CC=" + n + " ");
+    if (n <= 0) {
+      // 对话框的 client 对象实测报 0 个子对象（CC_HR=0 且自身 name/role 都对，不是调用失败）。
+      // 这时唯一还能问到的形状是「对象自己」——按钮 HWND 的 IAccessible 正是这种。
+      string sda = null; int hrSDA = -1;
+      try { hrSDA = acc.get_accDefaultAction(0, out sda); }
+      catch (Exception e) { hrSDA = -2; sda = e.GetType().Name; }
+      object sst = null; try { acc.get_accState(0, out sst); } catch { }
+      sb.Append("SELF_DA_HR=" + Hex(hrSDA) + " SELF_DA=" + Esc(sda) + " SELF_STATE=" + sst + " ");
+      if (RoleOf(selfRole) != PB || selfName != wantName) return sb.ToString() + "RESULT=no_children";
+      return Issue(acc, 0, doAct, sb, PB);
+    }
+
+    MSAA_IAccessible hitObj = null; object hitId = null; int btnCnt = 0, nameCnt = 0;
+    int lim = n > 48 ? 48 : n;
+    for (int i = 1; i <= lim; i++) {
+      MSAA_IAccessible child = null; int hrChild = -99;
+      try { hrChild = acc.get_accChild(i, out child); } catch { child = null; }
+      MSAA_IAccessible q = (child != null) ? child : acc;
+      object cid = (child != null) ? (object) 0 : (object) i;
+      string cn = null; object cr = null; string cda = null;
+      try { q.get_accName(cid, out cn); } catch { }
+      try { q.get_accRole(cid, out cr); } catch { }
+      try { q.get_accDefaultAction(cid, out cda); } catch { }
+      int roleI = RoleOf(cr);
+      sb.Append("KID[" + i + "]" + (child != null ? "/obj" : ("/id" + i)) +
+        " chdHr=" + Hex(hrChild) + " role=" + roleI + " name=" + Esc(cn) + " da=" + Esc(cda) + ";");
+      if (roleI == PB) btnCnt++;
+      if (cn == wantName) nameCnt++;
+      if (hitObj == null && roleI == PB && cn == wantName) { hitObj = q; hitId = cid; }
+    }
+    sb.Append("PUSHBUTTONS=" + btnCnt + " NAMEMATCH=" + nameCnt + " ");
+    if (hitObj == null) return sb.ToString() + "RESULT=name_unmatched";
+    return Issue(hitObj, hitId, doAct, sb, PB);
+  }
+
+  static string Issue(MSAA_IAccessible hit, object hitId, int doAct, StringBuilder sb, int role) {
+    sb.Append("TARGET=" + (Convert.ToInt32(hitId) == 0 ? "self" : "child_id") +
+      " ROLE=" + role + " CHILDID=" + hitId + " ");
+    string da = null; object st0 = null;
+    try { hit.get_accDefaultAction(hitId, out da); } catch { }
+    try { hit.get_accState(hitId, out st0); } catch { }
+    sb.Append("DEFAULT_ACTION=" + Esc(da) + " STATE_BEFORE=" + st0 + " ");
+    if (doAct != 1) return sb.ToString() + "RESULT=not_issued";
+    // CURSOR_DELTA：oleacc 若靠合成鼠标输入实现「默认动作」，指针必然被搬动。为 0 才说明
+    // 它走的是消息/直接调用，不是把屏幕坐标点了一遍——这条决定了它算不算 BM_CLICK 的换皮。
+    PT p0, p1; GetCursorPos(out p0);
+    int hrCall = -1;
+    try { hrCall = hit.accDoDefaultAction(hitId); }
+    catch (Exception e) { sb.Append("CALL_THREW=" + Esc(e.GetType().Name + ":" + e.Message) + " "); }
+    GetCursorPos(out p1);
+    object st1 = null; try { hit.get_accState(hitId, out st1); } catch { }
+    sb.Append("CALL_HR=" + Hex(hrCall) + " CURSOR_DELTA=" + Math.Abs(p1.X - p0.X) + "," +
+      Math.Abs(p1.Y - p0.Y) + " STATE_AFTER=" + st1 + " ");
+    return sb.ToString() + "RESULT=" + (hrCall == 0 ? "sent" : ("hr=" + Hex(hrCall)));
+  }
 }
 "@
 # 文案以 \uXXXX 转义输出：PowerShell 控制台是 GBK，直接打印中文会被活动代码页毁字节，
@@ -236,6 +382,7 @@ $patUsed = $null
 if ($Mode -eq 1) { $channel = 'uia_invoke' }
 if ($Mode -eq 2) { $channel = 'legacy_iaccessible' }
 if ($Mode -eq 3) { $channel = 'foreground_focus' }
+if ($Mode -eq 4) { $channel = 'msaa_default_action' }
 if ($Mode -eq 1 -or $Mode -eq 2) {
   $patId = 10000
   if ($Mode -eq 2) { $patId = 10015 }
@@ -346,6 +493,41 @@ if ($Mode -eq 3) {
     ' ATTACH=' + $joined + ' FOCUS=' + $foc + ' IS_FOREGROUND=' + $isFore +
     ' FORE_BEFORE=0x' + ('{0:x}' -f ([long]$foreBefore)) + ' FORE_AFTER=0x' + ('{0:x}' -f ([long][WD]::GetForegroundWindow())))
 }
+if ($Mode -eq 4) {
+  # 通道 4（T04539）：不经 UIA，直接问 oleacc 的 IAccessible 要「默认动作」。
+  # 三条自证缺一不可，否则又会写出「返回值对上了但控件没动」这种假结论：
+  #   · 先只读取证对话框自己的对象（name/role/childCount 逐个带 HRESULT），再问按钮；
+  #   · 命中判据是 role=43(ROLE_SYSTEM_PUSHBUTTON) 且 accName 与目标文案逐字相等——按文案取，绝不按序号；
+  #   · accDoDefaultAction 的 PreserveSig HRESULT 与 CURSOR_DELTA，前者=0 才叫「真的送到了控件」，
+  #     后者=0 才排除「代理其实是合成鼠标输入」。返回值本身仍不当投递判据。
+  # 投递判据与通道 0 同一条：按完后 IsWindow(对话框句柄) 变 false，外加探针的 GRACE 宽限窗。
+  # 两条问法按顺序试，实测本机走的是第二条：
+  #   ① 对话框 OBJID_CLIENT 的子对象表——TaskDialog 在这里报 CC=0（一个子对象都不给），
+  #      并且 get_accDefaultAction 直接 E_NOTIMPL，这条路压根问不到按钮；
+  #   ② 按钮 HWND 自己的 OBJID_CLIENT——name/role(43)/默认动作「推」都在，
+  #      accDoDefaultAction(CHILDID_SELF) 能发出去。
+  # 一发只点一次：MSAA_ISSUE/MSAA_BUTTON 里只有一条会带 doAct=1。
+  $wantName = $sbB.ToString()
+  $repDlg = [MSAAW]::Run($dlgHwnd, -4, $wantName, 0)
+  Write-Output ('MSAA_DIALOG=' + $repDlg)
+  $path = 'dialog_children'
+  if ($repDlg -match 'RESULT=not_issued') {
+    # 子对象表里就命中了：在同一次问法里把默认动作发出去（第二次调用只走命中那一条）
+    $rep = [MSAAW]::Run($dlgHwnd, -4, $wantName, 1)
+    Write-Output ('MSAA_ISSUE=' + $rep)
+  } else {
+    # 对话框这层没命中按钮，换「按钮自己的对象」这条问法
+    $path = 'button_hwnd'
+    $rep = [MSAAW]::Run($btnHwnds[$Button], -4, $wantName, 1)
+    Write-Output ('MSAA_BUTTON=' + $rep)
+  }
+  Write-Output ('MSAA_PATH=' + $path)
+  $resTok = ([regex]::Match($rep, 'RESULT=(\S+)')).Groups[1].Value
+  # sent 只表示「调用带着 0 的 HRESULT 回来了、且命中对象是按文案挑出来的」；
+  # 这一按有没有真的变成关闭决策，仍由下面的 IsWindow 判。
+  $sent = ($resTok -eq 'sent')
+  if (-not $sent -and -not $why) { $why = $(if ($resTok) { $resTok } else { 'msaa_no_report' }) }
+}
 $t0 = [datetime]::Now
 if ($Mode -eq 0 -or $Mode -eq 3) {
   $sent = [WD]::SendMessageTimeoutW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 0x0002, 15000, [ref]$res)
@@ -380,9 +562,11 @@ Write-Output ('CHANNEL=' + $channel + ' INVOKE=' + $(if ($sent) { 'sent' } elsei
 
 let uiaScript = null
 /** 驱动一次原生弹框。mode：0=BM_CLICK（默认，S17/装包烟测沿用）、1=UIA InvokePattern.Invoke、
- *  2=UIA LegacyIAccessible.DoDefaultAction、3=先抢前台+给焦点再 BM_CLICK。1/2/3 是 T04505 为
- *  「首按被吞」加的对照通道（只由 tests/tools/native_dialog_probe.mjs 用，回归仍走 0）；
- *  四条通道的投递判据同一条：IsWindow(对话框句柄) 变 false。 */
+ *  2=UIA LegacyIAccessible.DoDefaultAction、3=先抢前台+给焦点再 BM_CLICK、
+ *  4=原生 MSAA oleacc IAccessible.accDoDefaultAction（T04539，不经任何 UIA 客户端）。
+ *  1/2/3 是 T04505 为「首按被吞」加的对照通道，4 是 T04539 补的那条「问都问不到」的路；
+ *  四条对照通道都只由 tests/tools/native_dialog_probe.mjs 用，回归仍走 0。
+ *  投递判据全部同一条：IsWindow(对话框句柄) 变 false。 */
 export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, waitMs = 20000, graceMs = 0 } = {}) {
   if (!uiaScript) {
     // BOM：Windows PowerShell 5.1 无 BOM 时脚本内容解析不稳

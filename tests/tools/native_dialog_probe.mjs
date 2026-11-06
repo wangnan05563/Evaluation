@@ -9,11 +9,13 @@
  *    node tests/tools/native_dialog_probe.mjs --modes 0 --rounds 15 --out logs/t04505/probe.log
  *    可选：--graceMs 2000（第二条判据的宽限窗）、--noClickStop 999（发不出点击多少轮收轮）、
  *          --relaunch 3（连续多少轮不弹新框就换实例）、--noClear 1（不清场，只为验证换实例那条链）、--port
- *  四种通道（tests/win_dialog.mjs 的 -Mode）：
+ *  五种通道（tests/win_dialog.mjs 的 -Mode）：
  *    0 = BM_CLICK（SendMessageTimeoutW，现行驱动打法）
  *    1 = UIA InvokePattern.Invoke()（COM CUIAutomation8）
  *    2 = UIA LegacyIAccessible.DoDefaultAction()（同上，pattern id 10015）
- *    3 = 先 SetForegroundWindow+SetFocus 再 BM_CLICK（T04475 只有 8 次样本的那条参照）
+ *    3 = 先 SetForegroundWindow+SetFocus 再 BM_CLICK（T04475 留下的参照）
+ *    4 = 原生 MSAA oleacc IAccessible.accDoDefaultAction()（T04539，不经任何 UIA 客户端）
+ *  默认只跑 0,1,2,3；通道 4 要显式 --modes 4（它一次 oleacc 调用都不碰 UIA，跑法与其他四条同）。
  *
  *  判据口径与 T04475 一致，不看任何返回值，只看两件事：
  *    · 驱动侧：按完后 IsWindow(对话框句柄) 是否变 false（驱动输出的 DIALOG_AFTER=no|yes）
@@ -59,7 +61,7 @@ const BASE_PORT = Number(argv('port', 9470))
 const OUT = argv('out', '')
 // 只点「最小化到托盘」：进程留在，下一轮才还能把弹框唤出来。按钮位置序见 win_dialog.mjs。
 const TRAY_BUTTON = 0
-const MODE_NAMES = { 0: 'bm_click', 1: 'uia_invoke', 2: 'legacy_iaccessible', 3: 'foreground_focus' }
+const MODE_NAMES = { 0: 'bm_click', 1: 'uia_invoke', 2: 'legacy_iaccessible', 3: 'foreground_focus', 4: 'msaa_default_action' }
 // 「通道压根发不出点击」连续这么多轮就提前收轮（省时间）；要按「每种打法各 ≥15 次」出报告时，
 // 用 --noClickStop 999 跑满轮次——发不出去本身就是要记进文档的数字，不能被提前收轮藏掉。
 const NO_CLICK_STOP = Number(argv('noClickStop', 999))
@@ -114,7 +116,9 @@ const parseOut = out => {
     graceAt: settled(Number((out.match(/GRACE=closed@(-?\d+)/) || [])[1])),
     channel: tail[1] || '',
     invoke: tail[2] || '',
-    uia: out.split(/\r?\n/).filter(l => l.startsWith('UIA_')).join(' | ')
+    // 各通道的自证行（UIA_* 通道 1/2、PRE= 通道 3、MSAA_* 通道 4）留一份进小结，
+    // 「发不出去」的形状只有这些 token 能事后复核
+    uia: out.split(/\r?\n/).filter(l => l.startsWith('UIA_') || l.startsWith('MSAA_') || l.startsWith('PRE=')).join(' | ')
   }
 }
 
