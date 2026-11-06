@@ -47,6 +47,7 @@ const UIA_PS = String.raw`param(
   [int]$Tick = 0,
   [int]$Button = -1,
   [int]$Dump = 0,
+  [int]$Mode = 0,
   [int]$WaitMs = 20000
 )
 $ErrorActionPreference = 'Continue'
@@ -66,6 +67,8 @@ public class WD {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L; public int T; public int R; public int B; }
   [DllImport("user32.dll", SetLastError = true)] public static extern bool SendMessageTimeoutW(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint ms, out IntPtr res);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr h);
 }
 "@
 # 文案以 \uXXXX 转义输出：PowerShell 控制台是 GBK，直接打印中文会被活动代码页毁字节，
@@ -158,19 +161,109 @@ Write-Output ('BTN_CLICKED=' + (Esc $sbB.ToString()))
 # T04475：BM_CLICK 的返回不代表「决策被接住」——实测首按约 1/4 被 TaskDialog 吞掉（空载 30 次吞 7 次），
 # 消息照常投递成功（SendMessageTimeout 返回 TRUE）、对话框却还开着。所以这里以
 # 「对话框窗口是否真的没了」为投递判据，超时发送还能把「目标线程不取消息」和「吞点击」分开。
+# T04505 在这条判据旁边加了三条可对照的投递通道：
+#   1 = UIA InvokePattern.Invoke()  2 = UIA LegacyIAccessible.DoDefaultAction()
+#   3 = 先 SetForegroundWindow+SetFocus 再 BM_CLICK（T04475 留下的参照，当时只有 8 次样本）
+# UIA 两条通道走 COM（CUIAutomation8）而不是 managed System.Windows.Automation：后者压根没有
+# LegacyIAccessiblePattern 这个类型（实测 TypeNotFound），用 managed 试通道 2 会把「客户端没实现」
+# 读成「通道被吞」。投递判据四条共用一条：按完后 IsWindow(对话框句柄) 变 false。
+# 「本次要按的那个按钮」仍按文案匹配（T04475 的 z-order 教训：按错按钮会把决策按成另一个动作）；
+# 各来源的收获量打进 UIA_COM 行，好让「点击压根发不出去」与「发出去但被吞」可分。
+function CTN([int]$n) {
+  if ($n -eq 50000) { return 'Button' }
+  if ($n -eq 50033) { return 'Pane' }
+  if ($n -eq 50025) { return 'CheckBox' }
+  if ($n -eq 50026) { return 'Text' }
+  return "ct$n"
+}
 $res = [IntPtr]::Zero
-$sent = [WD]::SendMessageTimeoutW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 0x0002, 15000, [ref]$res)
-$err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+$sent = $false
+$err = 0
+$why = ''
+$channel = 'bm_click'
+$patUsed = $null
+if ($Mode -eq 1) { $channel = 'uia_invoke' }
+if ($Mode -eq 2) { $channel = 'legacy_iaccessible' }
+if ($Mode -eq 3) { $channel = 'foreground_focus' }
+if ($Mode -eq 1 -or $Mode -eq 2) {
+  $patId = 10000
+  if ($Mode -eq 2) { $patId = 10015 }
+  $wantName = $sbB.ToString()
+  $uia = $null
+  $comErr = ''
+  try { $uia = New-Object -ComObject 'CUIAutomation8' } catch {
+    try { $uia = New-Object -ComObject 'CUIAutomation' } catch { $comErr = $_.Exception.Message }
+  }
+  $sub = @()
+  $subErr = ''
+  if ($null -ne $uia) {
+    try {
+      $arr = $uia.ElementFromHandle($dlgHwnd).FindAll(4, $uia.CreateTrueCondition())
+      for ($i = 0; $i -lt $arr.Length; $i++) { $sub += $arr.GetElement($i) }
+    } catch { $subErr = $_.Exception.Message }
+  }
+  $ctBtn = 0; $patCnt = 0; $named = 0; $hit = $null
+  foreach ($e in $sub) {
+    $n = ''
+    try { $n = [string]$e.CurrentName } catch { $n = '' }
+    try { if ($e.CurrentControlType -eq 50000) { $ctBtn += 1 } } catch { }
+    if ($n -eq $wantName) { $named += 1 }
+    $p = $null
+    try { $p = $e.GetCurrentPattern($patId) } catch { $p = $null }
+    if ($null -ne $p) {
+      $patCnt += 1
+      if ($null -eq $hit -and $n -eq $wantName) { $hit = @{ E = $e; P = $p } }
+    }
+  }
+  $elH = $null
+  try { $elH = $uia.ElementFromHandle($btnHwnds[$Button]) } catch { $elH = $null }
+  $via = 'none'; $ctX = 'no-element'; $hName = ''
+  if ($null -ne $hit) {
+    $patUsed = $hit.P; $via = 'walk_pattern'
+    try { $ctX = CTN ([int]$hit.E.CurrentControlType) } catch { }
+  } elseif ($null -ne $elH) {
+    $via = 'from_handle'
+    try { $ctX = CTN ([int]$elH.CurrentControlType); $hName = [string]$elH.CurrentName } catch { }
+    $p = $null
+    try { $p = $elH.GetCurrentPattern($patId) } catch { $p = $null }
+    if ($null -ne $p -and $hName -eq $wantName) { $patUsed = $p; $via = 'from_handle_pattern' }
+  }
+  Write-Output ('UIA_COM=' + $(if ($null -ne $uia) { 'ok' } else { 'none' }) + ' PATID=' + $patId +
+    ' SUB=' + $sub.Count + ' CTBUTTON=' + $ctBtn + ' PATELEM=' + $patCnt + ' NAMEMATCH=' + $named +
+    ' VIA=' + $via + ' CT=' + $ctX + ' HASPAT=' + [bool]($null -ne $patUsed) +
+    ' SUBERR=' + (Esc $subErr) + ' COMERR=' + (Esc $comErr))
+  if ($null -eq $patUsed) { $why = 'pattern_unavailable' }
+}
+if ($Mode -eq 3) {
+  $fore = [WD]::SetForegroundWindow($dlgHwnd)
+  $foc = [WD]::SetFocus($btnHwnds[$Button])
+  Write-Output ('PRE=FOREGROUND=' + $fore + ' FOCUS=' + ($foc -ne [IntPtr]::Zero))
+}
+$t0 = [datetime]::Now
+if ($Mode -eq 0 -or $Mode -eq 3) {
+  $sent = [WD]::SendMessageTimeoutW($btnHwnds[$Button], 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 0x0002, 15000, [ref]$res)
+  $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+} elseif ($null -ne $patUsed) {
+  try {
+    if ($Mode -eq 1) { $patUsed.Invoke() } else { $patUsed.DoDefaultAction() }
+    $sent = $true
+  } catch { $why = 'threw' }
+}
 $stillOpen = 'yes'
+$settle = -1
 for ($q = 0; $q -lt 14; $q++) {
   Start-Sleep -Milliseconds 50
-  if (-not [WD]::IsWindow($dlgHwnd)) { $stillOpen = 'no'; break }
+  if (-not [WD]::IsWindow($dlgHwnd)) { $stillOpen = 'no'; $settle = [int]([datetime]::Now - $t0).TotalMilliseconds; break }
 }
-Write-Output ('INVOKE=' + $(if ($sent) { 'sent' } else { 'timeout err=' + $err }) + ' DIALOG_AFTER=' + $stillOpen)
+Write-Output ('CHANNEL=' + $channel + ' INVOKE=' + $(if ($sent) { 'sent' } elseif ($why) { $why } else { 'failed err=' + $err }) + ' DIALOG_AFTER=' + $stillOpen + ' SETTLE_MS=' + $settle)
 `
 
 let uiaScript = null
-export function driveDialog(pid, { tick = 0, button = -1, dump = 0, waitMs = 20000 } = {}) {
+/** 驱动一次原生弹框。mode：0=BM_CLICK（默认，S17/装包烟测沿用）、1=UIA InvokePattern.Invoke、
+ *  2=UIA LegacyIAccessible.DoDefaultAction、3=先抢前台+给焦点再 BM_CLICK。1/2/3 是 T04505 为
+ *  「首按被吞」加的对照通道（只由 tests/tools/native_dialog_probe.mjs 用，回归仍走 0）；
+ *  四条通道的投递判据同一条：IsWindow(对话框句柄) 变 false。 */
+export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, waitMs = 20000 } = {}) {
   if (!uiaScript) {
     // BOM：Windows PowerShell 5.1 无 BOM 时脚本内容解析不稳
     uiaScript = path.join(os.tmpdir(), `we_uia_dialog_${process.pid}.ps1`)
@@ -178,7 +271,7 @@ export function driveDialog(pid, { tick = 0, button = -1, dump = 0, waitMs = 200
   }
   const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', uiaScript,
     '-ProcId', String(pid), '-Tick', String(tick), '-Button', String(button), '-Dump', String(dump),
-    '-WaitMs', String(waitMs)], { encoding: 'utf8' })
+    '-Mode', String(mode), '-WaitMs', String(waitMs)], { encoding: 'utf8' })
   // PowerShell stdout 是 CRLF，留着 \r 会让按行前缀匹配的解析全部落空
   const clean = s => (s || '').replace(/\r/g, '').trim()
   const out = clean(r.stdout) + (r.stderr ? ' | ERR:' + clean(r.stderr) : '')
