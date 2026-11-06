@@ -26,7 +26,7 @@
  *    在 UIA 里是 ControlType.Pane（子树 6 元素、Button 0 个、带 pattern 0 个，按文案命中那个 Pane 也没 pattern），
  *    本机 UIA COM 客户端 ProgID 又未注册（0x80040154），managed 客户端压根没有 LegacyIAccessiblePattern 类型。
  *    所以「换 UIA 通道就能把吞按打到 0」这个假设从未成立过，别照它改驱动。
- *  · 「抢前台+给焦点再 BM_CLICK」当天 0/15 吞按，但接住耗时中位 298ms/max 525ms，比 BM_CLICK 的 159~184ms
+ *  · 「抢前台+给焦点再 BM_CLICK」批次 14 轮 0 次吞按，但接住耗时中位 298ms/max 525ms，比 BM_CLICK 的 159~184ms
  *    慢一倍、逼近本套件 700ms 判据窗口，且必须先自证真抢到（裸 SetForegroundWindow 会被前台锁挡掉，
  *    抢不到时它就等于通道 0，数字全是假的）——不作为替代打法。
  *  · 吞按率随负载波动很大：T04475 是 7/30，T04505 当天三批 30 轮只有 1/30。某一天的 0/N 不等于问题消失，
