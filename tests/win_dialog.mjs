@@ -70,6 +70,13 @@ public class WD {
   [DllImport("user32.dll", SetLastError = true)] public static extern bool SendMessageTimeoutW(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint ms, out IntPtr res);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out int pid);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool join);
+  [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool alt);
+  [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
+  [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, IntPtr extra);
 }
 "@
 # 文案以 \uXXXX 转义输出：PowerShell 控制台是 GBK，直接打印中文会被活动代码页毁字节，
@@ -272,9 +279,29 @@ if ($Mode -eq 1 -or $Mode -eq 2) {
   if ($null -eq $patUsed) { $why = 'pattern_unavailable' }
 }
 if ($Mode -eq 3) {
+  # 通道 3 要测的是「真抢到前台再点」，所以必须自证抢到了没有：跨进程 SetForegroundWindow 会被
+  # 前台锁挡掉（实测返回 False），此时它等价于通道 0，拿它的 0/N 当「抢前台有效」是假结论。
+  # 顺序：先报当前前台 → 申请放行 → SetForegroundWindow → 不行就补一次 ALT 键（解锁前台锁的常规
+  # 手法）→ 还不行用 SwitchToThisWindow → 焦点走 AttachThreadInput 后 SetFocus（跨线程直接 SetFocus 必失败）。
+  $dlgPid = 0
+  $dlgTid = [WD]::GetWindowThreadProcessId($dlgHwnd, [ref]$dlgPid)
+  $foreBefore = [WD]::GetForegroundWindow()
+  $allow = [WD]::AllowSetForegroundWindow($dlgPid)
   $fore = [WD]::SetForegroundWindow($dlgHwnd)
-  $foc = [WD]::SetFocus($btnHwnds[$Button])
-  Write-Output ('PRE=FOREGROUND=' + $fore + ' FOCUS=' + ($foc -ne [IntPtr]::Zero))
+  if (-not $fore) {
+    [WD]::keybd_event(0x12, 0, 0, [IntPtr]::Zero); [WD]::keybd_event(0x12, 0, 2, [IntPtr]::Zero)
+    $fore = [WD]::SetForegroundWindow($dlgHwnd)
+  }
+  $sw = 'no'
+  if (-not $fore) { [WD]::SwitchToThisWindow($dlgHwnd, $true); $sw = 'tried' }
+  $cur = [WD]::GetCurrentThreadId()
+  $joined = [WD]::AttachThreadInput($cur, $dlgTid, $true)
+  $foc = ([WD]::SetFocus($btnHwnds[$Button]) -ne [IntPtr]::Zero)
+  if ($joined) { $null = [WD]::AttachThreadInput($cur, $dlgTid, $false) }
+  $isFore = ([WD]::GetForegroundWindow() -eq $dlgHwnd)
+  Write-Output ('PRE=ALLOW=' + $allow + ' SFW=' + $fore + ' SWITCH=' + $sw +
+    ' ATTACH=' + $joined + ' FOCUS=' + $foc + ' IS_FOREGROUND=' + $isFore +
+    ' FORE_BEFORE=0x' + ('{0:x}' -f ([long]$foreBefore)) + ' FORE_AFTER=0x' + ('{0:x}' -f ([long][WD]::GetForegroundWindow())))
 }
 $t0 = [datetime]::Now
 if ($Mode -eq 0 -or $Mode -eq 3) {
