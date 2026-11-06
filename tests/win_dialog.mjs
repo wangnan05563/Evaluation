@@ -408,7 +408,8 @@ export function cleanupDialogScript() {
 // 遮挡（occlusion）记账影响——弹框盖住主窗时可能报 hidden，据此断言会假失败；
 // IsWindowVisible 只看 ShowWindow 状态，hide() 之后必定为 false，才是关闭行为要的量。
 const WIN_PS = String.raw`param(
-  [Parameter(Mandatory = $true)][int]$ProcId
+  [Parameter(Mandatory = $true)][int]$ProcId,
+  [switch]$Close
 )
 $ErrorActionPreference = 'Continue'
 Add-Type @"
@@ -421,10 +422,14 @@ public class WH {
   [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
 }
 "@
 $total = 0
 $visible = 0
+# 回调里的 Write-Output 浮不到管道（EnumerWindows 是从 native 代码反过来调它），
+# 所以主窗句柄先收进列表，枚举完再打印/再投 WM_CLOSE。
+$mainH = New-Object 'System.Collections.Generic.List[System.IntPtr]'
 $cb = [WH+EnumProc] { param($h, $l)
   $owner = 0
   $null = [WH]::GetWindowThreadProcessId($h, [ref]$owner)
@@ -435,21 +440,51 @@ $cb = [WH+EnumProc] { param($h, $l)
     if ($sb.ToString() -eq 'Chrome_WidgetWin_1') {
       $script:total += 1
       if ([WH]::IsWindowVisible($h)) { $script:visible += 1 }
+      $null = $script:mainH.Add($h)
     }
   }
   return $true }
 $null = [WH]::EnumWindows($cb, [IntPtr]::Zero)
 Write-Output ('WINDOWS_TOTAL=' + $total + ' VISIBLE=' + $visible)
+if ($Close) {
+  # WM_CLOSE = 0x0010。刻意不看 PostMessage 的返回值：TRUE 只代表消息进了队列，
+  # 「关闭请求有没有真的被接住」由调用方按产品侧的 [close-dialog] shown 行判（同 T04475 口径）。
+  foreach ($h in $mainH) {
+    $null = [WH]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+    Write-Output ('CLOSED_HWND=' + $h + ' VIS=' + [WH]::IsWindowVisible($h))
+  }
+}
 `
 let winScript = null
-export function probeWindow(pid) {
+function ensureWinScript() {
   if (!winScript) {
     winScript = path.join(os.tmpdir(), `we_win_probe_${process.pid}.ps1`)
     fs.writeFileSync(winScript, '\ufeff' + WIN_PS)
   }
-  const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', winScript, '-ProcId', String(pid)],
-    { encoding: 'utf8' })
-  const out = ((r.stdout || '') + (r.stderr || '')).replace(/\r/g, '').trim()
+  return winScript
+}
+const runWinPs = (args) => {
+  const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+    ensureWinScript(), ...args], { encoding: 'utf8' })
+  return ((r.stdout || '') + (r.stderr || '')).replace(/\r/g, '').trim()
+}
+
+export function probeWindow(pid) {
+  const out = runWinPs(['-ProcId', String(pid)])
   const m = out.match(/WINDOWS_TOTAL=(\d+) VISIBLE=(\d+)/)
   return { total: m ? Number(m[1]) : -1, visible: m ? Number(m[2]) : -1, out }
+}
+
+/** 向本进程的「主窗句柄」投 WM_CLOSE —— T04540 的探针专用关闭通道。
+ *  和 requestClose 的 taskkill 的区别只在一种场景下要命：主窗已被「最小化到托盘」hide() 之后，
+ *  不带 /F 的 taskkill 只给**可见**顶层窗发 WM_CLOSE，实测是个静默空操作（exp3：主窗隐藏后
+ *  连发两次 taskkill，[close-dialog] shown 一直停在 1、2 不增；中间两次 PostMessage(主窗, WM_CLOSE)
+ *  则把 shown 推到 2 和 3）。探针会把这种「实例其实活得好好的、只是关不掉」误判成实例已废。
+ *  真实用户的 X 点击永远发生在可见窗口上，所以 S17/装包烟测沿用 taskkill，只有探针换这条通道。
+ *  posted=0 表示该 pid 名下压根没有 Chrome_WidgetWin_1（进程已死或还没建窗）。 */
+export function postCloseToMainWindow(pid) {
+  const out = runWinPs(['-ProcId', String(pid), '-Close'])
+  const handles = [...out.matchAll(/CLOSED_HWND=(\S+) VIS=(\S+)/g)].map(m => ({ hwnd: m[1], visible: m[2] === 'True' }))
+  const m = out.match(/WINDOWS_TOTAL=(-?\d+)/)
+  return { posted: handles.length, total: m ? Number(m[1]) : -1, handles, out }
 }

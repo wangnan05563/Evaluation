@@ -13,7 +13,11 @@ export const killTree = pid => {
   try { spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' }) } catch { /* noop */ }
 }
 
-// 不带 /F 的 taskkill 会向进程顶层窗口发送 WM_CLOSE，等价于点击标题栏关闭按钮
+// 不带 /F 的 taskkill 会向进程顶层窗口发送 WM_CLOSE，等价于点击标题栏关闭按钮。
+// 一个实测出来的坑（T04540）：这个「顶层窗口」只算**可见**的——主窗被最小化到托盘 hide() 之后，
+// 本调用会空转（taskkill 照样回 SUCCESS，但产品的 [close-dialog] shown 行数不增，exp3）。
+// 真实用户点 X 时窗口必然可见，所以 S17/装包烟测用它没问题；需要在窗口隐藏时也能发起关闭的
+// 是探针的活，那条走 win_dialog.mjs 的 postCloseToMainWindow（只对主窗句柄 PostMessage(WM_CLOSE)）。
 export function requestClose(pid) {
   return spawnSync('taskkill', ['/PID', String(pid)], { encoding: 'utf8' })
 }
