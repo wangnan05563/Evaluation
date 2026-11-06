@@ -60,6 +60,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 public class WD {
   [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
   public delegate bool EnumProc(IntPtr h, IntPtr l);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
@@ -109,8 +110,33 @@ while ([datetime]::Now -lt $deadline) {
 }
 # 停手信号必须与调用方一致：shell_close_smoke/prod_smoke 的重试循环按 'DIALOG=not_found'
 # 判断「弹框已销毁、别再补按」。写 absent 时那个判断从来没生效过（T04475 实测）。
-if ($null -eq $dlg) { Write-Output 'DIALOG=not_found'; exit 2 }
-$dlgHwnd = [IntPtr]$dlg.Current.NativeWindowHandle
+$dlgHwnd = [IntPtr]::Zero
+$foundVia = 'uia'
+if ($null -ne $dlg) { $dlgHwnd = [IntPtr]$dlg.Current.NativeWindowHandle }
+else {
+  # UIA 兜底前的实测缺口：同一台机器、同一个打法，某些轮 RootElement 的枚举就是看不到刚建好的
+  # #32770（T04505 里 15 轮批次的第 1 轮命中，之后弹框一直挂着、后续轮全部 not_found）。
+  # 弹框在 Win32 侧确实在（EnumWindows 按 pid + class 找得到），所以先退回 Win32 找句柄：
+  # 按钮点击本来就走 Win32 句柄，只有复选框/文案取证还要 UIA——那两样在退回路径上如实标不可用。
+  $w32 = New-Object 'System.Collections.Generic.List[System.IntPtr]'
+  $kwb = [WD+EnumProc] { param($h, $l)
+    $pid2 = 0
+    $null = [WD]::GetWindowThreadProcessId($h, [ref]$pid2)
+    if ($pid2 -ne $ProcId) { return $true }
+    $sb = New-Object System.Text.StringBuilder 256
+    $null = [WD]::GetClassNameW($h, $sb, 256)
+    if ($sb.ToString() -eq '#32770' -and [WD]::IsWindowVisible($h)) { $null = $script:w32.Add($h) }
+    return $true }
+  $w32Deadline = [datetime]::Now.AddMilliseconds($WaitMs)
+  while ([datetime]::Now -lt $w32Deadline) {
+    $null = [WD]::EnumWindows($kwb, [IntPtr]::Zero)
+    if ($w32.Count -gt 0) { $dlgHwnd = $w32[0]; break }
+    Start-Sleep -Milliseconds 300
+  }
+  if ($dlgHwnd -eq [IntPtr]::Zero) { Write-Output 'DIALOG=not_found'; exit 2 }
+  $foundVia = 'win32'
+}
+Write-Output ('DIALOG_VIA=' + $foundVia)
 # 按钮按「屏幕位置从左到右」编号，不按 EnumChildWindows 的返回顺序：那个顺序是 z-order，
 # 补按一次就可能翻转（T04475 实测：E 第一次按被吞、补按按同一序号点到了另一个按钮，
 # 落盘的 close_action 从 exit_app 变成 minimize_to_tray）。位置序与文案表 CLOSE_TEXTS 的
@@ -131,8 +157,17 @@ foreach ($h in $btnRaw) {
 $btnHwnds = New-Object 'System.Collections.Generic.List[System.IntPtr]'
 foreach ($b in ($btnPairs | Sort-Object -Property @{E={ $_.T }; A=$true}, @{E={ $_.X }; A=$true})) { $btnHwnds.Add($b.H) }
 Write-Output ('DIALOG=found HWND=' + ($dlgHwnd -ne [IntPtr]::Zero) + ' BUTTONS=' + $btnHwnds.Count)
-$chk = $dlg.FindFirst($TS::Descendants, (New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::CheckBox)))
-if ($null -eq $chk) { Write-Output 'CHECKBOX=absent'; exit 4 }
+$chk = $null
+if ($null -ne $dlg) { $chk = $dlg.FindFirst($TS::Descendants, (New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::CheckBox))) }
+if ($null -eq $chk) {
+  # UIA 句柄拿不到（退回路径）时，复选框这维如实标不可用而不是谎报 Off；调用方按
+  # CHECKBOX_BEFORE=Off / CHECKBOX_AFTER=On 断言，读到这里会红——红了才对。
+  # 但「要勾选」（Tick=1）在退回路径上根本做不到，只能停手，不能默默按下去把没勾的当勾了。
+  if ($null -eq $dlg) {
+    if ($Tick -eq 1) { Write-Output 'CHECKBOX=uia_unavailable'; exit 4 }
+    Write-Output 'CHECKBOX_BEFORE=uia_unavailable CHECKBOX_AFTER=uia_unavailable'
+  } else { Write-Output 'CHECKBOX=absent'; exit 4 }
+} else {
 $tp = $chk.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
 $sp = [System.Windows.Automation.TogglePattern]::ToggleStateProperty
 $before = [string]$chk.GetCurrentPropertyValue($sp)
@@ -148,11 +183,19 @@ if ($Tick -eq 1) {
   }
 }
 Write-Output ('CHECKBOX_BEFORE=' + $before + ' CHECKBOX_AFTER=' + $after)
+}
 if ($Dump -eq 1) {
-  Write-Output ('DLG_NAME=' + (Esc $dlg.Current.Name))
-  $tcond = New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::Text)
-  foreach ($t in $dlg.FindAll($TS::Descendants, $tcond)) { Write-Output ('TEXT=' + (Esc $t.Current.Name)) }
-  Write-Output ('CHK_NAME=' + (Esc $chk.Current.Name))
+  # 退回路径下 UIA 那三样（对话框标题/正文/复选框文案）取不到，如实标 unavailable：
+  # readDialogTexts 拿到空串，断言会红——比假装文案对得上更有用。BTN= 走 Win32，照常出。
+  if ($null -ne $dlg) {
+    Write-Output ('DLG_NAME=' + (Esc $dlg.Current.Name))
+    $tcond = New-Object $PC($ctProp, [System.Windows.Automation.ControlType]::Text)
+    foreach ($t in $dlg.FindAll($TS::Descendants, $tcond)) { Write-Output ('TEXT=' + (Esc $t.Current.Name)) }
+    Write-Output ('CHK_NAME=' + (Esc $chk.Current.Name))
+  } else {
+    Write-Output 'DLG_NAME=uia_unavailable'
+    Write-Output 'CHK_NAME=uia_unavailable'
+  }
   foreach ($h in $btnHwnds) {
     $sb2 = New-Object System.Text.StringBuilder 512
     $null = [WD]::GetWindowTextW($h, $sb2, 512)
