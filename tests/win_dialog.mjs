@@ -48,7 +48,8 @@ const UIA_PS = String.raw`param(
   [int]$Button = -1,
   [int]$Dump = 0,
   [int]$Mode = 0,
-  [int]$WaitMs = 20000
+  [int]$WaitMs = 20000,
+  [int]$GraceMs = 0
 )
 $ErrorActionPreference = 'Continue'
 Add-Type -AssemblyName UIAutomationClient
@@ -194,44 +195,80 @@ if ($Mode -eq 1 -or $Mode -eq 2) {
   try { $uia = New-Object -ComObject 'CUIAutomation8' } catch {
     try { $uia = New-Object -ComObject 'CUIAutomation' } catch { $comErr = $_.Exception.Message }
   }
-  $sub = @()
-  $subErr = ''
   if ($null -ne $uia) {
+    $sub = @()
+    $subErr = ''
     try {
       $arr = $uia.ElementFromHandle($dlgHwnd).FindAll(4, $uia.CreateTrueCondition())
       for ($i = 0; $i -lt $arr.Length; $i++) { $sub += $arr.GetElement($i) }
     } catch { $subErr = $_.Exception.Message }
-  }
-  $ctBtn = 0; $patCnt = 0; $named = 0; $hit = $null
-  foreach ($e in $sub) {
-    $n = ''
-    try { $n = [string]$e.CurrentName } catch { $n = '' }
-    try { if ($e.CurrentControlType -eq 50000) { $ctBtn += 1 } } catch { }
-    if ($n -eq $wantName) { $named += 1 }
-    $p = $null
-    try { $p = $e.GetCurrentPattern($patId) } catch { $p = $null }
-    if ($null -ne $p) {
-      $patCnt += 1
-      if ($null -eq $hit -and $n -eq $wantName) { $hit = @{ E = $e; P = $p } }
+    $ctBtn = 0; $patCnt = 0; $named = 0; $hit = $null
+    foreach ($e in $sub) {
+      $n = ''
+      try { $n = [string]$e.CurrentName } catch { $n = '' }
+      try { if ($e.CurrentControlType -eq 50000) { $ctBtn += 1 } } catch { }
+      if ($n -eq $wantName) { $named += 1 }
+      $p = $null
+      try { $p = $e.GetCurrentPattern($patId) } catch { $p = $null }
+      if ($null -ne $p) {
+        $patCnt += 1
+        if ($null -eq $hit -and $n -eq $wantName) { $hit = @{ E = $e; P = $p } }
+      }
     }
+    $elH = $null
+    try { $elH = $uia.ElementFromHandle($btnHwnds[$Button]) } catch { $elH = $null }
+    $via = 'none'; $ctX = 'no-element'; $hName = ''
+    if ($null -ne $hit) {
+      $patUsed = $hit.P; $via = 'walk_pattern'
+      try { $ctX = CTN ([int]$hit.E.CurrentControlType) } catch { }
+    } elseif ($null -ne $elH) {
+      $via = 'from_handle'
+      try { $ctX = CTN ([int]$elH.CurrentControlType); $hName = [string]$elH.CurrentName } catch { }
+      $p = $null
+      try { $p = $elH.GetCurrentPattern($patId) } catch { $p = $null }
+      if ($null -ne $p -and $hName -eq $wantName) { $patUsed = $p; $via = 'from_handle_pattern' }
+    }
+    Write-Output ('UIA_COM=ok PATID=' + $patId +
+      ' SUB=' + $sub.Count + ' CTBUTTON=' + $ctBtn + ' PATELEM=' + $patCnt + ' NAMEMATCH=' + $named +
+      ' VIA=' + $via + ' CT=' + $ctX + ' HASPAT=' + [bool]($null -ne $patUsed) +
+      ' SUBERR=' + (Esc $subErr))
+  } else {
+    # COM 客户端起不来（本机 CUIAutomation8/CUIAutomation ProgID 未注册，0x80040154）时退回
+    # managed System.Windows.Automation。managed 只表达得出 InvokePattern——LegacyIAccessible
+    # 压根没有对应类型，所以通道 2 在这里明确写 NOTE=no_managed_type，
+    # 别把「这个客户端问不出来」记成「这个控件不支持」。
+    $all = @()
+    try { $all = @($dlg.FindAll($TS::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) } catch { $all = @() }
+    $wantPt = $null
+    if ($Mode -eq 1) { $wantPt = [System.Windows.Automation.InvokePattern]::Pattern }
+    $ctBtn = 0; $patCnt = 0; $named = 0
+    foreach ($e in $all) {
+      $n = ''
+      try { $n = [string]$e.Current.Name } catch { }
+      try { if ($e.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button) { $ctBtn += 1 } } catch { }
+      if ($n -eq $wantName) { $named += 1 }
+      $p = $null
+      if ($null -ne $wantPt) { try { $p = $e.GetCurrentPattern($wantPt) } catch { $p = $null } }
+      if ($null -ne $p) {
+        $patCnt += 1
+        if ($null -eq $patUsed -and $n -eq $wantName) { $patUsed = $p }
+      }
+    }
+    $elH = $null
+    try { $elH = $AE::FromHandle($btnHwnds[$Button]) } catch { }
+    $ctH = 'no-handle'
+    if ($null -ne $elH) { try { $ctH = [string]$elH.Current.ControlType.ProgrammaticName } catch { } }
+    if ($null -eq $patUsed -and $null -ne $wantPt -and $null -ne $elH) {
+      $p = $null
+      try { $p = $elH.GetCurrentPattern($wantPt) } catch { $p = $null }
+      if ($null -ne $p -and [string]$elH.Current.Name -eq $wantName) { $patUsed = $p }
+    }
+    Write-Output ('UIA_MANAGED=1 SUB=' + $all.Count + ' PATID=' + $patId +
+      ' CTBUTTON=' + $ctBtn + ' PATELEM=' + $patCnt + ' NAMEMATCH=' + $named + ' CT=' + $ctH +
+      ' HASPAT=' + [bool]($null -ne $patUsed) +
+      $(if ($Mode -eq 2) { ' NOTE=no_managed_type_for_LegacyIAccessible' } else { '' }) +
+      ' COMERR=' + (Esc $comErr))
   }
-  $elH = $null
-  try { $elH = $uia.ElementFromHandle($btnHwnds[$Button]) } catch { $elH = $null }
-  $via = 'none'; $ctX = 'no-element'; $hName = ''
-  if ($null -ne $hit) {
-    $patUsed = $hit.P; $via = 'walk_pattern'
-    try { $ctX = CTN ([int]$hit.E.CurrentControlType) } catch { }
-  } elseif ($null -ne $elH) {
-    $via = 'from_handle'
-    try { $ctX = CTN ([int]$elH.CurrentControlType); $hName = [string]$elH.CurrentName } catch { }
-    $p = $null
-    try { $p = $elH.GetCurrentPattern($patId) } catch { $p = $null }
-    if ($null -ne $p -and $hName -eq $wantName) { $patUsed = $p; $via = 'from_handle_pattern' }
-  }
-  Write-Output ('UIA_COM=' + $(if ($null -ne $uia) { 'ok' } else { 'none' }) + ' PATID=' + $patId +
-    ' SUB=' + $sub.Count + ' CTBUTTON=' + $ctBtn + ' PATELEM=' + $patCnt + ' NAMEMATCH=' + $named +
-    ' VIA=' + $via + ' CT=' + $ctX + ' HASPAT=' + [bool]($null -ne $patUsed) +
-    ' SUBERR=' + (Esc $subErr) + ' COMERR=' + (Esc $comErr))
   if ($null -eq $patUsed) { $why = 'pattern_unavailable' }
 }
 if ($Mode -eq 3) {
@@ -255,7 +292,20 @@ for ($q = 0; $q -lt 14; $q++) {
   Start-Sleep -Milliseconds 50
   if (-not [WD]::IsWindow($dlgHwnd)) { $stillOpen = 'no'; $settle = [int]([datetime]::Now - $t0).TotalMilliseconds; break }
 }
-Write-Output ('CHANNEL=' + $channel + ' INVOKE=' + $(if ($sent) { 'sent' } elseif ($why) { $why } else { 'failed err=' + $err }) + ' DIALOG_AFTER=' + $stillOpen + ' SETTLE_MS=' + $settle)
+# GRACE：T04505 只给探针用的第二条判据。700ms 内窗口还在（DIALOG_AFTER=yes）不等于「这一按被吞」——
+# 也可能是销毁排队。给到 GraceMs 再问一次，把两种形状分开；回归调用传 0，行为与本参数存在时一致。
+$grace = 'off'
+if ($GraceMs -gt 0) {
+  if ($stillOpen -eq 'no') { $grace = 'closed' }
+  else {
+    $grace = 'open'
+    for ($g = 0; $g -lt [int]($GraceMs / 100); $g++) {
+      Start-Sleep -Milliseconds 100
+      if (-not [WD]::IsWindow($dlgHwnd)) { $grace = 'closed@' + [int]([datetime]::Now - $t0).TotalMilliseconds; break }
+    }
+  }
+}
+Write-Output ('CHANNEL=' + $channel + ' INVOKE=' + $(if ($sent) { 'sent' } elseif ($why) { $why } else { 'failed err=' + $err }) + ' DIALOG_AFTER=' + $stillOpen + ' SETTLE_MS=' + $settle + ' GRACE=' + $grace)
 `
 
 let uiaScript = null
@@ -263,7 +313,7 @@ let uiaScript = null
  *  2=UIA LegacyIAccessible.DoDefaultAction、3=先抢前台+给焦点再 BM_CLICK。1/2/3 是 T04505 为
  *  「首按被吞」加的对照通道（只由 tests/tools/native_dialog_probe.mjs 用，回归仍走 0）；
  *  四条通道的投递判据同一条：IsWindow(对话框句柄) 变 false。 */
-export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, waitMs = 20000 } = {}) {
+export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, waitMs = 20000, graceMs = 0 } = {}) {
   if (!uiaScript) {
     // BOM：Windows PowerShell 5.1 无 BOM 时脚本内容解析不稳
     uiaScript = path.join(os.tmpdir(), `we_uia_dialog_${process.pid}.ps1`)
@@ -271,7 +321,7 @@ export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, wa
   }
   const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', uiaScript,
     '-ProcId', String(pid), '-Tick', String(tick), '-Button', String(button), '-Dump', String(dump),
-    '-Mode', String(mode), '-WaitMs', String(waitMs)], { encoding: 'utf8' })
+    '-Mode', String(mode), '-WaitMs', String(waitMs), '-GraceMs', String(graceMs)], { encoding: 'utf8' })
   // PowerShell stdout 是 CRLF，留着 \r 会让按行前缀匹配的解析全部落空
   const clean = s => (s || '').replace(/\r/g, '').trim()
   const out = clean(r.stdout) + (r.stderr ? ' | ERR:' + clean(r.stderr) : '')

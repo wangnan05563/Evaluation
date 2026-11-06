@@ -45,6 +45,10 @@ const MODE_NAMES = { 0: 'bm_click', 1: 'uia_invoke', 2: 'legacy_iaccessible', 3:
 // 「通道压根发不出点击」连续这么多轮就提前收轮（省时间）；要按「每种打法各 ≥15 次」出报告时，
 // 用 --noClickStop 999 跑满轮次——发不出去本身就是要记进文档的数字，不能被提前收轮藏掉。
 const NO_CLICK_STOP = Number(argv('noClickStop', 999))
+// 第二条判据的宽限窗（只探针用，回归仍按 700ms 内 IsWindow 判定）。
+// 为什么要两条口径：DIALOG_AFTER=yes 有两种形状——「这一按真被吞」和「销毁已经排队、只是慢」。
+// 只报严格口径会把后者算进吞按率，结论就没法和产品侧的 [close] action 行对上。
+const GRACE_MS = Number(argv('graceMs', 2000))
 
 const lines = []
 const say = s => { lines.push(s); console.log(s) }
@@ -80,6 +84,10 @@ const parseOut = out => {
     // 与「发出去但被对话框吞掉」必须分开计，否则「通道不可用」会被读成「通道不可靠」。
     issued: tail[2] === 'sent',
     settle: settled(Number((out.match(/SETTLE_MS=(-?\d+)/) || [])[1])),
+    // GRACE=closed@<ms> 表示严格口径判「被吞」、但宽限窗里窗口自己没了（销毁排队）；
+    // open 才是宽限到点还在（真被吞）；off 表示这一路没开宽限判据。
+    grace: (out.match(/GRACE=(\S+)/) || [])[1] || 'off',
+    graceAt: settled(Number((out.match(/GRACE=closed@(-?\d+)/) || [])[1])),
     channel: tail[1] || '',
     invoke: tail[2] || '',
     uia: out.split(/\r?\n/).filter(l => l.startsWith('UIA_')).join(' | ')
@@ -114,7 +122,7 @@ async function runMode(mode, port) {
     requestClose(pid)
     // 一次调用做完「等弹框出现 + 按第 TRAY_BUTTON 个按钮」：驱动内部定位到对话框后立刻按，
     // 等价于 S17/装包烟测里的真实打法，不给「等一等再按」留余地（T04475 已证延时防不住）。
-    const clickRaw = driveDialog(pid, { button: TRAY_BUTTON, mode, waitMs: 20000 })
+    const clickRaw = driveDialog(pid, { button: TRAY_BUTTON, mode, waitMs: 20000, graceMs: GRACE_MS })
     const click = parseOut(clickRaw.out)
     const shownNew = ownCount(readStr(SHELL_LOG), '[close-dialog] shown', pid) - ownCount(before, '[close-dialog] shown', pid)
     if (!click.found) {
