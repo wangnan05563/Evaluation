@@ -55,6 +55,14 @@ const EXIT_MS_BUDGET = Number(process.env.WE_PROD_EXIT_MS_BUDGET || 5000)
 const EXIT_MS_HARD = Number(process.env.WE_PROD_EXIT_MS_HARD || 15000)
 const LOAD_NODE_HIGH = Number(process.env.WE_PROD_LOAD_NODE_HIGH || 12)
 const EXIT_WAIT = Number(process.env.WE_PROD_EXIT_WAIT || 45000)
+// P-C 的隐藏判据（T04559）：原来是 sleep(3000) 后一次断言，与退出耗时门同一类毛病——
+// 并发时关闭链要先打 /api/jobs/running 探活（超时预算 1.5s）、装包态还要起收 sidecar，
+// 3s 被吃掉大半就假红（T04543 五轮里 1 红：VISIBLE=1，同一产物 T04540 三轮全绿）。
+// 现在轮询到隐藏为止，四档与 exitGate 同口径：基础预算内 → PASS；有水位且 ≤ 宽松上限 → WARN；
+// 无水位证据却超基础预算 / 超上限 → FAIL；进程退出（该最小化却退了）→ 与负载无关，始终 FAIL。
+// 上限仍取基础预算 3 倍，与退出耗时门同一个比例。
+const PC_WAIT_BUDGET = Number(process.env.WE_PROD_PC_WAIT_MS || 3000)
+const PC_WAIT_HARD = Number(process.env.WE_PROD_PC_WAIT_HARD || PC_WAIT_BUDGET * 3)
 const res = []
 let skipReason = ''
 const check = (n, ok, d = '') => {
@@ -116,6 +124,40 @@ function exitGate(n, waited, load, extra = '') {
   }
   const noEvidence = load.count === null || load.count < LOAD_NODE_HIGH
   return check(n, false, `${ms}ms 超门（基础 ${EXIT_MS_BUDGET}ms / 宽松上限 ${EXIT_MS_HARD}ms）；${loadText(load)}${noEvidence ? '——无水位证据，不放宽' : '——已超宽松上限'}${tail}`)
+}
+
+/** 轮询到「主窗隐藏」为止（T04559）。进程退出不算隐藏：close_action=minimize_to_tray 走到退出，
+ *  是关闭链走错分支，与负载无关。返回实际观测到隐藏的耗时（ms），供四档判定。 */
+async function waitHidden(child, msBudget) {
+  const t0 = Date.now()
+  for (;;) {
+    const probe = probeWindow(child.pid)
+    const ms = Date.now() - t0
+    if (child.exitCode !== null) return { hidden: false, exited: true, ms, probe }
+    if (probe.total >= 1 && probe.visible === 0) return { hidden: true, exited: false, ms, probe }
+    if (ms >= msBudget) return { hidden: false, exited: false, ms, probe }
+    await sleep(250)
+  }
+}
+
+/** P-C 隐藏判据的四档（T04559），口径与 exitGate 一致，只是量的是「窗口多久隐藏」而不是「进程多久退出」。 */
+function hideGate(n, waited, load, extra = '') {
+  const tail = extra ? `；${extra}` : ''
+  const bounds = `基础预算 ${PC_WAIT_BUDGET}ms / 宽松上限 ${PC_WAIT_HARD}ms`
+  const noEvidence = load.count === null || load.count < LOAD_NODE_HIGH
+  if (waited.exited) {
+    return check(n, false, `进程已退出（close_action=minimize_to_tray 不该退出）——与负载无关，始终判红；${loadText(load)}${tail}`)
+  }
+  if (!waited.hidden) {
+    return check(n, false, `${PC_WAIT_HARD}ms 内窗口始终可见（${waited.probe.out}）；${bounds}；${loadText(load)}${noEvidence ? '——无水位证据，不放宽' : '——已超宽松上限'}${tail}`)
+  }
+  if (waited.ms <= PC_WAIT_BUDGET) {
+    return check(n, true, `窗口在 ${waited.ms}ms 内隐藏（≤ 基础预算 ${PC_WAIT_BUDGET}ms）；${loadText(load)}${tail}`)
+  }
+  if (!noEvidence && waited.ms <= PC_WAIT_HARD) {
+    return warn(n, `本次为并发环境下的宽松判定：${waited.ms}ms 才隐藏、超基础预算 ${PC_WAIT_BUDGET}ms、未超宽松上限 ${PC_WAIT_HARD}ms；${loadText(load)}${tail}`)
+  }
+  return check(n, false, `${waited.ms}ms 才隐藏（${bounds}）；${loadText(load)}${noEvidence ? '——无水位证据，不放宽' : '——已超宽松上限'}${tail}`)
 }
 setTimeout(() => { console.error('[bk] WATCHDOG'); process.exit(3) }, Number(process.env.WE_PROD_WATCHDOG_MS || 900000))
 
@@ -490,12 +532,13 @@ async function runScenarios() {
     if (!s.ok) {
       check('P-C 最小化到托盘场景可启动', false, s.detail)
     } else {
+      const loadBefore = sampleLoad()
       requestClose(s.child.pid)
-      await sleep(3000)
-      const hidden = probeWindow(s.child.pid)
-      check('P-C 记住=最小化后窗口隐藏、进程存活',
-        s.child.exitCode === null && hidden.total >= 1 && hidden.visible === 0,
-        `${hidden.out} exitCode=${s.child.exitCode} ${lastLine(await until('[tray]'), '[tray]')}`)
+      const waitedHide = await waitHidden(s.child, PC_WAIT_HARD)
+      const load = loadPeak(loadBefore)
+      // 决策行原文进明细：没有 [close] 行 = 决策压根没到（不是判据问题），有行但落得晚 = 本单要治的那种。
+      const closeLine = lastLine(await until('[close]'), '[close]')
+      hideGate('P-C 记住=最小化后窗口隐藏、进程存活', waitedHide, load, `决策行=${closeLine}`)
       const probe = probeTrayIcon(1)
       if (!probe.out.includes('TRAY_ICON=found')) {
         const why = '托盘图标在本机 UIA 中不可枚举（T03958 实测四条通道均不可达）：' + (probe.out.split('\n').slice(0, 2).join(' ') || '无输出')
