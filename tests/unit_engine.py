@@ -145,5 +145,30 @@ if os.path.isfile(TPL):
               str(ws_g["H6"].value or "").startswith("=") and str(ws_g["I6"].value or "").startswith("="))
         wb_g.close()
 
+        # ---- T04570：openpyxl 保存会丢页眉图形/页脚域，须从母版 zip 回填 ----
+        import re
+        import zipfile
+        with zipfile.ZipFile(_out) as _z:
+            _names = set(_z.namelist())
+            _sheet_xml = _z.read("xl/worksheets/sheet1.xml").decode("utf-8")
+            _ct_xml = _z.read("[Content_Types].xml").decode("utf-8")
+        with zipfile.ZipFile(TPL) as _zt:
+            _hf = re.search(r"<headerFooter\b.*?</headerFooter>",
+                            _zt.read("xl/worksheets/sheet1.xml").decode("utf-8"), re.S)
+        _artifacts = {"xl/media/image1.jpeg", "xl/drawings/vmlDrawing1.vml",
+                      "xl/drawings/_rels/vmlDrawing1.vml.rels",
+                      "xl/worksheets/_rels/sheet1.xml.rels",
+                      "xl/printerSettings/printerSettings1.bin"}
+        check("生成件回填页眉 logo 部件（media/VML/rels/打印设置）",
+              _artifacts <= _names, sorted(_artifacts - _names))
+        check("生成件 Content_Types 注册 jpeg/vml/bin",
+              all(f'Extension="{e}"' in _ct_xml for e in ("jpeg", "vml", "bin")))
+        check("生成件 headerFooter 与母版逐字一致",
+              _hf is not None and _hf.group(0) in _sheet_xml,
+              _hf.group(0) if _hf else None)
+        check("生成件 legacyDrawingHF 与 pageSetup r:id 就位",
+              "<legacyDrawingHF" in _sheet_xml
+              and re.search(r'<pageSetup\b[^>]*\br:id="rId\d+"', _sheet_xml) is not None)
+
 print(f"==== S2 汇总 ==== 失败 {len(fails)}")
 sys.exit(1 if fails else 0)

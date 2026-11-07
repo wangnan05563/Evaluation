@@ -2,7 +2,7 @@
 """PERT 三点估算：SQLite 数据层 + 计算引擎 + 阜新 V2.0 模板生成。
 所有自包含，不依赖 server.py；frozen(exe) 时一并收集。
 """
-import json, os, shutil, sqlite3
+import json, os, re, shutil, sqlite3, zipfile
 from pathlib import Path
 
 # 空白母版随包分发（tpl/pert-template.xlsx）；环境 WE_TPL_PERT 可覆盖。
@@ -150,6 +150,117 @@ def summarize(con, pid):
 
 
 # ---------------- 阜新 V2.0 生成 ----------------
+def _restore_print_artifacts(master, out):
+    """把母版的页眉图形/页脚域/打印设置部件回填到 openpyxl 的产出件。
+
+    openpyxl 3.1 解析不了 &G 页眉图形与自定义页脚，保存后 media/VML/
+    printerSettings 整段消失、oddFooter 被写成 &L&C&R、legacyDrawingHF
+    与 pageSetup 的 r:id 引用也一并丢失。单元格数据仍由 openpyxl 写，
+    这里只做 zip 级回填，不依赖 Excel COM。
+    """
+    with zipfile.ZipFile(master) as zt:
+        tpl_names = zt.namelist()
+        tpl_sheet = zt.read("xl/worksheets/sheet1.xml").decode("utf-8")
+        assets = [(n, zt.read(n)) for n in tpl_names
+                  if n.startswith(("xl/media/", "xl/printerSettings/",
+                                   "xl/drawings/vmlDrawing",
+                                   "xl/drawings/_rels/vmlDrawing"))]
+    hf_m = re.search(r"<headerFooter\b.*?</headerFooter>", tpl_sheet, re.S)
+    if not hf_m and not assets:
+        return
+    with zipfile.ZipFile(out) as zs:
+        parts = {n: zs.read(n) for n in zs.namelist()}
+    sheet = parts["xl/worksheets/sheet1.xml"].decode("utf-8")
+    ct = parts["[Content_Types].xml"].decode("utf-8")
+
+    vml = next((n for n, _ in assets
+                if n.startswith("xl/drawings/vmlDrawing") and n.endswith(".vml")), None)
+    printer = next((n for n, _ in assets if n.startswith("xl/printerSettings/")), None)
+
+    rels_name = "xl/worksheets/_rels/sheet1.xml.rels"
+    rels = parts.get(rels_name, b"").decode("utf-8")
+    used = set(re.findall(r'Id="(rId\d+)"', rels))
+    added = []
+
+    def _rid():
+        i = 1
+        while f"rId{i}" in used:
+            i += 1
+        used.add(f"rId{i}")
+        return f"rId{i}"
+
+    vml_rid = printer_rid = None
+    if vml:
+        vml_rid = _rid()
+        added.append(f'<Relationship Id="{vml_rid}" Type="http://schemas.openxmlformats.org/'
+                     f'officeDocument/2006/relationships/vmlDrawing" '
+                     f'Target="../drawings/{Path(vml).name}"/>')
+    if printer:
+        printer_rid = _rid()
+        added.append(f'<Relationship Id="{printer_rid}" Type="http://schemas.openxmlformats.org/'
+                     f'officeDocument/2006/relationships/printerSettings" '
+                     f'Target="../printerSettings/{Path(printer).name}"/>')
+    if added:
+        if rels:
+            rels = rels.replace("</Relationships>", "".join(added) + "</Relationships>")
+        else:
+            rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
+                    'relationships">' + "".join(added) + "</Relationships>")
+        parts[rels_name] = rels.encode("utf-8")
+
+    if hf_m:
+        hf = hf_m.group(0)
+        if re.search(r"<headerFooter\b.*?</headerFooter>", sheet, re.S):
+            sheet = re.sub(r"<headerFooter\b.*?</headerFooter>", lambda _m: hf, sheet,
+                           count=1, flags=re.S)
+        else:
+            sheet = sheet.replace("</worksheet>", hf + "</worksheet>")
+
+    if (printer_rid or vml_rid) and 'xmlns:r=' not in sheet[:sheet.find(">") + 1]:
+        # openpyxl 用不到关系命名空间时会省略声明，补上 r:id 前必须先声明。
+        sheet = re.sub(r"<worksheet\b",
+                       '<worksheet xmlns:r="http://schemas.openxmlformats.org/'
+                       'officeDocument/2006/relationships"', sheet, count=1)
+
+    if printer_rid:
+        def _with_rid(m):
+            tag = m.group(0)
+            if "r:id=" in tag:
+                return tag
+            return (tag[:-2] + f' r:id="{printer_rid}"/>') if tag.endswith("/>") \
+                else (tag[:-1] + f' r:id="{printer_rid}">')
+        sheet = re.sub(r"<pageSetup\b[^>]*>", _with_rid, sheet, count=1)
+
+    if vml_rid and "<legacyDrawingHF" in tpl_sheet and "<legacyDrawingHF" not in sheet:
+        sheet = sheet.replace("</worksheet>", f'<legacyDrawingHF r:id="{vml_rid}"/></worksheet>')
+
+    defaults = []
+    for ext, mime in (("jpeg", "image/jpeg"), ("jpg", "image/jpeg"),
+                      ("png", "image/png"), ("gif", "image/gif")):
+        if any(n.lower().endswith("." + ext) for n, _ in assets) \
+                and f'Extension="{ext}"' not in ct:
+            defaults.append(f'<Default Extension="{ext}" ContentType="{mime}"/>')
+    if vml and 'Extension="vml"' not in ct:
+        defaults.append('<Default Extension="vml" ContentType="application/vnd.'
+                        'openxmlformats-officedocument.vmlDrawing"/>')
+    if printer and 'Extension="bin"' not in ct:
+        defaults.append('<Default Extension="bin" ContentType="application/vnd.'
+                        'openxmlformats-officedocument.spreadsheetml.printerSettings"/>')
+    if defaults:
+        ct = ct.replace("</Types>", "".join(defaults) + "</Types>")
+
+    parts["xl/worksheets/sheet1.xml"] = sheet.encode("utf-8")
+    parts["[Content_Types].xml"] = ct.encode("utf-8")
+    for n, data in assets:
+        parts[n] = data
+    tmp = out + ".tmp"
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zw:
+        for n, data in parts.items():
+            zw.writestr(n, data)
+    os.replace(tmp, out)
+
+
 def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
     """套模板生成成品。rows: [{phase,system,module,desc,optimistic,most_likely,pessimistic}]
     开发明细写 R8 起(E/F/G)，其余阶段写阶段行(E/F/G)；H/I 列保留模板公式自动计算。
@@ -201,6 +312,7 @@ def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
                 ws.cell(row, 7).value = r.get("pessimistic")
     wb.calculation.fullCalcOnLoad = True   # 强制 Excel 打开重算 H/I 公式
     wb.save(out)
+    _restore_print_artifacts(path, out)
     return out
 
 
