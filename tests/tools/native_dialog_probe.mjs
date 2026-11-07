@@ -9,6 +9,7 @@
  *    node tests/tools/native_dialog_probe.mjs --modes 0 --rounds 15 --out logs/t04505/probe.log
  *    可选：--graceMs 2000（第二条判据的宽限窗）、--noClickStop 999（发不出点击多少轮收轮）、
  *          --relaunch 3（连续多少轮不弹新框就换实例）、--noClear 1（不清场，只为验证换实例那条链）、--port
+ *          --allowConcurrent 1（不抢同机互斥锁，仅用于明知故犯的并发对照；报告会标注本批不可信）
  *  五种通道（tests/win_dialog.mjs 的 -Mode）：
  *    0 = BM_CLICK（SendMessageTimeoutW，现行驱动打法）
  *    1 = UIA InvokePattern.Invoke()（COM CUIAutomation8）
@@ -41,6 +42,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { makeLauncher, killTree, sleep } from '../electron_cdp.mjs'
 import { removeTmp } from '../tmp_janitor.mjs'
@@ -74,11 +76,115 @@ const RELAUNCH_AFTER = Number(argv('relaunch', 3))
 // 自检开关：1 = 跳过所有清场动作，用来验证「连续不弹新框 → 重启接管」真的会触发。
 const NO_CLEAR = String(argv('noClear', '0')) === '1'
 
+// ---- 同机互斥锁（T04549）----
+// 为什么有这把锁：并发跑第二批时，两边的轮次会落到同一份 logs/shell.log 和同一台被测实例上，
+// 数字互相吃掉且事后分不出归属（T04539 实测：一次「只枚举不点」的对照轮被别的批次按掉，
+// 那一次结论只能作废重跑）。原来只写在注释里的「严禁并发」是手工纪律，现在启动就抢锁。
+// 锁的是这份仓库的探针批次（logs/shell.log + dev-shell 实例族）；别的 checkout 有自己的日志，不互相挡。
+const ALLOW_CONCURRENT = String(argv('allowConcurrent', '0')) === '1'
+const LOCK_PATH = path.join(ROOT, 'logs', 'native_dialog_probe.lock')
+let lockHeld = false
+
+const readLock = () => {
+  try { return JSON.parse(fs.readFileSync(LOCK_PATH, 'utf8')) } catch { return null }
+}
+
+// pid 会被复用：「活着」不等于「还是那个探针进程」。能查到命令行就按命令行确认归属，
+// 查不到（非 Windows 无 /proc、或 wmic 缺失）就只信存活——宁可拒绝启动，也不盲目删别人的锁。
+function processCmdline(pid) {
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync('wmic', ['process', 'where', `ProcessId=${pid}`, 'get', 'CommandLine', '/format:list'],
+        { encoding: 'utf8', timeout: 5000, windowsHide: true })
+      const m = out.match(/CommandLine=(.+)/)
+      return m ? m[1].trim() : ''
+    }
+    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim()
+  } catch { return null }
+}
+
+function holderAlive(holder) {
+  if (!holder || !Number.isInteger(holder.pid) || holder.pid <= 0) return false
+  if (holder.pid === process.pid) return false
+  try { process.kill(holder.pid, 0) } catch (e) { if (e.code !== 'EPERM') return false }
+  const cmd = processCmdline(holder.pid)
+  return cmd === null ? true : /native_dialog_probe/.test(cmd)
+}
+
+function acquireLock() {
+  const me = {
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    cmd: process.argv.slice(1).join(' '),
+    rounds: ROUNDS, modes: MODES.join(','), out: OUT || '(未指定)'
+  }
+  fs.mkdirSync(path.dirname(LOCK_PATH), { recursive: true })
+  // 'wx' 是原子的「创建或失败」，不需要单独的 test-then-create 窗口
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(LOCK_PATH, JSON.stringify(me, null, 1), { flag: 'wx' })
+      lockHeld = true
+      return me
+    } catch (e) {
+      if (e.code !== 'EEXIST') {
+        console.error(`无法建立互斥锁（${e.code}）：${LOCK_PATH} —— 拿不到锁就不跑，避免量尺被并发污染`)
+        process.exit(2)
+      }
+      const holder = readLock()
+      if (holderAlive(holder)) {
+        console.error('另一个探针批次正在跑，本批拒绝启动（并发会让两边的轮次互相吃掉，T04539 实测）：')
+        console.error(`  持有者 pid=${holder.pid} 起始=${holder.startedAt}`)
+        console.error(`  命令行=${holder.cmd}`)
+        console.error(`  轮次=${holder.rounds} 通道=${holder.modes} 报告=${holder.out}`)
+        console.error(`  锁文件=${LOCK_PATH}`)
+        console.error('  确认要明知故犯，加 --allowConcurrent 1（报告会把本批标注为不可信）。')
+        process.exit(2)
+      }
+      // 内容还不完整 = 对方刚 'wx' 建好文件、正在写：这几毫秒里不能当成失效锁抢走
+      if (!holder) {
+        let age = Infinity
+        try { age = Date.now() - fs.statSync(LOCK_PATH).mtimeMs } catch { /* 已被别的等待者清掉 */ }
+        if (age < 5000) {
+          console.error(`锁文件刚被创建（${Math.round(age)}ms 前）但内容不完整，另一个实例正在启动，本批拒绝启动：${LOCK_PATH}`)
+          process.exit(2)
+        }
+      }
+      console.error(`发现失效锁（pid=${holder ? holder.pid : '?'} 已退出或已被别的进程复用），清理后重试：${LOCK_PATH}`)
+      try { fs.unlinkSync(LOCK_PATH) } catch { /* 已被别的等待者清掉 */ }
+    }
+  }
+  console.error(`锁竞争两次仍失败，放弃启动：${LOCK_PATH}`)
+  process.exit(2)
+}
+
+// 所有退出路径都放锁：正常结束、异常、Ctrl+C/SIGTERM。强杀（taskkill /F、kill -9）跑不到这里，
+// 那种情况靠下次启动的「存活 + 命令行」校验把死锁清掉，不会留下永久死锁。
+function releaseLock() {
+  if (!lockHeld) return
+  lockHeld = false
+  const cur = readLock()
+  if (cur && cur.pid !== process.pid) return
+  try { fs.unlinkSync(LOCK_PATH) } catch { /* noop */ }
+}
+process.on('exit', releaseLock)
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { releaseLock(); process.exit(130) })
+
+const lockInfo = ALLOW_CONCURRENT ? null : acquireLock()
+
 const lines = []
 const say = s => { lines.push(s); console.log(s) }
 const saidOnce = new Set()
 const sayOnce = s => { if (!saidOnce.has(s)) { saidOnce.add(s); say(s) } }
 const pct = (a, b) => (b ? `${a}/${b}（${(100 * a / b).toFixed(1)}%）` : `${a}/0`)
+
+// 报告头：归档下来的日志要能自证「这批没被并发污染」。
+if (ALLOW_CONCURRENT) {
+  const other = readLock()
+  say(`本次运行未持锁：--allowConcurrent=1（仅限明知故犯的并发对照）→ 本批数据不可信` +
+    (other ? `；同机已有批次 pid=${other.pid} 起始 ${other.startedAt} 报告 ${other.out}` : '；当前没有别的批次持锁'))
+} else {
+  say(`本次运行持有锁：${lockInfo.pid} / 起始 ${lockInfo.startedAt}（锁文件 ${LOCK_PATH}；同机并发的第二批会被拒绝启动）`)
+}
 
 const scenario = makeLauncher({
   exe: ELECTRON,
