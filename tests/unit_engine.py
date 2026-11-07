@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """S2 · 引擎口径单测（FR-5.2）：weight/total_us/summary 不变量断言。退出码 0=全过。"""
 import os
+import shutil
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'scripts'))
@@ -9,6 +11,7 @@ os.chdir(ROOT)
 
 import engine as g   # noqa: E402
 import gb_engine as gb   # noqa: E402
+import pert   # noqa: E402
 
 fails = []
 check = lambda n, ok, d='': (print(f"  {'PASS' if ok else 'FAIL'}  {n} {d}"), None if ok else fails.append(n))
@@ -68,6 +71,79 @@ check("rates_ok 正常版本通过", gb.rates_ok({"pdr": 6.96, "rate": 28000, "u
 check("rates_ok 负数拒绝", not gb.rates_ok({"pdr": -1, "rate": 28000}))
 check("rates_ok 超界拒绝", not gb.rates_ok({"pdr": 99999, "rate": 28000}))
 check("rates_ok 非数值拒绝", not gb.rates_ok({"pdr": "abc", "rate": 28000}))
+
+# ---- T03680：PERT 母版随包就位 + 生成链路 ----
+import openpyxl
+
+TPL = os.path.join(ROOT, 'tpl', 'pert-template.xlsx')
+check("PERT 母版随包就位（tpl/pert-template.xlsx）", os.path.isfile(TPL), TPL)
+
+if os.path.isfile(TPL):
+    _saved_env = os.environ.pop("WE_TPL_PERT", None)
+    try:
+        check("未设 WE_TPL_PERT 时默认解析到内置母版",
+              os.path.normcase(os.path.normpath(pert._resolve_pert_template() or '')) ==
+              os.path.normcase(os.path.normpath(TPL)),
+              pert._resolve_pert_template())
+
+        # 打包态：_MEIPASS 下 tpl/ 才是母版所在，不能用 __file__ 反推仓库结构
+        with tempfile.TemporaryDirectory() as _td:
+            os.makedirs(os.path.join(_td, 'tpl'))
+            shutil.copy2(TPL, os.path.join(_td, 'tpl', 'pert-template.xlsx'))
+            _old_meipass = getattr(sys, "_MEIPASS", None)
+            sys._MEIPASS = _td
+            try:
+                _got = pert._resolve_pert_template()
+            finally:
+                if _old_meipass is None:
+                    del sys._MEIPASS
+                else:
+                    sys._MEIPASS = _old_meipass
+            check("打包态（_MEIPASS）解析到包内母版",
+                  os.path.normcase(os.path.normpath(_got or '')) ==
+                  os.path.normcase(os.path.normpath(os.path.join(_td, 'tpl', 'pert-template.xlsx'))), _got)
+    finally:
+        if _saved_env is not None:
+            os.environ["WE_TPL_PERT"] = _saved_env
+
+    wb_t = openpyxl.load_workbook(TPL, data_only=False)
+    ws_t = wb_t["项目工作量估算表"]
+    EMPTY = ["D2", "H2", "D3", "C8", "C20", "C28", "D8", "D30",
+             "E6", "G7", "E8", "G30", "E32", "G34"]
+    check("母版项目数据区已清空", all(ws_t[a].value in (None, "") for a in EMPTY),
+          [a for a in EMPTY if ws_t[a].value not in (None, "")])
+    residue = [c.coordinate for row in ws_t.iter_rows() for c in row
+               if isinstance(c.value, str) and "票据" in c.value]
+    check("母版无原项目文案残留", not residue, residue[:3])
+    check("母版公式保留（H/I/小计/总投入）",
+          all(str(ws_t[a].value or "").startswith("=") for a in
+              ("H6", "I6", "E31", "H35", "H40")))
+    check("名称管理器每人月工天标准=20.83",
+          {n.name: n.attr_text for n in wb_t.defined_names.values()}.get("每人月工天标准") == "20.83")
+    wb_t.close()
+
+    with tempfile.TemporaryDirectory() as _td:
+        _out = os.path.join(_td, 'pert_gen.xlsx')
+        pert.generate("母版自检项目", [
+            {"phase": "开发", "system": "核心系统", "module": "查询", "desc": "列表页",
+             "optimistic": 6, "most_likely": 6, "pessimistic": 7},
+            {"phase": "需求分析", "system": "", "module": "", "desc": "",
+             "optimistic": 8, "most_likely": 10, "pessimistic": 14},
+        ], _out, est_date="2026-11-07", estimator="S2")
+        wb_g = openpyxl.load_workbook(_out, data_only=False)
+        ws_g = wb_g["项目工作量估算表"]
+        check("generate 写出 D3/H2/D2（项目/估算人/日期）",
+              ws_g["D3"].value == "母版自检项目" and ws_g["H2"].value == "S2"
+              and ws_g["D2"].value == "2026-11-07")
+        d8 = str(ws_g["D8"].value or "")
+        check("generate 开发明细写入 D/E/F/G",
+              all(k in d8 for k in ("核心系统", "查询", "列表页"))
+              and (ws_g["E8"].value, ws_g["F8"].value, ws_g["G8"].value) == (6, 6, 7), d8)
+        check("generate 阶段行写入三值",
+              (ws_g["E6"].value, ws_g["F6"].value, ws_g["G6"].value) == (10, 8, 14))
+        check("生成件保留 H/I 公式",
+              str(ws_g["H6"].value or "").startswith("=") and str(ws_g["I6"].value or "").startswith("="))
+        wb_g.close()
 
 print(f"==== S2 汇总 ==== 失败 {len(fails)}")
 sys.exit(1 if fails else 0)

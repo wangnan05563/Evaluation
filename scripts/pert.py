@@ -5,13 +5,23 @@
 import json, os, shutil, sqlite3
 from pathlib import Path
 
-# 阜新 V2.0 母版不入库：环境 WE_TPL_PERT 显式指定，或自行放到 tpl/pert-template.xlsx。
+# 空白母版随包分发（tpl/pert-template.xlsx）；环境 WE_TPL_PERT 可覆盖。
 # 两者都不存在时由 generate() 抛出可读错误，不再回退到某台机器的桌面路径。
+def _resource_root():
+    """只读资源根：开发态=仓库根，打包态=_MEIPASS（与 server._RES 同口径）。
+
+    frozen 下 __file__ 指向包内模块路径，不能拿它推仓库结构；spec 的 datas
+    把 tpl/ 整目录收进包内，母版从 _MEIPASS 读取。
+    """
+    import sys
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+
+
 def _resolve_pert_template():
     env = os.environ.get("WE_TPL_PERT")
     if env:
         return env
-    bundled = Path(__file__).resolve().parent.parent / "tpl" / "pert-template.xlsx"
+    bundled = _resource_root() / "tpl" / "pert-template.xlsx"
     return str(bundled) if bundled.exists() else None
 
 # 六阶段固定顺序（对齐模板 R6/R7/R8/R32/R33/R34）
@@ -148,8 +158,8 @@ def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
     path = tpl or _resolve_pert_template()
     if not path or not Path(path).exists():
         raise FileNotFoundError(
-            "PERT 母版未找到：请设置环境变量 WE_TPL_PERT 指向阜新 V2.0 母版，"
-            "或把该母版放到 tpl/pert-template.xlsx"
+            "PERT 母版未找到：打包资源 tpl/pert-template.xlsx 缺失；"
+            "请设置环境变量 WE_TPL_PERT 指向母版文件"
             + (f"（当前解析到：{path}）" if path else ""))
     shutil.copy2(path, out)
     wb = openpyxl.load_workbook(out, data_only=False)

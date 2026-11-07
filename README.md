@@ -14,7 +14,7 @@
 
 - **IFPUG 估算**：上传 `.docx` 需求文档 → 本地引擎解析候选功能点 → 逐条审核（类别/复杂度/重用/修改）→ 一键生成《规模估算》《费用估算》成品 xlsx（公式与样式保真，Excel 打开即重算）
 - **NESMA 快速估算**：数 ILF/EIF 即出规模与费用，支持预估法 / 估算法两种口径，适合需求早期拿量级
-- **PERT 三点估算**：新建/选择项目 → 需求导入（AI 拆分或人工录入）→ 乐观/最可能/悲观三值 → 预期 = (O + 4M + P) ÷ 6、σ = (P − O) ÷ 6 → 生成 PERT 成品表（成品表需自备母版：放 `tpl/pert-template.xlsx`，或用 `WE_TPL_PERT` 指向母版文件；两者都没有时会提示需自备，属预期行为）
+- **PERT 三点估算**：新建/选择项目 → 需求导入（AI 拆分或人工录入）→ 乐观/最可能/悲观三值 → 预期 = (O + 4M + P) ÷ 6、σ = (P − O) ÷ 6 → 生成 PERT 成品表（内置空白母版 `tpl/pert-template.xlsx` 随包分发，安装即用；如需换母版，用 `WE_TPL_PERT` 指向自定义文件）
 - **大模型识别增强**：配置中心可接入任意 OpenAI 兼容接口（OpenAI / Claude / 通义 / 火山 / Agnes / 自定义），支持连接测试、模型列表自动拉取；启用后对候选做复核补全，并可注入项目上下文目录扫描出的技术栈/规模信息
 - **估算历史与版本对比**：估算历史持久化、重开复用，两次估算可逐项 diff（新增/删除/变更高亮）
 - **用户故事导出**：结果页按 INVEST 模板从已确认功能点生成用户故事（含验收标准与规模），导出 MD/CSV，可一键推送到 GitHub Issues（token/仓库自配，失败可重试）
@@ -244,7 +244,7 @@ set GH_DRY_RUN=1 && scripts\一键发布.bat
 │   ├── config.json            # 运行配置（LLM 预设、上下文目录、主题）——本地产物，已忽略
 │   └── pert.db / estimation.db# 项目库与估算历史——本地产物，已忽略
 ├── tpl/template.xlsx          # 成品母版（公式/样式保真基座）
-├── tpl/pert-template.xlsx     # PERT 成品母版（可选，需自备；也可用 WE_TPL_PERT 指定，缺省则提示需自备）
+├── tpl/pert-template.xlsx     # PERT 成品母版（内置空白基座，随包分发；可用 WE_TPL_PERT 覆盖）
 ├── 工作量评估工具.spec         # 手写 PyInstaller 构建定义（datas/hiddenimports/图标），sidecar exe 依赖它
 ├── tests/                     # 回归套件（S1–S17：Python/node 单测 + API 冒烟 + UI 冒烟 + 实机烟测）
 ├── tools/docs/product-intro/  # 产品介绍文档生成链（图版拼装 + docx 生成 + 可选界面采集）
