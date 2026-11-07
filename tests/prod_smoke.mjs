@@ -37,11 +37,23 @@ const SIDECAR = path.join(RES, 'we-eval', APP_NAME + '.exe')
 const SHELL_LOG = path.join(RES, 'logs', 'shell.log')
 // 壳主进程写死的 sidecar 端口（dev-shell/main.js: const PORT = 8020）
 const SIDECAR_PORT = 8020
-// 退出耗时门：装包态的关闭链比开发态慢——关闭前要打 /api/jobs/running 探任务（超时预算 1.5s），
-// 还要回收 detached 的 PyInstaller 进程树。本机同产物实测散布 1224 / 1437 / 2094 / 2825ms
-// （开发态基线 401~648ms），阈值取 5000ms（约为实测上限 1.8 倍），可用 WE_PROD_EXIT_MS_BUDGET 收紧。
-// 阈值宁可略宽：这门要挡的是「关不掉/卡死」这类回归（真出问题时是几十秒级），不是毫秒级抖动。
+// 退出耗时门（T04543 起对负载不敏感）：装包态的关闭链比开发态慢——关闭前要打 /api/jobs/running
+// 探任务（超时预算 1.5s），还要回收 detached 的 PyInstaller 进程树。本机同产物空载实测散布
+// 1224 / 1437 / 2094 / 2825ms（开发态基线 401~648ms），基础门 5000ms ≈ 实测上限 1.8 倍。
+// 但固定门在多会话并发下会假红：T04540 收口时同一份产物连跑三次，第 1 次 P-A2 6909ms 红、
+// 第 2 次 P-B 7038ms 红、第 3 次全绿（当时机上有 40+ 个其它会话的 node.exe）——红的不是同一项、
+// 产物与退出链都没变，所以不是回归。沿用 S17 的口径（docs 关键决策第 6 条）：**有水位证据才放宽**，
+// 且放宽有上限，四档判定见下面 exitGate()：
+//   基础门内 → PASS；有水位且 ≤ 宽松上限 → WARN（报告标注「并发环境下的宽松判定」，不判红）；
+//   无水位证据却超基础门 / 超宽松上限 → 仍 FAIL；没退出（关不掉、卡死）→ 与负载无关，始终 FAIL。
+// 宽松上限 15000ms = 基础门 3 倍，远低于 EXIT_WAIT 45s：这门要挡的是几十秒级的「关不掉」，
+// 不是毫秒级抖动。水位阈值 12 是策略值不是拟合值（本轮跑测时实测 36 个 node.exe、T04540 假红时段
+// 40+ 个；本机拿不到可复现的「真空载」读数，所以不假装阈值是量出来的），
+// 它只决定「要不要放宽」，不决定「关不掉算不算红」，所以选宽选窄都放不过真回归。
+// 三个数都可用环境变量覆盖：WE_PROD_EXIT_MS_BUDGET / WE_PROD_EXIT_MS_HARD / WE_PROD_LOAD_NODE_HIGH。
 const EXIT_MS_BUDGET = Number(process.env.WE_PROD_EXIT_MS_BUDGET || 5000)
+const EXIT_MS_HARD = Number(process.env.WE_PROD_EXIT_MS_HARD || 15000)
+const LOAD_NODE_HIGH = Number(process.env.WE_PROD_LOAD_NODE_HIGH || 12)
 const EXIT_WAIT = Number(process.env.WE_PROD_EXIT_WAIT || 45000)
 const res = []
 let skipReason = ''
@@ -53,6 +65,57 @@ const check = (n, ok, d = '') => {
 const skip = (n, why) => {
   res.push({ n, ok: true })
   console.log(`SKIP  ${n}  — ${why}`)
+}
+// 超基础门但有水位证据时记 WARN：ok 仍为 true（不拖红发布门），但单独计数、在小结里点名，
+// 免得「宽松判定」被读成「这项没测」。
+const warns = []
+const warn = (n, d) => {
+  res.push({ n, ok: true, warn: true })
+  warns.push(n)
+  console.log(`WARN  ${n}  — ${d}`)
+}
+
+/** 同机 node.exe 并发度（含本测试自己那 1 个）。tasklist 走 CSV 无表头，按 CSV 行计数；
+ *  没有匹配任务时它打的是一行「信息: …」而不是 CSV，会被下面的行首判据滤掉。
+ *  非 Windows / 采样失败一律 count=null（水位未知 → 按基础门判，不放宽），不静默当成 0。 */
+function sampleLoad() {
+  if (process.platform !== 'win32') return { count: null, why: '非 Windows，未采样' }
+  const r = spawnSync('tasklist', ['/FI', 'IMAGENAME eq node.exe', '/FO', 'CSV', '/NH'], { encoding: 'utf8' })
+  if (r.error || r.status !== 0) {
+    return { count: null, why: `tasklist 失败（${r.error ? r.error.message : 'status=' + r.status}）` }
+  }
+  const n = (r.stdout || '').split('\n').filter(l => /^"[^"]*","/.test(l.trim())).length
+  return { count: n, why: '' }
+}
+const loadSamples = []
+/** 一次退出计时的水位取「关闭前 / 退出后」两次采样的大者：跑测期间别的会话会起停，
+ *  只采一头会漏掉窗口期内挤进来的负载（T04540 三次重跑红的不是同一项，正是这种形状）。 */
+function loadPeak(before) {
+  const after = sampleLoad()
+  const ns = [before.count, after.count].filter(n => n !== null)
+  const peak = { count: ns.length ? Math.max(...ns) : null, why: before.why || after.why,
+    before: before.count, after: after.count }
+  loadSamples.push(peak)
+  return peak
+}
+// LOAD_NODE= 这个 token 是给 T04507（负载是否放大吞按率）复用的水位读数，别改写法
+const loadText = l => l.count === null
+  ? `水位未知（${l.why}）`
+  : `LOAD_NODE=${l.count}（关闭前 ${l.before} / 退出后 ${l.after}，阈值 ${LOAD_NODE_HIGH}${l.count >= LOAD_NODE_HIGH ? '，有水位' : '，无水位'}）`
+
+/** 退出耗时四档判定（T04543）。「没退出」不进放宽逻辑——那是关不掉/卡死，与负载无关，始终判红。 */
+function exitGate(n, waited, load, extra = '') {
+  const { exited, ms } = waited
+  const tail = extra ? `；${extra}` : ''
+  if (!exited) {
+    return check(n, false, `${waited.notDelivered ? '这一按没被接住，未进入退出计时' : `${ms}ms 内未退出`}——关不掉/卡死与负载无关，始终判红${tail}`)
+  }
+  if (ms <= EXIT_MS_BUDGET) return check(n, true, `${ms}ms ≤ 基础门 ${EXIT_MS_BUDGET}ms；${loadText(load)}${tail}`)
+  if (load.count !== null && load.count >= LOAD_NODE_HIGH && ms <= EXIT_MS_HARD) {
+    return warn(n, `本次为并发环境下的宽松判定：${ms}ms 超基础门 ${EXIT_MS_BUDGET}ms、未超宽松上限 ${EXIT_MS_HARD}ms；${loadText(load)}${tail}`)
+  }
+  const noEvidence = load.count === null || load.count < LOAD_NODE_HIGH
+  return check(n, false, `${ms}ms 超门（基础 ${EXIT_MS_BUDGET}ms / 宽松上限 ${EXIT_MS_HARD}ms）；${loadText(load)}${noEvidence ? '——无水位证据，不放宽' : '——已超宽松上限'}${tail}`)
 }
 setTimeout(() => { console.error('[bk] WATCHDOG'); process.exit(3) }, Number(process.env.WE_PROD_WATCHDOG_MS || 900000))
 
@@ -326,6 +389,7 @@ async function runScenarios() {
     if (!s.ok) {
       check('P-A2 产物可启动', false, s.detail)
     } else {
+      const loadBefore = sampleLoad()
       requestClose(s.child.pid)
       await sleep(2000)
       const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
@@ -346,7 +410,8 @@ async function runScenarios() {
       }
       // 三按都没接住时对话框还开着，等退出必然等到超时——直接带证据判红，不再空等 EXIT_WAIT。
       const delivered = last.out.includes('DIALOG_AFTER=no') || last.out.includes('DIALOG=not_found')
-      const waited = delivered ? await waitExit(s.child, EXIT_WAIT) : { exited: false, ms: 0 }
+      const waited = delivered ? await waitExit(s.child, EXIT_WAIT) : { exited: false, ms: 0, notDelivered: true }
+      const load = loadPeak(loadBefore)
       const { exited, ms } = waited
       check('P-A2 模态框两个按钮都在、能按文案定位到「直接关闭应用」',
         dump.out.includes('DIALOG=found') && got.buttons.length === 2 && exitIdx >= 0, got.buttons.join(' | '))
@@ -360,8 +425,8 @@ async function runScenarios() {
       try { onDisk = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* 勾选后应落盘 */ }
       check('P-A2 选择落盘为 exit_app + remember_choice=true',
         !!onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
-      check(`P-A2 本轮退出耗时在预算内（≤${EXIT_MS_BUDGET}ms）`, exited && ms <= EXIT_MS_BUDGET,
-        exited ? `${ms}ms${retries ? `（补点 ${retries} 次后）` : ''}` : '未退出')
+      exitGate('P-A2 本轮退出耗时在预算内', waited, load,
+        retries ? `补点 ${retries} 次后` : '首按即接住')
       a2 = s // userData 留给 P-A3 复用，临时目录到 A3 结束才删
     }
   }
@@ -378,11 +443,16 @@ async function runScenarios() {
       check('P-A3 冷重启可启动', false, s.detail)
     } else {
       check('P-A3 冷重启可启动', true, a2.ud)
+      const loadBefore = sampleLoad()
       requestClose(s.child.pid)
-      const { exited, ms } = await waitExit(s.child, EXIT_WAIT)
+      const waited = await waitExit(s.child, EXIT_WAIT)
+      const load = loadPeak(loadBefore)
+      const { exited, ms } = waited
       const closeLine = lastLine(await until('[close]'), '[close]')
       // 装包态「记住」生效 = 主进程根本没走 askCloseAction（prompted=false），比「屏幕没弹框」更硬
-      check('P-A3 按记住的选择直接退出（不再弹框）', exited, exited ? `耗时 ${ms}ms` : `${ms}ms 内未退出`)
+      // P-A3 只判「有没有退出」、不设耗时门；耗时与水位一并落进明细，给 T04507 当负载读数用。
+      check('P-A3 按记住的选择直接退出（不再弹框）', exited,
+        `${exited ? `耗时 ${ms}ms` : `${ms}ms 内未退出`}；${loadText(load)}`)
       check('P-A3 关闭决策日志 prompted=false remembered=true',
         /\[close\] action=exit_app prompted=false remembered=true/.test(closeLine), closeLine)
       let onDisk = null
@@ -401,10 +471,11 @@ async function runScenarios() {
     if (!s.ok) {
       check('P-B 记住=退出场景可启动', false, s.detail)
     } else {
+      const loadBefore = sampleLoad()
       requestClose(s.child.pid)
-      const { exited, ms } = await waitExit(s.child, EXIT_WAIT)
-      check(`P-B 关窗后进程退出且耗时 ≤ ${EXIT_MS_BUDGET}ms`, exited && ms <= EXIT_MS_BUDGET,
-        `${exited ? `耗时 ${ms}ms` : `${ms}ms 内未退出`}（本机同产物实测散布 1224~2825ms）`)
+      const waited = await waitExit(s.child, EXIT_WAIT)
+      const load = loadPeak(loadBefore)
+      exitGate('P-B 关窗后进程退出且耗时在预算内', waited, load, '空载同产物实测散布 1224~2825ms')
       const closeLine = lastLine(await until('[close]'), '[close]')
       check('P-B 退出链未落入保底分支（action=exit_app 而非 decision failed）',
         /action=exit_app/.test(closeLine), closeLine)
@@ -461,6 +532,15 @@ function probeTrayIcon(click) {
 cleanupDialogScript()
 const failed = res.filter(r => !r.ok)
 console.log(`\n==== 免安装产物冒烟（${PROD_DIR}）==== ` +
-  (failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length} 项`))
+  (failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length} 项`) +
+  (warns.length ? `；另有 ${warns.length} 项并发环境下的宽松判定 WARN（ok=true，不计入失败）` : ''))
 if (skipReason) console.log(`说明：实机场景整体跳过——${skipReason}`)
+// 负载水位读数（T04543）：每次退出计时都采了「关闭前 / 退出后」两个数并取大者。
+// 这一行同时是 T04507（吞按率是否随负载放大）要的水位口径，两边用同一个 LOAD_NODE= 计数法。
+const ns = loadSamples.map(l => l.count).filter(n => n !== null).sort((a, b) => a - b)
+const mid = ns.length ? (ns.length % 2 ? ns[(ns.length - 1) / 2] : (ns[ns.length / 2 - 1] + ns[ns.length / 2]) / 2) : null
+console.log(`负载水位：node.exe 采样 ${loadSamples.length} 次` +
+  (ns.length ? `，min/中位/max = ${ns[0]}/${mid}/${ns[ns.length - 1]}` : '（未采到计数）') +
+  `；高水位阈值 ${LOAD_NODE_HIGH}；退出耗时门 基础 ${EXIT_MS_BUDGET}ms / 有水位时宽松上限 ${EXIT_MS_HARD}ms`)
+if (warns.length) console.log(`宽松判定项：${warns.join('；')}`)
 process.exit(failed.length ? 1 : 0)
