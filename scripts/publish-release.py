@@ -35,6 +35,18 @@ import urllib.parse
 import urllib.request
 
 
+def _dotenv_pair(raw):
+    """解析一行 .env，返回 (key, value)；空行/注释/无等号返回 None。"""
+    line = raw.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return None
+    k, v = line.split("=", 1)
+    k, v = k.strip(), v.strip()
+    if len(v) >= 2 and v[0] in ("'", '"') and v[-1] == v[0]:
+        v = v[1:-1]
+    return (k, v) if k else None
+
+
 def _load_dotenv():
     """从本地 .env 读取配置（GitHub Token 等），不覆盖已存在的环境变量。
 
@@ -53,17 +65,9 @@ def _load_dotenv():
         try:
             with open(p, encoding="utf-8") as f:
                 for raw in f:
-                    line = raw.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "=" not in line:
-                        continue
-                    k, v = line.split("=", 1)
-                    k, v = k.strip(), v.strip()
-                    if len(v) >= 2 and v[0] in ("'", '"') and v[-1] == v[0]:
-                        v = v[1:-1]
-                    if k and k not in os.environ:
-                        os.environ[k] = v
+                    pair = _dotenv_pair(raw)
+                    if pair and pair[0] not in os.environ:
+                        os.environ[pair[0]] = pair[1]
         except Exception:
             pass
 
@@ -78,7 +82,7 @@ def _read_text(path):
         try:
             with open(path, encoding=enc) as f:
                 return f.read()
-        except (UnicodeDecodeError, UnicodeError):
+        except UnicodeError:
             continue
     with open(path, encoding=locale.getpreferredencoding(False)) as f:
         return f.read()
@@ -143,42 +147,61 @@ def fetch_token():
     return ""
 
 
+# 409/422：tag 或 release 已存在 —— 交给调用方走「复用」分支
+CONFLICT_HTTP = (409, 422)
+RETRY_HTTP = (403, 429, 500, 502, 503)
+
+
+def _api_headers(content_type="application/json"):
+    return {
+        "Authorization": "Bearer " + TOKEN,
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "publish-release",
+        "Content-Type": content_type,
+    }
+
+
+def _api_once(url, body, verb):
+    req = urllib.request.Request(url, data=body, method=verb, headers=_api_headers())
+    with urllib.request.urlopen(req, timeout=90) as r:
+        txt = r.read().decode("utf-8")
+        return r.status, (json.loads(txt) if txt else None)
+
+
+def _http_failure(e):
+    """把 HTTPError 归一为 (状态码, 已解析 JSON, 原始文本)。"""
+    payload = e.read().decode("utf-8", "replace")
+    try:
+        parsed = json.loads(payload) if payload else None
+    except Exception:
+        parsed = None
+    return e.code, parsed, payload
+
+
+def _api_try(url, body, verb):
+    """单次请求，返回 (结果, 是否值得重试)。"""
+    try:
+        return _api_once(url, body, verb), False
+    except urllib.error.HTTPError as e:
+        code, parsed, payload = _http_failure(e)
+        if code in CONFLICT_HTTP:
+            return (code, parsed), False
+        return (code, parsed or payload), code in RETRY_HTTP
+    except Exception as e:  # 连接重置/空响应
+        return ("EXC", str(e)), True
+
+
 def api(path, data=None, method=None, base=None):
-    base = base or API_BASE
     body = json.dumps(data).encode("utf-8") if data is not None else None
-    last = None
-    for attempt in range(5):
-        try:
-            req = urllib.request.Request(
-                base + path, data=body,
-                method=method or ("POST" if body else "GET"),
-                headers={
-                    "Authorization": "Bearer " + TOKEN,
-                    "Accept": "application/vnd.github+json",
-                    "User-Agent": "publish-release",
-                    "Content-Type": "application/json",
-                })
-            with urllib.request.urlopen(req, timeout=90) as r:
-                txt = r.read().decode("utf-8")
-                return r.status, (json.loads(txt) if txt else None)
-        except urllib.error.HTTPError as e:
-            payload = e.read().decode("utf-8", "replace")
-            try:
-                parsed = json.loads(payload) if payload else None
-            except Exception:
-                parsed = None
-            last = (e.code, parsed or payload)
-            # 409/422：tag 或 release 已存在 —— 交给调用方走「复用」分支
-            if e.code in (409, 422):
-                return e.code, parsed
-            if e.code in (403, 429, 500, 502, 503):
-                time.sleep(10)
-                continue
-            return last
-        except Exception as e:  # 连接重置/空响应
-            last = ("EXC", str(e))
-            time.sleep(10)
-    return last
+    url = (base or API_BASE) + path
+    verb = method or ("POST" if body else "GET")
+    result = (None, None)
+    for _ in range(5):
+        result, retry = _api_try(url, body, verb)
+        if not retry:
+            return result
+        time.sleep(10)
+    return result
 
 
 def get_existing_release_by_tag(tag):
@@ -188,13 +211,16 @@ def get_existing_release_by_tag(tag):
     return None
 
 
-def main():
+def _parse_args():
     if len(sys.argv) < 3:
         sys.exit("用法: python publish-release.py <资产路径> <说明md路径> [资产显示名]")
     asset = os.path.abspath(sys.argv[1])
     notes = os.path.abspath(sys.argv[2])
     display_name = sys.argv[3] if len(sys.argv) > 3 else os.path.basename(asset)
+    return asset, notes, display_name
 
+
+def _resolve_settings():
     global REPO, TAG, TOKEN, TARGET
     if not REPO:
         REPO = detect_repo()
@@ -205,6 +231,8 @@ def main():
     if not TARGET:
         TARGET = detect_branch()
 
+
+def _require_inputs(asset, notes):
     if not REPO:
         sys.exit("无法确定仓库（GH_REPO 未设且 git remote 无 github.com origin）")
     if not TAG:
@@ -214,29 +242,21 @@ def main():
     if not os.path.isfile(notes):
         sys.exit(f"说明文件不存在: {notes}")
 
-    print(f"仓库={REPO}  标签={TAG}  目标={TARGET}  draft={DRAFT} prerelease={PRERELEASE}")
-    print(f"资产={asset}\n说明={notes}")
 
-    body = _read_text(notes)
+def _dry_run(asset, body, display_name):
+    print("\n[DRY-RUN] 以下动作【不会】真正执行：")
+    print(f"  POST /repos/{REPO}/releases")
+    print(f"    tag_name   = {TAG}")
+    print(f"    target     = {TARGET}")
+    print(f"    name       = {display_name}")
+    print(f"    draft      = {DRAFT}  prerelease = {PRERELEASE}")
+    print(f"    body 长度  = {len(body)} 字符")
+    print(f"  UPLOAD 资产  = {display_name}  ({os.path.getsize(asset)} bytes)")
+    print("  （设置 GH_DRY_RUN=0 或清除该变量后重跑即可真正发布）")
 
-    # ---- 0) DRY-RUN：只打印将要执行的动作，不触碰 GitHub ----
-    if DRY_RUN:
-        size = os.path.getsize(asset)
-        print("\n[DRY-RUN] 以下动作【不会】真正执行：")
-        print(f"  POST /repos/{REPO}/releases")
-        print(f"    tag_name   = {TAG}")
-        print(f"    target     = {TARGET}")
-        print(f"    name       = {display_name}")
-        print(f"    draft      = {DRAFT}  prerelease = {PRERELEASE}")
-        print(f"    body 长度  = {len(body)} 字符")
-        print(f"  UPLOAD 资产  = {display_name}  ({size} bytes)")
-        print("  （设置 GH_DRY_RUN=0 或清除该变量后重跑即可真正发布）")
-        return
 
-    if len(TOKEN) < 20:
-        sys.exit("GH_TOKEN 缺失（git 凭据库里也没有 github.com 凭证）")
-
-    # ---- 1) 创建 Release（已存在则复用）----
+def _ensure_release(display_name, body):
+    """创建 Release；已存在（409/422）则按 tag 复用。"""
     st, resp = api(f"/repos/{REPO}/releases", {
         "tag_name": TAG,
         "target_commitish": TARGET,
@@ -245,30 +265,28 @@ def main():
         "draft": DRAFT,
         "prerelease": PRERELEASE,
     })
-    if st not in (200, 201) and st not in (409, 422):
+    if st not in (200, 201) and st not in CONFLICT_HTTP:
         print("create release 失败:", st, json.dumps(resp, ensure_ascii=False)[:800])
         sys.exit(1)
-
     if isinstance(resp, dict) and "upload_url" in resp:
-        release = resp
-    else:
-        # 创建冲突 → 按 tag 拉取已有 Release
-        release = get_existing_release_by_tag(TAG)
-        if not release:
-            print("无法获取已有 Release，退出。", json.dumps(resp, ensure_ascii=False)[:400])
-            sys.exit(1)
-    print("release id:", release.get("id"), "html:", release.get("html_url"))
+        return resp
+    release = get_existing_release_by_tag(TAG)
+    if not release:
+        print("无法获取已有 Release，退出。", json.dumps(resp, ensure_ascii=False)[:400])
+        sys.exit(1)
+    return release
 
-    # ---- 2) 上传资产（已存在则跳过）----
-    assets = release.get("assets") or []
-    already = {a.get("name") for a in assets}
+
+def _upload_asset(release, asset, display_name):
+    already = {a.get("name") for a in (release.get("assets") or [])}
     if display_name in already:
         print("资产已存在，跳过上传:", display_name)
         return
 
     upload_url = release["upload_url"].split("{")[0] + "?name=" + urllib.parse.quote(display_name)
     size = os.path.getsize(asset)
-    data = open(asset, "rb").read()
+    with open(asset, "rb") as f:
+        data = f.read()
     print("上传中", display_name, f"{size} bytes ...")
     last = None
     for attempt in range(4):
@@ -276,10 +294,7 @@ def main():
             req = urllib.request.Request(
                 upload_url, data=data, method="POST",
                 headers={
-                    "Authorization": "Bearer " + TOKEN,
-                    "Accept": "application/vnd.github+json",
-                    "User-Agent": "publish-release",
-                    "Content-Type": "application/octet-stream",
+                    **_api_headers("application/octet-stream"),
                     "Content-Length": str(size),
                 })
             with urllib.request.urlopen(req, timeout=1800) as r:
@@ -291,6 +306,33 @@ def main():
             print(f"  上传第 {attempt + 1} 次失败: {str(e)[:200]}")
             time.sleep(15)
     sys.exit(f"资产上传失败: {last}")
+
+
+def main():
+    asset, notes, display_name = _parse_args()
+
+    _resolve_settings()
+    _require_inputs(asset, notes)
+
+    print(f"仓库={REPO}  标签={TAG}  目标={TARGET}  draft={DRAFT} prerelease={PRERELEASE}")
+    print(f"资产={asset}\n说明={notes}")
+
+    body = _read_text(notes)
+
+    # ---- 0) DRY-RUN：只打印将要执行的动作，不触碰 GitHub ----
+    if DRY_RUN:
+        _dry_run(asset, body, display_name)
+        return
+
+    if len(TOKEN) < 20:
+        sys.exit("GH_TOKEN 缺失（git 凭据库里也没有 github.com 凭证）")
+
+    # ---- 1) 创建 Release（已存在则复用）----
+    release = _ensure_release(display_name, body)
+    print("release id:", release.get("id"), "html:", release.get("html_url"))
+
+    # ---- 2) 上传资产（已存在则跳过）----
+    _upload_asset(release, asset, display_name)
 
 
 if __name__ == "__main__":

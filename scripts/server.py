@@ -152,7 +152,7 @@ def running_jobs():
     now = time.time()
     jobs = []
     with GEN_PROGRESS_LOCK:
-        for k in list(GEN_PROGRESS):
+        for k in GEN_PROGRESS:
             v = GEN_PROGRESS[k]
             if now - v.get("ts", 0) > GEN_PROGRESS_TTL:
                 continue
@@ -266,6 +266,10 @@ def _m(key, zh_tpl, **args):
         d["msgArgs"] = args
     return d
 
+# 历史库不可用的统一响应文案（5 处调用共用，避免字面量漂移）
+HIST_UNAVAIL_KEY = "history.srv_unavail"
+HIST_UNAVAIL_ZH = "历史功能不可用（存储初始化失败）"
+
 # 界面文案字典（FR-5.5）：data/i18n/{lang}.json 外置，不发版可补翻译。
 # 为什么不走 /static/：该路由白名单只放行 .js/.css 且显式禁子路径（防目录穿越），
 # 放行 .json 会扩大攻击面，故单独走 /api/i18n 的 _json() 通道。
@@ -289,6 +293,57 @@ def _i18n_path(lang):
     return p
 
 
+def _i18n_src(lang):
+    """在只读资源目录与 exe 同级目录中查找内置字典，找不到返回 None。"""
+    for base in (_RES, _APP_ROOT):
+        src = base / "data" / DIR_I18N / f"{lang}.json"
+        if src.exists():
+            return src
+    return None
+
+
+def _i18n_merge(dst, src, lang):
+    """把内置字典中目标缺失的键合并进已有字典；无缺失则不写盘。"""
+    with open(dst, "rb") as f:
+        cur = json.loads(f.read().decode("utf-8-sig"))
+    with open(src, "rb") as f:
+        bundled = json.loads(f.read().decode("utf-8-sig"))
+    cur_s = cur.get("strings") if isinstance(cur.get("strings"), dict) else {}
+    bun_s = bundled.get("strings") if isinstance(bundled.get("strings"), dict) else {}
+    missing = {k: v for k, v in bun_s.items() if k not in cur_s}
+    if not missing:
+        return
+    backup = dst.with_name(dst.name + ".bak")
+    shutil.copyfile(dst, backup)
+    cur_s.update(missing)
+    cur["strings"] = cur_s
+    cur["version"] = int(cur.get("version", 1) or 1) + 1
+    tmp = dst.with_name(dst.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cur, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, dst)
+    print(f"[i18n] 字典升级（{lang}）：补齐缺失键 {len(missing)} 条"
+          f"（原文件备份为 {backup.name}）", flush=True)
+
+
+def _i18n_seed_lang(dst, lang):
+    """单语言播种：整份缺失走拷贝，已存在走缺失键增量合并。"""
+    src = _i18n_src(lang)
+    if not dst.exists():
+        if src is None:
+            print(f"[i18n] 内置字典缺失（{lang}），该语言将回退显示 key", flush=True)
+            return
+        shutil.copyfile(src, dst)
+        return
+    if src is None:
+        return
+    try:
+        _i18n_merge(dst, src, lang)
+    except Exception as e:
+        print(f"[i18n] 字典增量合并失败（{lang}，不影响启动）: "
+              f"{type(e).__name__}: {e}", flush=True)
+
+
 def _i18n_seed():
     """首启播种/升级内置字典：data/i18n/ 不存在或缺少内置键时从只读资源目录同步。
 
@@ -306,52 +361,9 @@ def _i18n_seed():
     """
     dst_dir = APP_DATA / DIR_I18N
     try:
-        if not dst_dir.exists():
-            dst_dir.mkdir(parents=True, exist_ok=True)
+        dst_dir.mkdir(parents=True, exist_ok=True)
         for lang in I18N_SUPPORTED:
-            dst = dst_dir / f"{lang}.json"
-            if not dst.exists():
-                for base in (_RES, _APP_ROOT):
-                    src = base / "data" / DIR_I18N / f"{lang}.json"
-                    if src.exists():
-                        import shutil
-                        shutil.copyfile(src, dst)
-                        break
-                else:
-                    print(f"[i18n] 内置字典缺失（{lang}），该语言将回退显示 key", flush=True)
-                continue
-            # 已有字典：合并缺失键（T01695）。用户已有键不动，仅补新键。
-            try:
-                for base in (_RES, _APP_ROOT):
-                    src = base / "data" / DIR_I18N / f"{lang}.json"
-                    if src.exists():
-                        break
-                else:
-                    continue
-                with open(dst, "rb") as f:
-                    cur = json.loads(f.read().decode("utf-8-sig"))
-                with open(src, "rb") as f:
-                    bundled = json.loads(f.read().decode("utf-8-sig"))
-                cur_s = cur.get("strings") if isinstance(cur.get("strings"), dict) else {}
-                bun_s = bundled.get("strings") if isinstance(bundled.get("strings"), dict) else {}
-                missing = {k: v for k, v in bun_s.items() if k not in cur_s}
-                if not missing:
-                    continue
-                import shutil
-                backup = dst.with_name(dst.name + ".bak")
-                shutil.copyfile(dst, backup)
-                cur_s.update(missing)
-                cur["strings"] = cur_s
-                cur["version"] = int(cur.get("version", 1) or 1) + 1
-                tmp = dst.with_name(dst.name + ".tmp")
-                with open(tmp, "w", encoding="utf-8") as f:
-                    json.dump(cur, f, ensure_ascii=False, indent=1)
-                os.replace(tmp, dst)
-                print(f"[i18n] 字典升级（{lang}）：补齐缺失键 {len(missing)} 条"
-                      f"（原文件备份为 {backup.name}）", flush=True)
-            except Exception as e:
-                print(f"[i18n] 字典增量合并失败（{lang}，不影响启动）: "
-                      f"{type(e).__name__}: {e}", flush=True)
+            _i18n_seed_lang(dst_dir / f"{lang}.json", lang)
     except Exception as e:
         print(f"[i18n] 字典播种失败（不影响启动）: {type(e).__name__}: {e}", flush=True)
 
@@ -1460,7 +1472,7 @@ class Handler(BaseHTTPRequestHandler):
         # ---------------- M1 估算历史（FR-1.1/1.8/2.5） ----------------
         if u.path == "/api/history":
             if HIST is None:
-                return self._json(200, {"ok": False, **_m("history.srv_unavail", "历史功能不可用（存储初始化失败）"), "total": 0, "rows": []})
+                return self._json(200, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH), "total": 0, "rows": []})
             q = parse_qs(u.query)
             return self._json(200, HIST.list(
                 query=(q.get("query") or [""])[0],
@@ -1469,7 +1481,7 @@ class Handler(BaseHTTPRequestHandler):
         m_hist = re.match(r"^/api/history/([0-9a-f]{32})$", u.path)
         if m_hist:
             if HIST is None:
-                return self._json(503, {"ok": False, **_m("history.srv_unavail", "历史功能不可用（存储初始化失败）")})
+                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
             hid = m_hist.group(1)
             row = HIST.get(hid)
             if not row:
@@ -1478,12 +1490,12 @@ class Handler(BaseHTTPRequestHandler):
         m_grp = re.match(r"^/api/history/([0-9a-f]{32})/group$", u.path)
         if m_grp:
             if HIST is None:
-                return self._json(503, {"ok": False, **_m("history.srv_unavail", "历史功能不可用（存储初始化失败）")})
+                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
             return self._json(200, HIST.group(m_grp.group(1)))
         # ---------------- M1/FR-FE05：版本间 diff ----------------
         if u.path == "/api/history/diff":
             if HIST is None:
-                return self._json(503, {"ok": False, **_m("history.srv_unavail", "历史功能不可用（存储初始化失败）")})
+                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
             q = parse_qs(u.query)
             aid = (q.get("a") or [None])[0]
             bid = (q.get("b") or [None])[0]
@@ -1625,7 +1637,7 @@ class Handler(BaseHTTPRequestHandler):
                 m_del = re.match(r"^/api/history/([0-9a-f]{32})$", u.path)
                 if m_del:
                     if HIST is None:
-                        return self._json(503, {"ok": False, **_m("history.srv_unavail", "历史功能不可用（存储初始化失败）")})
+                        return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
                     return self._json(200, {"ok": HIST.delete(m_del.group(1))})
 
             if u.path == "/api/story/push":
