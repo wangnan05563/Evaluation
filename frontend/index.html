@@ -120,9 +120,9 @@ body[data-step="upload"] #v-upload,body[data-step="review"] #v-review,body[data-
 .diff-sum{margin:10px 0 14px;font-size:13px;color:var(--ink-2);line-height:1.8}
 .diff-sum b{color:var(--ink)}
 .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600}
-.b-add{color:#0a7d33;background:rgba(10,125,51,.12)}
-.b-del{color:#c0392b;background:rgba(192,57,43,.12)}
-.b-chg{color:#b7791f;background:rgba(183,121,31,.14)}
+.b-add{color:var(--ok-ink);background:var(--ok-soft)}
+.b-del{color:var(--danger-ink);background:var(--danger-soft)}
+.b-chg{color:var(--warn-ink);background:var(--warn-soft)}
 .d-added td{background:rgba(10,125,51,.06)}
 .d-removed td{background:rgba(192,57,43,.06)}
 .d-changed td{background:rgba(183,121,31,.06)}
@@ -1215,9 +1215,12 @@ const $=s=>document.querySelector(s);
 const __dyn=[];
 function dynBind(el,fn,mode){const ex=__dyn.find(d=>d.el===el);
   if(ex){ex.fn=fn;ex.mode=mode;}else __dyn.push({el,fn,mode});
-  const v=fn();if(v!=null)(mode==="html"?el.innerHTML=v:el.textContent=v);}
-function dynText(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el)dynBind(el,fn,"text");return el;}
-function dynHtml(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el)dynBind(el,fn,"html");return el;}
+  const v=fn();
+  if(v!=null){
+    if(mode==="html"){el.innerHTML=v;}else{el.textContent=v;}
+  }}
+function dynText(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el){dynBind(el,fn,"text");}return el;}
+function dynHtml(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el){dynBind(el,fn,"html");}return el;}
 function dynClear(sel){const el=typeof sel==="string"?$(sel):sel;const i=__dyn.findIndex(d=>d.el===el);if(i>=0)__dyn.splice(i,1);}
 function dynPaint(){let htmlPainted=false;for(const d of __dyn){if(!document.body.contains(d.el))continue;
   const v=d.fn();if(v!=null){if(d.mode==="html"){d.el.innerHTML=v;htmlPainted=true;}else d.el.textContent=v;}}
@@ -1232,9 +1235,10 @@ function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" 
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function us(it){return +(ufp(it)*REUSE[it.reuse]*MODIFY[it.modify]).toFixed(2);}
-function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>`<option value="${c}" ${c===it.cx?"selected":""}>${t("common.lv."+LV[c])}</option>`).join('')}</select>`;}
-function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>`<option value="${v}" ${v===it.reuse?"selected":""}>${t("common.lv."+LV[v])}</option>`).join('')}</select>`;}
-function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>`<option value="${v}" ${v===it.modify?"selected":""}>${t("common.mod."+LV[v])}</option>`).join('')}</select>`;}
+function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
+function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
+function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
+function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
 tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
@@ -2234,8 +2238,10 @@ function genStageNorm(s){
   if(s&&typeof s==="object")return s;
   const raw=String(s??"");
   let m;
-  if((m=raw.match(/^正在写入 (\d+) 条功能点明细…$/)))return {k:"gen.stage.write",n:+m[1],raw};
-  if((m=raw.match(/^Excel 重算超时（>(\d+)s），已跳过；母版公式将由 Excel 打开时自动重算$/)))return {k:"gen.stage.excel_timeout",s:m[2],raw};
+  m=/^正在写入 (\d+) 条功能点明细…$/.exec(raw);
+  if(m)return {k:"gen.stage.write",n:+m[1],raw};
+  m=/^Excel 重算超时（>(\d+)s），已跳过；母版公式将由 Excel 打开时自动重算$/.exec(raw);
+  if(m)return {k:"gen.stage.excel_timeout",s:m[2],raw};
   if(GEN_STAGE_KEYS[raw])return {k:GEN_STAGE_KEYS[raw],raw};
   return {k:null,raw};
 }
@@ -2913,11 +2919,11 @@ function pasteApply(){
    / Enter 勾选 / Space 展开依据」六类语义塞在一个处理器里，且每类都带前置守卫，
    嵌套与短路判断叠加后复杂度超阈值。拆为六个语义函数 + 一张「键 → 处理」分派表，
    新增快捷键只加一条映射；守卫集中在主监听里，避免每个处理函数重复判页态。 */
-const EDITABLE_TAGS=["input","select","textarea"];
+const EDITABLE_TAGS=new Set(["input","select","textarea"]);
 function closeFloatingPanels(e){
   const m=$("#expMenu");if(m)m.style.display="none";
   const pm=$("#pasteModal");if(pm)pm.style.display="none";
-  if(EDITABLE_TAGS.includes((e.target.tagName||"").toLowerCase()))e.target.blur();
+  if(EDITABLE_TAGS.has((e.target.tagName||"").toLowerCase()))e.target.blur();
 }
 function focusSearchBox(e){e.preventDefault();$("#q").focus();}
 function moveRow(delta,e){
@@ -2951,7 +2957,7 @@ const ROW_KEYS={
 document.addEventListener("keydown",e=>{
   const tag=(e.target.tagName||"").toLowerCase();
   if(e.key==="Escape"){closeFloatingPanels(e);return;}
-  if(EDITABLE_TAGS.includes(tag))return;
+  if(EDITABLE_TAGS.has(tag))return;
   if(e.key.toLowerCase()==="f"&&(e.ctrlKey||e.metaKey)){
     if(document.body.dataset.page==="work"&&document.body.dataset.step==="review")focusSearchBox(e);
     return;}
@@ -3274,7 +3280,7 @@ async function histDel(id){
   }catch(e){toast(tf("history.del_fail",{msg:e.message}));}
 }
 function histClearCtx(){reopenCtx=null;histBannerCur=null;const b=$("#reopenBanner");if(b)b.style.display="none";}
-let histRestoreCur=null;   // {id,title,v,at}
+let histRestoreCur=null;   // 待恢复的历史项（id、title、v、at）
 function histRestoreHTML(){
   if(!histRestoreCur)return "";
   const c=histRestoreCur;
@@ -3371,7 +3377,9 @@ function histDiffExp(fmt){
     const added=d.changes.filter(c=>c.kind==="added"),removed=d.changes.filter(c=>c.kind==="removed"),changed=d.changes.filter(c=>c.kind==="changed");
     if(added.length)md+="## 新增\n"+added.map(c=>`- ${c.item.desc}（${c.item.system||""}）`).join("\n")+"\n";
     if(removed.length)md+="## 删除\n"+removed.map(c=>`- ${c.item.desc}（${c.item.system||""}）`).join("\n")+"\n";
-    if(changed.length)md+="## 变更\n"+changed.map(c=>`- ${c.b.desc}（${c.system||""}）：${c.fields.map(f=>`${fldName(f)}: ${f.a??""} → ${f.b??""}`).join("；")}`).join("\n")+"\n";
+    const changeField=f=>fldName(f)+": "+(f.a??"")+" → "+(f.b??"");
+    const changedLine=c=>"- "+c.b.desc+"（"+(c.system||"")+"）："+c.fields.map(changeField).join("；");
+    if(changed.length)md+="## 变更\n"+changed.map(changedLine).join("\n")+"\n";
     _dl(`版本对比_${tag}.md`, md, "text/markdown"); toast(t("history.exp_md")); return;
   }
   const esc=v=>`"${String(v??"").replaceAll('"','""')}"`;
@@ -3481,7 +3489,20 @@ function tl(key, fallback){ return (__I18N && __I18N[key]) || fallback; }
 function tf(key, vars){
   const s = t(key);
   if(s === key) return s;          // 未命中：直接返回 key，不插值
-  return s.replace(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+  return s.replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+}
+/** 切换语言后重渲染动态文案（计数/徽章/图表/PERT 明细）。 */
+function reRenderAfterLang(){
+  const page = document.body.dataset.page;
+  if(typeof render === "function" && Array.isArray(items)) render();
+  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
+  if(page === "config" && typeof rulesLoad === "function") rulesLoad();
+  if(page === "pert"){
+    if(typeof pertSyncStart === "function") pertSyncStart();
+    if(typeof pertFillPhase === "function") pertFillPhase();
+    // T03723：空明细也要重绘，否则「N 项」计数停在旧语言
+    if(typeof renderPert === "function") renderPert();
+  }
 }
 /** 切换语言：落盘 → 重载字典 → 重刷 data-i18n 标注的节点 */
 async function setLang(lang){
@@ -3496,17 +3517,7 @@ async function setLang(lang){
   // 动态生成的文案（计数、空态、徽章、图表标题）不在 data-i18n 标注范围内——
   // applyI18n 只处理静态节点，这些由渲染函数产出。故切换语言后必须重渲染，
   // 否则会停留在旧语言：实测「2 条候选」在英文界面下仍显示中文。
-  // 逐个 typeof 守卫：本函数在 01_core 之后定义，调用方页面可能尚未加载对应模块。
-  if(typeof render === "function" && Array.isArray(items)) render();
-  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
-  if(typeof rulesLoad === "function" && document.body.dataset.page === "config") rulesLoad();
-  // PERT 页的计数/汇总同理，需重算才能反映新语言
-  if(typeof pertSyncStart === "function" && document.body.dataset.page === "pert") pertSyncStart();
-  // T01556：PERT 阶段下拉的标签按新语言重建（数据值不变）
-  if(typeof pertFillPhase === "function" && document.body.dataset.page === "pert") pertFillPhase();
-  // T01555（批次5）：PERT 估算明细行的 title/待填徽标按新语言重绘；
-  // T03723：计数「N 项」同样由 renderPert 产出，空明细也要重绘，否则停在旧语言
-  if(typeof renderPert === "function" && document.body.dataset.page === "pert") renderPert();
+  reRenderAfterLang();
   // T01555：驻留 DOM 的动态文案（进度条/状态框/文件提示…）按注册的状态函数重算重绘
   if(typeof dynPaint === "function") dynPaint();
   // 帮助页更新区的动态状态（检测中/发现新版本/下载进度…）按保存的状态重绘（T01548 批次4a）
@@ -3533,7 +3544,7 @@ async function setLang(lang){
 function applyI18n(root){
   const scope = root || document;
   scope.querySelectorAll("[data-i18n]").forEach(el => {
-    const spec = el.getAttribute("data-i18n") || "";
+    const spec = el.dataset.i18n || "";
     // 先确认该 key 在当前字典里有译文，再决定是否动 DOM（属性/文本统一口径）
     const parts = spec.split("|").map(p => (p.includes("=") ? p.split("=") : [null, p]));
     if (parts.some(([, k]) => k && k.trim() && !__I18N?.[k.trim()])) return;   // 缺译文：原样保留
@@ -3550,7 +3561,7 @@ function applyI18n(root){
     });
   });
   scope.querySelectorAll("[data-i18n-ph]").forEach(el => {
-    const key = el.getAttribute("data-i18n-ph");
+    const key = el.dataset.i18nPh;
     if(!__I18N?.[key]) return;              // 缺译文：保留原 placeholder
     el.setAttribute("placeholder", t(key));
   });
@@ -3628,10 +3639,10 @@ const SKEL_ROWS = {
   6: [22, 34, 16, 10, 10, 8],       // 历史表：时间/标题/规模/工作量/费用/操作
   8: [20, 30, 12, 12, 10, 10, 14, 10], // 规则表
 };
-function skeletonTable(span, rows){
-  const n = rows || 4, widths = SKEL_ROWS[span] || [];
+function skeletonTable(span, rows = 4){
+  const widths = SKEL_ROWS[span] || [];
   let out = "";
-  for (let r = 0; r < n; r++){
+  for (let r = 0; r < rows; r++){
     out += "<tr class='skel-row'>";
     for (let c = 0; c < span; c++){
       // 末列固定留操作位宽度，列宽稳定；每格错开动画延迟形成「流光」而非整体闪烁

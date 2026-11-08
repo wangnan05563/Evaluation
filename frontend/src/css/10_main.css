@@ -92,9 +92,9 @@ body[data-step="upload"] #v-upload,body[data-step="review"] #v-review,body[data-
 .diff-sum{margin:10px 0 14px;font-size:13px;color:var(--ink-2);line-height:1.8}
 .diff-sum b{color:var(--ink)}
 .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600}
-.b-add{color:#0a7d33;background:rgba(10,125,51,.12)}
-.b-del{color:#c0392b;background:rgba(192,57,43,.12)}
-.b-chg{color:#b7791f;background:rgba(183,121,31,.14)}
+.b-add{color:var(--ok-ink);background:var(--ok-soft)}
+.b-del{color:var(--danger-ink);background:var(--danger-soft)}
+.b-chg{color:var(--warn-ink);background:var(--warn-soft)}
 .d-added td{background:rgba(10,125,51,.06)}
 .d-removed td{background:rgba(192,57,43,.06)}
 .d-changed td{background:rgba(183,121,31,.06)}

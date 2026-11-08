@@ -73,11 +73,11 @@ function pasteApply(){
    / Enter 勾选 / Space 展开依据」六类语义塞在一个处理器里，且每类都带前置守卫，
    嵌套与短路判断叠加后复杂度超阈值。拆为六个语义函数 + 一张「键 → 处理」分派表，
    新增快捷键只加一条映射；守卫集中在主监听里，避免每个处理函数重复判页态。 */
-const EDITABLE_TAGS=["input","select","textarea"];
+const EDITABLE_TAGS=new Set(["input","select","textarea"]);
 function closeFloatingPanels(e){
   const m=$("#expMenu");if(m)m.style.display="none";
   const pm=$("#pasteModal");if(pm)pm.style.display="none";
-  if(EDITABLE_TAGS.includes((e.target.tagName||"").toLowerCase()))e.target.blur();
+  if(EDITABLE_TAGS.has((e.target.tagName||"").toLowerCase()))e.target.blur();
 }
 function focusSearchBox(e){e.preventDefault();$("#q").focus();}
 function moveRow(delta,e){
@@ -111,7 +111,7 @@ const ROW_KEYS={
 document.addEventListener("keydown",e=>{
   const tag=(e.target.tagName||"").toLowerCase();
   if(e.key==="Escape"){closeFloatingPanels(e);return;}
-  if(EDITABLE_TAGS.includes(tag))return;
+  if(EDITABLE_TAGS.has(tag))return;
   if(e.key.toLowerCase()==="f"&&(e.ctrlKey||e.metaKey)){
     if(document.body.dataset.page==="work"&&document.body.dataset.step==="review")focusSearchBox(e);
     return;}

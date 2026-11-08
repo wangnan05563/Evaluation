@@ -42,8 +42,10 @@ function genStageNorm(s){
   if(s&&typeof s==="object")return s;
   const raw=String(s??"");
   let m;
-  if((m=raw.match(/^正在写入 (\d+) 条功能点明细…$/)))return {k:"gen.stage.write",n:+m[1],raw};
-  if((m=raw.match(/^Excel 重算超时（>(\d+)s），已跳过；母版公式将由 Excel 打开时自动重算$/)))return {k:"gen.stage.excel_timeout",s:m[2],raw};
+  m=/^正在写入 (\d+) 条功能点明细…$/.exec(raw);
+  if(m)return {k:"gen.stage.write",n:+m[1],raw};
+  m=/^Excel 重算超时（>(\d+)s），已跳过；母版公式将由 Excel 打开时自动重算$/.exec(raw);
+  if(m)return {k:"gen.stage.excel_timeout",s:m[2],raw};
   if(GEN_STAGE_KEYS[raw])return {k:GEN_STAGE_KEYS[raw],raw};
   return {k:null,raw};
 }

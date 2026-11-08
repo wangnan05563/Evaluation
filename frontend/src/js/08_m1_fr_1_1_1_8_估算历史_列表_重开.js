@@ -96,7 +96,7 @@ async function histDel(id){
   }catch(e){toast(tf("history.del_fail",{msg:e.message}));}
 }
 function histClearCtx(){reopenCtx=null;histBannerCur=null;const b=$("#reopenBanner");if(b)b.style.display="none";}
-let histRestoreCur=null;   // {id,title,v,at}
+let histRestoreCur=null;   // 待恢复的历史项（id、title、v、at）
 function histRestoreHTML(){
   if(!histRestoreCur)return "";
   const c=histRestoreCur;
@@ -193,7 +193,9 @@ function histDiffExp(fmt){
     const added=d.changes.filter(c=>c.kind==="added"),removed=d.changes.filter(c=>c.kind==="removed"),changed=d.changes.filter(c=>c.kind==="changed");
     if(added.length)md+="## 新增\n"+added.map(c=>`- ${c.item.desc}（${c.item.system||""}）`).join("\n")+"\n";
     if(removed.length)md+="## 删除\n"+removed.map(c=>`- ${c.item.desc}（${c.item.system||""}）`).join("\n")+"\n";
-    if(changed.length)md+="## 变更\n"+changed.map(c=>`- ${c.b.desc}（${c.system||""}）：${c.fields.map(f=>`${fldName(f)}: ${f.a??""} → ${f.b??""}`).join("；")}`).join("\n")+"\n";
+    const changeField=f=>fldName(f)+": "+(f.a??"")+" → "+(f.b??"");
+    const changedLine=c=>"- "+c.b.desc+"（"+(c.system||"")+"）："+c.fields.map(changeField).join("；");
+    if(changed.length)md+="## 变更\n"+changed.map(changedLine).join("\n")+"\n";
     _dl(`版本对比_${tag}.md`, md, "text/markdown"); toast(t("history.exp_md")); return;
   }
   const esc=v=>`"${String(v??"").replaceAll('"','""')}"`;

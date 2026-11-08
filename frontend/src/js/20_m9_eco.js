@@ -93,7 +93,20 @@ function tl(key, fallback){ return (__I18N && __I18N[key]) || fallback; }
 function tf(key, vars){
   const s = t(key);
   if(s === key) return s;          // 未命中：直接返回 key，不插值
-  return s.replace(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+  return s.replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+}
+/** 切换语言后重渲染动态文案（计数/徽章/图表/PERT 明细）。 */
+function reRenderAfterLang(){
+  const page = document.body.dataset.page;
+  if(typeof render === "function" && Array.isArray(items)) render();
+  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
+  if(page === "config" && typeof rulesLoad === "function") rulesLoad();
+  if(page === "pert"){
+    if(typeof pertSyncStart === "function") pertSyncStart();
+    if(typeof pertFillPhase === "function") pertFillPhase();
+    // T03723：空明细也要重绘，否则「N 项」计数停在旧语言
+    if(typeof renderPert === "function") renderPert();
+  }
 }
 /** 切换语言：落盘 → 重载字典 → 重刷 data-i18n 标注的节点 */
 async function setLang(lang){
@@ -108,17 +121,7 @@ async function setLang(lang){
   // 动态生成的文案（计数、空态、徽章、图表标题）不在 data-i18n 标注范围内——
   // applyI18n 只处理静态节点，这些由渲染函数产出。故切换语言后必须重渲染，
   // 否则会停留在旧语言：实测「2 条候选」在英文界面下仍显示中文。
-  // 逐个 typeof 守卫：本函数在 01_core 之后定义，调用方页面可能尚未加载对应模块。
-  if(typeof render === "function" && Array.isArray(items)) render();
-  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
-  if(typeof rulesLoad === "function" && document.body.dataset.page === "config") rulesLoad();
-  // PERT 页的计数/汇总同理，需重算才能反映新语言
-  if(typeof pertSyncStart === "function" && document.body.dataset.page === "pert") pertSyncStart();
-  // T01556：PERT 阶段下拉的标签按新语言重建（数据值不变）
-  if(typeof pertFillPhase === "function" && document.body.dataset.page === "pert") pertFillPhase();
-  // T01555（批次5）：PERT 估算明细行的 title/待填徽标按新语言重绘；
-  // T03723：计数「N 项」同样由 renderPert 产出，空明细也要重绘，否则停在旧语言
-  if(typeof renderPert === "function" && document.body.dataset.page === "pert") renderPert();
+  reRenderAfterLang();
   // T01555：驻留 DOM 的动态文案（进度条/状态框/文件提示…）按注册的状态函数重算重绘
   if(typeof dynPaint === "function") dynPaint();
   // 帮助页更新区的动态状态（检测中/发现新版本/下载进度…）按保存的状态重绘（T01548 批次4a）
@@ -145,7 +148,7 @@ async function setLang(lang){
 function applyI18n(root){
   const scope = root || document;
   scope.querySelectorAll("[data-i18n]").forEach(el => {
-    const spec = el.getAttribute("data-i18n") || "";
+    const spec = el.dataset.i18n || "";
     // 先确认该 key 在当前字典里有译文，再决定是否动 DOM（属性/文本统一口径）
     const parts = spec.split("|").map(p => (p.includes("=") ? p.split("=") : [null, p]));
     if (parts.some(([, k]) => k && k.trim() && !__I18N?.[k.trim()])) return;   // 缺译文：原样保留
@@ -162,7 +165,7 @@ function applyI18n(root){
     });
   });
   scope.querySelectorAll("[data-i18n-ph]").forEach(el => {
-    const key = el.getAttribute("data-i18n-ph");
+    const key = el.dataset.i18nPh;
     if(!__I18N?.[key]) return;              // 缺译文：保留原 placeholder
     el.setAttribute("placeholder", t(key));
   });

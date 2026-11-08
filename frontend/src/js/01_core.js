@@ -14,9 +14,12 @@ const $=s=>document.querySelector(s);
 const __dyn=[];
 function dynBind(el,fn,mode){const ex=__dyn.find(d=>d.el===el);
   if(ex){ex.fn=fn;ex.mode=mode;}else __dyn.push({el,fn,mode});
-  const v=fn();if(v!=null)(mode==="html"?el.innerHTML=v:el.textContent=v);}
-function dynText(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el)dynBind(el,fn,"text");return el;}
-function dynHtml(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el)dynBind(el,fn,"html");return el;}
+  const v=fn();
+  if(v!=null){
+    if(mode==="html"){el.innerHTML=v;}else{el.textContent=v;}
+  }}
+function dynText(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el){dynBind(el,fn,"text");}return el;}
+function dynHtml(sel,fn){const el=typeof sel==="string"?$(sel):sel;if(el){dynBind(el,fn,"html");}return el;}
 function dynClear(sel){const el=typeof sel==="string"?$(sel):sel;const i=__dyn.findIndex(d=>d.el===el);if(i>=0)__dyn.splice(i,1);}
 function dynPaint(){let htmlPainted=false;for(const d of __dyn){if(!document.body.contains(d.el))continue;
   const v=d.fn();if(v!=null){if(d.mode==="html"){d.el.innerHTML=v;htmlPainted=true;}else d.el.textContent=v;}}
@@ -31,9 +34,10 @@ function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" 
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function us(it){return +(ufp(it)*REUSE[it.reuse]*MODIFY[it.modify]).toFixed(2);}
-function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>`<option value="${c}" ${c===it.cx?"selected":""}>${t("common.lv."+LV[c])}</option>`).join('')}</select>`;}
-function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>`<option value="${v}" ${v===it.reuse?"selected":""}>${t("common.lv."+LV[v])}</option>`).join('')}</select>`;}
-function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>`<option value="${v}" ${v===it.modify?"selected":""}>${t("common.mod."+LV[v])}</option>`).join('')}</select>`;}
+function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
+function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
+function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
+function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
 tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}

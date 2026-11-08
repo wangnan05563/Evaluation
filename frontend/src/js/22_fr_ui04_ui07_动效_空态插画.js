@@ -16,10 +16,10 @@ const SKEL_ROWS = {
   6: [22, 34, 16, 10, 10, 8],       // 历史表：时间/标题/规模/工作量/费用/操作
   8: [20, 30, 12, 12, 10, 10, 14, 10], // 规则表
 };
-function skeletonTable(span, rows){
-  const n = rows || 4, widths = SKEL_ROWS[span] || [];
+function skeletonTable(span, rows = 4){
+  const widths = SKEL_ROWS[span] || [];
   let out = "";
-  for (let r = 0; r < n; r++){
+  for (let r = 0; r < rows; r++){
     out += "<tr class='skel-row'>";
     for (let c = 0; c < span; c++){
       // 末列固定留操作位宽度，列宽稳定；每格错开动画延迟形成「流光」而非整体闪烁
