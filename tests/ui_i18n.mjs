@@ -7,7 +7,6 @@
  * 内容写入文件不进 DOM）恒为中文、不参与 i18n——这是设计使然而非扫描巧合；
  * 若未来把导出预览渲染进 DOM，须把交付物模板节点显式登记为排除项。
  */
-import path from 'node:path';
 const CDP = 'http://127.0.0.1:9334', APP = 'http://127.0.0.1:8032/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const res = [];
@@ -24,10 +23,10 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}` }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof applyI18n === 'function' && typeof t === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof applyI18n === 'function' && typeof t === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 await ev(`try{localStorage.removeItem('wl_lang')}catch(e){}`);
 
 // ---- 1) /api/i18n 路由 ----
@@ -49,7 +48,7 @@ check('非法/穿越 lang 一律收敛为默认（无反射、无穿越）', evi
 // ---- 3) 字典 key 对齐（防漏译） ----
 const mis = [];
 for (const k of Object.keys(zh.strings)) {
-  if (!Object.prototype.hasOwnProperty.call(en.strings, k)) mis.push(`en 缺 ${k}`);
+  if (!Object.hasOwn(en.strings, k)) mis.push(`en 缺 ${k}`);
   else if (!String(en.strings[k]).trim()) mis.push(`en 空译 ${k}`);
   if (!String(zh.strings[k]).trim()) mis.push(`zh 空值 ${k}`);
 }
@@ -103,7 +102,7 @@ check('切换 en-US 后界面文本即时变英文',
   && enUI.st1 === 'Upload' && enUI.st3 === 'Result' && enUI.histTitle === 'Estimate History',
   JSON.stringify({ h1: enUI.h1, nav: enUI.nav, st1: enUI.st1, hist: enUI.histTitle }));
 check('切换后 title/placeholder/表头亦随之更新',
-  enUI.stepTitle === 'Back to upload' && /^Search by/.test(enUI.ph) && enUI.th === 'Time',
+  enUI.stepTitle === 'Back to upload' && enUI.ph.startsWith('Search by') && enUI.th === 'Time',
   JSON.stringify({ t: enUI.stepTitle, ph: enUI.ph, th: enUI.th }));
 check('语言选择已记忆 + html lang 属性同步',
   enUI.saved === 'en-US' && enUI.htmlLang === 'en-US', `saved=${enUI.saved} htmlLang=${enUI.htmlLang}`);
@@ -130,7 +129,7 @@ check('外观区新增语言项（英文态文案已生效）', cfgText === 'Lan
 
 // ---- 10) 刷新后语言保持 ----
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof applyI18n==='function'&&document.readyState!=='loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof applyI18n==='function'&&document.readyState!=='loading'`)) === true) { break; } await sleep(250); }
 await sleep(600);
 const persisted = JSON.parse(await ev(`JSON.stringify({lang:__I18N_LANG,h1:document.querySelector('.brand h1').textContent.trim()})`));
 check('刷新后语言保持（记忆生效）', persisted.lang === 'en-US' && persisted.h1 === 'Workload Estimator', JSON.stringify(persisted));
@@ -225,7 +224,7 @@ check('复核表英文态无中文残留', rvResidue === '[]', rvResidue);
 // 注意：ev 传参是 JS 模板字面量，表达式里出现 \s 会被模板吃掉反斜杠（/s+/ 会误吞字母 s）——
 // 本块一律用无正则的 split/filter/join 做空白归一。
 await ev(`setLang('zh-CN');render();`); await sleep(500);
-const norm = s => s.split(" ").filter(Boolean).join(" ").split("\n").join(" ").replace(/\u00a0/g, " ");
+const norm = s => s.split(" ").filter(Boolean).join(" ").split("\n").join(" ").replaceAll("\u00a0", " ");
 const rvZh2 = JSON.parse(await ev(`JSON.stringify({
   badges:[...document.querySelectorAll('#tbody .rowst .stat')].map(x=>x.textContent.trim()),
   cxOpts:[...[...document.querySelectorAll('#tbody select[data-k="cx"]')][0].options].map(o=>({t:o.text,v:o.value})),
@@ -403,7 +402,7 @@ check('PERT 步骤3 的 KPI 标签已切英文',
   && ptEn.actual === 'Adjusted person-months',
   JSON.stringify({total:ptEn.total, ideal:ptEn.ideal, actual:ptEn.actual}));
 check('PERT 拖放区 aria-label 与粘贴框placeholder 已切英文',
-  /Upload PERT requirements/.test(ptEn.dropAria || '') && /^Describe one or more/.test(ptEn.textPh),
+  /Upload PERT requirements/.test(ptEn.dropAria || '') && ptEn.textPh.startsWith('Describe one or more'),
   JSON.stringify({aria:(ptEn.dropAria||'').slice(0,28), ph:ptEn.textPh}));
 check('PERT 步骤条子结构完好', ptEn.stepIconIntact >= 2, `children=${ptEn.stepIconIntact}`);
 const ptResidue = await ev(`(()=>{const bad=[];document.querySelectorAll('#pg-pert [data-i18n]').forEach(el=>{
@@ -445,7 +444,7 @@ check('配置中心英文态：卡片标题与设置项已切英文',
   && cfEn.save === 'Save settings' && cfEn.test === 'Test connection',
   JSON.stringify({enable:cfEn.enable, save:cfEn.save, test:cfEn.test}));
 check('配置中心开关 aria-label 与目录输入 placeholder 已切英文',
-  /Enable LLM-assisted/.test(cfEn.switchAria || '') && /^e\.g\. D:/.test(cfEn.ctxPh || ''),
+  /Enable LLM-assisted/.test(cfEn.switchAria || '') && (cfEn.ctxPh || '').startsWith('e.g. D:'),
   JSON.stringify({aria:cfEn.switchAria, ph:cfEn.ctxPh}));
 check('配置中心规则卡标题已切英文', cfEn.rulesTitle === 'Recognition Rules', cfEn.rulesTitle);
 // 排除 #langSeg：语言选择器按 i18n 惯例用各语言自身文字标注（简体中文/English），
@@ -498,7 +497,7 @@ check('帮助页英文态：章节与快捷键表已切英文',
   hpEn.h3.length === 6 && hpEn.kbdKey === 'Key' && hpEn.verTitle === 'Version and Updates'
   && /Methodology/.test(hpEn.h3[0]) && /Algorithms/.test(hpEn.h3[1]),
   JSON.stringify({h3:hpEn.h3, kbd:hpEn.kbdKey, ver:hpEn.verTitle}));
-check('帮助页小节标题已切英文', /^1\. /.test(hpEn.h4[0]) && /Basis/.test(hpEn.h4[0]), JSON.stringify(hpEn.h4));
+check('帮助页小节标题已切英文', hpEn.h4[0].startsWith('1. ') && /Basis/.test(hpEn.h4[0]), JSON.stringify(hpEn.h4));
 check('帮助页按钮 title 已切英文（更新与引导）',
   /Check for updates/.test(hpEn.checkTitle || '') && /Overview: introduces/.test(hpEn.guideTitle || ''),
   JSON.stringify({chk:hpEn.checkTitle, guide:hpEn.guideTitle}));
@@ -632,7 +631,7 @@ check('引导各步骤英文态全页扫描均无中文残留', gdStepsBad.lengt
 // 服务端响应携带 msgKey 直查字典，其键齐备性改由 tests/i18n_check.py 的
 // 「服务端 msgKey」守卫在构建期校验，此处不再统计（阈值 90 → 46）。
 const mapKeys = JSON.parse(await ev(`(()=>{const ks=new Set();
-  const add=v=>{if(typeof v==='string'&&/\\./.test(v))ks.add(v);};
+  const add=v=>{if(typeof v==='string'&&v.includes('.'))ks.add(v);};
   try{Object.values(PERT_PHASE_KEYS).forEach(add);}catch(e){}
   try{Object.values(GB_STAGE_KEYS).forEach(add);}catch(e){}
   try{DIFF_FIELDS.forEach(x=>add(x[1]));Object.values(DIFF_KIND_KEYS).forEach(add);}catch(e){}

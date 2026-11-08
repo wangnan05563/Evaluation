@@ -22,12 +22,12 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S); await send('DOM.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 
 // 初始态清理走页面内求值而非 init 脚本：init 脚本在每次导航都跑，会把待验证的持久化值一并清掉
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}try{localStorage.removeItem('we_form_state_v1')}catch(e){}` }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 await ev(`localStorage.removeItem('wl_brand');`);
 
 // ---- 1) 预设数量与结构 ----
@@ -73,7 +73,7 @@ check('自定义合法色值可生效', custom.ret === 'true' && custom.brand.to
 // ---- 5) 持久化：重载后仍为上次的自定义色 ----
 await ev(`applyTheme.brand('#7C3AED');`);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 const persisted = await ev(`getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()`);
 check('重载后主题色持久化', persisted.toUpperCase() === '#7C3AED', persisted);
 

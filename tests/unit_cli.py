@@ -20,6 +20,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(ROOT, 'scripts', 'we_cli.py')
 DOCX = os.path.join(ROOT, 'data', 'testdocs', 't00928_req.docx')
+FAKE_OUT = 'x.xlsx'
 fails = []
 
 
@@ -39,11 +40,11 @@ def run(args, stdin=None):
 
 # 1) 非法输入一律 2，且不得抛 traceback（无人值守最忌噪声掩盖真因）
 for name, args in [
-        ('缺 --docx', ['--out', 'x.xlsx']),
+        ('缺 --docx', ['--out', FAKE_OUT]),
         ('缺 --out', ['--docx', DOCX]),
-        ('文档不存在', ['--docx', os.path.join(ROOT, 'nope.docx'), '--out', 'x.xlsx']),
-        ('非 .docx', ['--docx', os.path.join(ROOT, 'README.md'), '--out', 'x.xlsx']),
-        ('输出目录不存在', ['--docx', DOCX, '--out', os.path.join(ROOT, 'no_such_dir', 'x.xlsx')]),
+        ('文档不存在', ['--docx', os.path.join(ROOT, 'nope.docx'), '--out', FAKE_OUT]),
+        ('非 .docx', ['--docx', os.path.join(ROOT, 'README.md'), '--out', FAKE_OUT]),
+        ('输出目录不存在', ['--docx', DOCX, '--out', os.path.join(ROOT, 'no_such_dir', FAKE_OUT)]),
         ('--fast 无 stdin', ['--fast', 'pre']),
 ]:
     code, out = run(args, stdin='')

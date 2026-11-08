@@ -31,7 +31,6 @@ def hx(r, g, b):
 def fix(fg, bg, need):
     """保持色相，调暗 fg（bg 亮时）或调亮 fg（bg 暗时）直到达标。"""
     f = rgb(fg)
-    b = rgb(bg)
     bl = srgb_lum(bg)
     direction = -1 if bl > 0.18 else 1   # 亮底调暗、暗底调亮
     best = None
@@ -47,7 +46,6 @@ def fix(fg, bg, need):
 def fix_bg(fg, bg, need):
     """前景不动，调背景（用于浅色徽标底这类：把底压暗/提亮更易达标）。"""
     b = rgb(bg)
-    f = rgb(fg)
     fl = srgb_lum(fg)
     direction = -1 if fl > 0.18 else 1
     for step in range(0, 256):

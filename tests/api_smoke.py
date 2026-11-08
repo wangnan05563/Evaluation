@@ -66,7 +66,7 @@ h2_items = [dict(x) for x in hist_items]
 h2_items = h2_items[1:]                                     # removed（末条被删）
 h2_items[0]['cx'] = '低'                                    # changed（改留存条目的复杂度）
 h2_items.append({**hist_items[0], 'desc': 'S3新增功能点', 'system': 'S3新增系统'})   # added
-g3 = call(EP_GENERATE, {'items': [i for i in items], 'method': METHOD, 'title': TITLE,
+g3 = call(EP_GENERATE, {'items': list(items), 'method': METHOD, 'title': TITLE,
                             'job': 's3gen3', 'hist_items': h2_items,
                             'reopen_group': call(f"/api/history/{g['history_id']}/group")['versions'][0]['version_group']})
 df = call(f"/api/history/diff?a={g['history_id']}&b={g3['history_id']}")

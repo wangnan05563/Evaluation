@@ -10,11 +10,11 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 30000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1600, deviceScaleFactor: 1, mobile: false }, S);
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}try{localStorage.removeItem('we_form_state_v1');localStorage.removeItem('wl_last_history')}catch(e){}` }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 // 造点数据让列表/图表有内容，便于观察徽标与正文对比
 await ev(`goPage('work');goStep('upload');`);
 await ev(`(()=>{

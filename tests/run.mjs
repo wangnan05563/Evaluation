@@ -237,7 +237,7 @@ if (chrome) killTree(chrome.pid); reapOwnedExcel(); });
         fs.mkdirSync(dataDir, { recursive: true });
         server = startServer(dataDir);
         if (!(await waitHealth())) throw new Error('API 实例未就绪');
-        ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...(s.env || {}) }, s.timeoutMs));
+        ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...s.env }, s.timeoutMs));
         await stopServer();
       }
     } catch (e) {

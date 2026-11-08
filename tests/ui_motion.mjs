@@ -3,7 +3,6 @@
  *  覆盖：骨架屏真实出现且列数正确、空/错态插画为真SVG（非占位方块）、
  *  拖拽高亮 dragenter/leave 深度计数、三态主题下插画取色不失效、
  *  prefers-reduced-motion 下降级为静态占位而非空白。 */
-import path from 'node:path';
 const CDP = 'http://127.0.0.1:9334', APP = 'http://127.0.0.1:8032/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const res = [];
@@ -19,14 +18,14 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S); await send('DOM.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 // 合成拖拽 DataTransfer：jsdom/CDP 均无法真拖文件，事件语义需自己造
 await send('Page.addScriptToEvaluateOnNewDocument', {
   source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}
 window.__mkDT=function(){return {files:[new File(['x'],'a.docx',{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})],dropEffect:'',setData(){},getData(){return ''}}};`,
 }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof skeletonTable === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof skeletonTable === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 
 // ---- 1) 模块已加载 ----
 const mod = JSON.parse(await ev(`JSON.stringify({skel:typeof skeletonTable,illus:typeof ILLUS,kinds:typeof ILLUS_KIND,drop:typeof bindDropZone,empty:typeof emptyState,err:typeof errorBox})`));

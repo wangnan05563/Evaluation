@@ -37,13 +37,13 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S); await send('DOM.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}try{localStorage.removeItem('we_form_state_v1');localStorage.removeItem('wl_last_history')}catch(e){}` }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 await ev(`goPage('work'); histOpen();`);
-for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('#histRows .hdif')`)) break; await sleep(200); }
+for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('#histRows .hdif')`)) { break; } await sleep(200); }
 
 // ---- 历史列表：勾选列 + v2 版本号 ----
 const list = JSON.parse(await ev(`JSON.stringify({rows:document.querySelectorAll('#histRows tr[data-hid]').length,cks:document.querySelectorAll('#histRows .hdif').length,all:!!document.querySelector('#hdifAll'),btn:(document.querySelector('#hdifBtn')||{}).disabled})`));
@@ -76,15 +76,15 @@ await ev(`histDiffAll(true);
   document.querySelector('#histRows tr[data-hid="${g1.history_id}"] .hdif').checked=true;
   document.querySelector('#histRows tr[data-hid="${g2.history_id}"] .hdif').checked=true;`);
 await ev(`histDiff();`);
-for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('#histDiff table')`)) break; await sleep(200); }
+for (let i = 0; i < 40; i++) { if (await ev(`!!document.querySelector('#histDiff table')`)) { break; } await sleep(200); }
 
 // ---- 渲染结果 ----
-const d = JSON.parse(await ev(`JSON.stringify({ok:lastDiff&&lastDiff.ok,sum:lastDiff&&lastDiff.summary,disp:document.querySelector('#histDiff').style.display,add:document.querySelectorAll('#histDiff .b-add').length,del:document.querySelectorAll('#histDiff .b-del').length,chg:document.querySelectorAll('#histDiff .b-chg').length,rows:document.querySelectorAll('#histDiff tbody tr').length,sumTxt:(document.querySelector('#histDiff .diff-sum')||{}).textContent||'',dus:(document.querySelector('#histDiff .diff-sum')||{}).textContent?.match(/ΔUS [+-]?[\\d.]+/)||['']})`));
+const d = JSON.parse(await ev(`JSON.stringify({ok:lastDiff&&lastDiff.ok,sum:lastDiff&&lastDiff.summary,disp:document.querySelector('#histDiff').style.display,add:document.querySelectorAll('#histDiff .b-add').length,del:document.querySelectorAll('#histDiff .b-del').length,chg:document.querySelectorAll('#histDiff .b-chg').length,rows:document.querySelectorAll('#histDiff tbody tr').length,sumTxt:(document.querySelector('#histDiff .diff-sum')||{}).textContent||'',dus:(document.querySelector('#histDiff .diff-sum')||{}).textContent?.match(/ΔUS [+-]?[0-9.]+/)||['']})`));
 check('diff 面板显示且数据正确', d.ok === true && d.disp === 'block' && JSON.stringify(d.sum) === JSON.stringify({ added: 1, removed: 1, changed: 1 }), JSON.stringify(d.sum));
 check('三色徽标齐全（新增/删除/变更）', d.add >= 2 && d.del >= 2 && d.chg >= 2, `add=${d.add} del=${d.del} chg=${d.chg}`);
 // ΔUS 取后端 summary.us_total（engine 口径：US 只由 type/reuse/modify 决定，cx 不参与），
 // 故此处改 reuse 才会产生差额；cx 变更只体现在字段级高亮。
-const delta = parseFloat(String(d.dus[0]).replace('ΔUS ', ''));
+const delta = Number.parseFloat(String(d.dus[0]).replace('ΔUS ', ''));
 check('ΔUS 非零且方向正确（reuse 中→高 → US 下降）', /ΔUS/.test(d.dus[0]) && delta < 0, `ΔUS=${d.dus[0]}`);
 
 // 变更行高亮 old→new（一条里 cx 与 reuse 两个字段都应出现）
@@ -104,7 +104,7 @@ check('Markdown 导出（三段小节）', exp.md && exp.md.secs && exp.md.dus, 
 // ---- 同版本自比：无差异提示（先清空面板，避免读到上一轮渲染结果） ----
 await ev(`document.getElementById('histDiff').style.display='none'; document.getElementById('histDiff').innerHTML='';`);
 await ev(`diffSel=['${g1.history_id}','${g1.history_id}'];histDiff();`);
-for (let i = 0; i < 30; i++) { if (await ev(`!!document.querySelector('#histDiff table')`)) break; await sleep(200); }
+for (let i = 0; i < 30; i++) { if (await ev(`!!document.querySelector('#histDiff table')`)) { break; } await sleep(200); }
 const same = await ev(`(document.querySelector('#histDiff tbody')||{}).textContent||''`);
 check('同版本对比提示无差异', /完全一致/.test(same), same.slice(0, 40));
 

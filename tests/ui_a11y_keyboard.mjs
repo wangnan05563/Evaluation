@@ -18,9 +18,9 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (m, p, s) => { const i = ++id; ws.send(JSON.stringify({ id: i, method: m, params: p, ...(s ? { sessionId: s } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + m)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S); await send('DOM.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval:' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 const setFiles = async (sel, files) => { const { root } = await send('DOM.getDocument', { depth: 1 }, S); const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: sel }, S); await send('DOM.setFileInputFiles', { nodeId, files }, S); };
-const waitStep = async (step, sec) => { for (let i = 0; i < sec * 5; i++) { if ((await ev(`document.body.dataset.step`)) === step) return true; await sleep(200); } return false; };
+const waitStep = async (step, sec) => { for (let i = 0; i < sec * 5; i++) { if ((await ev(`document.body.dataset.step`)) === step) { return true; } await sleep(200); } return false; };
 
 // 真实键盘事件
 const KEY = { Tab: { windowsVirtualKeyCode: 9, code: 'Tab', key: 'Tab' }, Enter: { windowsVirtualKeyCode: 13, code: 'Enter', key: 'Enter', text: '\r' }, Space: { windowsVirtualKeyCode: 32, code: 'Space', key: ' ' } };
@@ -40,7 +40,7 @@ async function focusEl(sel) { return ev(`(()=>{const e=document.querySelector(${
 
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}))}catch(e){}try{localStorage.removeItem('we_form_state_v1');localStorage.removeItem('wl_last_history')}catch(e){}` }, S);
 await send('Page.navigate', { url: APP }, S);
-for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) break; await sleep(250); }
+for (let i = 0; i < 60; i++) { if ((await ev(`typeof goPage === 'function' && document.readyState !== 'loading'`)) === true) { break; } await sleep(250); }
 await ev(`goPage('work');goStep('upload');`);
 
 // ---- 1) 自定义控件的键盘等价（SonarQube 三类问题的回归防线） ----
@@ -165,7 +165,7 @@ for (let i = 0; i < 40; i++) {
   }
 }
 check('Tab 可达拖放区且有可见焦点环（outline ≥2px solid）',
-  !!ringHit && parseFloat(ringHit.w) >= 2 && ringHit.style === 'solid', JSON.stringify(ringHit));
+  !!ringHit && Number.parseFloat(ringHit.w) >= 2 && ringHit.style === 'solid', JSON.stringify(ringHit));
 
 check('全程无页面异常', errors.length === 0, errors.slice(0, 2).join(' | '));
 const bad = res.filter(x => !x.ok).length;
