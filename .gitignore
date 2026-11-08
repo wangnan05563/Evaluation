@@ -93,3 +93,11 @@ $RECYCLE.BIN/
 .workbuddy
 mtask-dedup/
 plan-cards/
+
+# ---------- 发布说明 ----------
+release-notes-*.md
+
+# ---------- 清理工具产物 ----------
+# 隔离区与审计报告由 workspace-cleanup 技能产生，属本机状态而非仓库内容。
+/.cleanup-quarantine/
+/cleanup-logs/

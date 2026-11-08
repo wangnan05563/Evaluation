@@ -1,0 +1,459 @@
+# ============================================================
+# 工作量评估工具 - 工作空间清理配置
+# 由 workspace-cleanup 技能生成；后续轮次直接复用本文件。
+# 规则来源：2026-10-31 首轮清理的实地侦察结果。
+# ============================================================
+
+workspace:
+  root: "."
+  script_dir: "scripts"
+  docs_dir: "docs"
+  logs_dir: "cleanup-logs"
+  frontend_dir: "frontend"
+  frontend_src_dir: "src"
+  # 显式扫描根：绝不对仓库根递归（node_modules 4408 文件会让全仓遍历超时）
+  scan_roots:
+    - "logs"
+    - "build"
+    - "data"
+    - "scripts"
+    - ".scannerwork"
+    - ".screenshots"
+    - ".workbuddy"
+
+root_allowlist:
+  extensions:
+    - ".md"
+    - ".txt"
+    - ".yaml"
+    - ".yml"
+    - ".json"
+    - ".properties"
+    - ".html"
+    - ".ico"
+    - ".example"
+    - ".env"
+  files:
+    - ".gitignore"
+    - ".env"
+    - "package.json"
+    - "package-lock.json"
+    - "README.md"
+    - "sonar-project.properties"
+    - "工作量评估工具.spec"   # 手写 PyInstaller 定义，曾被 *.spec 误忽略
+    - "cleanup-config.yaml"
+  allowed_root_scripts: []
+
+preserve_roots:
+  - "assets/"
+  - "data/"          # 运行时数据；个别测试产物按 deletion_mandate 单独授权
+  - "dev-shell/"
+  - "docs/"
+  - "frontend/"
+  - "node_modules/"
+  - "scripts/"       # 含已跟踪的调试脚本，本轮不处置
+  - "tests/"
+  - "tools/"
+  - "tpl/"
+  - "release/"       # 发布物目录，仅清理其中的空子目录
+
+preserve_paths:
+  dirs: []
+  files:
+    - "build/installer.nsh"      # 手写 NSIS 脚本，被 package.json:electron-builder 引用
+    - "build/lucide-*.min.js"    # 第三方库临时副本，暂不判定
+  mirror_to_gitignore: true
+
+semantic_divergence:
+  enabled: true
+  ambiguous_names:
+    - "build"
+    - "dist"
+    - "out"
+    - "release"
+    - "public"
+    - "static"
+    - "bin"
+    - "obj"
+  reference_sources:
+    extensions: [".json", ".ps1", ".bat", ".py", ".md", ".spec", ".properties"]
+    exclude_dirs: ["node_modules/", ".git/", ".cleanup-quarantine/"]
+  diverge_signals:
+    - "referenced_by_manifest"
+    - "contains_handwritten_file"
+    - "has_vcs_tracked_members"
+    - "declared_output_dir_in_manifest"
+  on_ambiguous: "review"
+  report_findings: true
+
+script_extensions: [".py", ".ps1", ".bat", ".sh", ".js", ".mjs", ".vbs"]
+script_exclude_dirs:
+  - "scripts/"
+  - "tests/"
+  - "frontend/src/"
+  - "dev-shell/"
+  - "node_modules/"
+
+garbage_patterns:
+  # PyInstaller / electron-builder 输出（可从源码与 spec 重建）
+  build_outputs:
+    - "build/electron_dist/"
+    - "build/工作量评估工具/"
+  # 浏览器临时 profile（截图脚本每次新建的 Chromium 用户目录）
+  debug_profiles:
+    - "build/_chartchrome*/"
+    - "build/_probe_chrome/"
+    - "build/_probechrome/"
+    - "build/_shotchrome/"
+  # 测试隔离数据副本（活跃存储在 data/，此处均为一次性副本）
+  debug_data:
+    - "build/_chartdata*/"
+    - "build/_probedata/"
+    - "build/_shotdata/"
+    - "build/_run*_data/"
+  # 下划线前缀的探针脚本、日志、截图
+  debug_artifacts:
+    - "build/_*"
+  debug_shots:
+    - "build/shots/"
+    - "build/_probe_shots*/"
+    - "build/_verify/"
+  build_logs:
+    - "build/pyinstaller.log"
+    - "build/build_served.html"
+  # 运行时调试目录（整体被忽略，258 个 *_result.md 单独走隔离）
+  runtime_debug:
+    - "logs/"
+  tool_caches:
+    - ".scannerwork/"
+  screenshot_tmp:
+    - ".screenshots/.tmp/"
+  test_outputs:
+    - "data/exe_icon_check*.png"
+  os_junk: ["Thumbs.db", ".DS_Store"]
+  tmp_suffixes: ["*.tmp", "*.bak", "*.orig", "*.swp"]
+
+detection:
+  enabled: true
+  prefix_indicators: ["_"]
+  name_keywords: ["debug", "diag", "probe", "shot", "verify", "tmp", "smoke", "forensics"]
+  name_patterns: ["test_report_*.md", "_*_result.md", "_*.txt", "_*.log"]
+  infer_confidence_threshold: 0.7
+  auto_add_inferred_to_gitignore: false
+
+actions:
+  tiers:
+    delete:
+      description: "高置信度、可重建、未被版本控制跟踪"
+      min_confidence: 0.8
+      method: "remove"
+      require_confirm: false
+    quarantine:
+      description: "可能是历史证据或测试数据副本"
+      min_confidence: 0.5
+      method: "move"
+      require_confirm: false
+    review:
+      description: "版本控制内 / 数据目录 / 依赖目录 / 工具入口"
+      method: "report_only"
+      require_confirm: true
+  force_review_when:
+    - "git_tracked"
+    - "in_preserve_roots"
+    - "in_preserve_paths"
+    - "ambiguous_dir_name"
+    - "is_data_store"
+    - "declared_dependency_dir"
+    - "irreversibility_at_threshold"
+
+quarantine:
+  enabled: true
+  dir: ".cleanup-quarantine"
+  retention_hours: 24
+  recent_file_max_age_hours: 0      # 本轮全部走隔离而非按新近路由
+  write_manifest: true
+  write_restore_script: true
+  manifest_fields:
+    - "original_path"
+    - "size"
+    - "mtime"
+    - "sha256"
+    - "quarantined_at"
+    - "expires"
+  gitignore: true
+  gitignore_pattern: "/.cleanup-quarantine/"
+
+evidence_gate:
+  enabled: true
+  applies_to_name_patterns: ["data", "*db*", "*cache*", "*store*", "*models*", "backups"]
+  required_checks:
+    - "zero_code_reference"
+    - "content_inventory"
+    - "git_ignored"
+    - "explicit_user_confirm"
+  empty_row_threshold: 0
+  require_snapshot_archive: false
+  on_insufficient_evidence: "keep_and_report"
+  deletion_mandate:
+    require_explicit_authorization: true
+    # 用户 2026-10-31 明确授权：data/uploads/*.docx、data/generated/*.xlsx、data/diag/*.zip 可移入隔离区
+    authorization_ref: "AskUserQuestion 2026-10-31：测试数据→移入隔离区"
+    guard_assertions: true
+    on_guard_failure: "abort_batch"
+    manifest_fields: ["path", "size", "sha256", "action", "authorization_ref"]
+    report_retention_gaps: false
+
+recovery:
+  enabled: true
+  irreversibility_factors:
+    - "not_vcs_tracked"
+    - "no_snapshot_available"
+    - "delete_bypasses_trash"
+  quarantine_if_factors_at_least: 2
+  search_ladder:
+    - "config_reference_scan"
+    - "vcs_full_history"
+    - "editor_snapshot_stores"
+    - "quarantine_and_backup_dirs"
+    - "trash_bin"
+    - "filesystem_wide_search"
+  on_irrecoverable: "stop_and_report"
+
+ignored_audit:
+  enabled: true
+  report_only: true
+  stale_days: 30
+  runtime_evidence_patterns: ["logs/*.log", "**/*.db"]
+  evidence_requirements:
+    - "zero_code_reference"
+    - "stale_beyond_days"
+    - "content_empty_or_default"
+  exclude_dirs: ["node_modules/", ".git/"]
+
+diagnostics:
+  reference_scan:
+    enabled: true
+    extensions: [".py", ".js", ".mjs", ".json", ".md", ".ps1", ".bat", ".spec"]
+    exclude_dirs: ["node_modules/", ".git/", ".cleanup-quarantine/", "build/", "logs/"]
+    exclude_self_output: true
+    case_sensitive: false
+  encoding_check:
+    enabled: false
+  config_drift_check:
+    enabled: true
+    checks: ["changelog_path_exists", "file_existence_checks_present", "pid_files_parent_exists"]
+    on_drift: "report"
+  path_normalization:
+    enabled: true
+    normalize: "normcase_then_normpath"
+    resolve_relative_against: "workspace.root"
+    duplicate_policy: "item"
+
+service_indicators:
+  pid_files:
+    - "logs/web.pid"
+    - "logs/app.pid"
+  ports: [5000, 8000, 8080, 5173]
+  process_names: ["python", "pythonw", "node"]
+  process_name_patterns: ["python*", "node*"]
+  command_line_probe:
+    enabled: true
+    include_patterns: ["scripts\\\\server.py", "server.py", "工作量评估"]
+    exclude_patterns: ["mcp", "npx-cli", "uv\\\\cache", "chrome-devtools"]
+    on_unavailable: "treat_as_unknown"
+  file_occupancy_probes:
+    - "data/estimation.db"
+    - "data/pert.db"
+  quiescence_evidence:
+    enabled: true
+    last_write_max_age_minutes: 30
+    ports_idle: true
+    require_exclusive_open: true
+    min_signals: 2
+
+stability_check:
+  enabled: true
+  wait_seconds: 5
+  max_recurrence: 3
+  recurrence_patterns: ["*.log", "__pycache__"]
+  recurrence_action: "warn"
+  quiescence_threshold_minutes: 10
+  freshness_scan_roots: ["logs", "build", "data"]
+  freshness_exclude_dirs: ["node_modules", ".git", "__pycache__"]
+  hold_queue_report: true
+
+sizing:
+  method: "python_scandir"
+  fallback_method: "du_sh"
+  scandir_threshold_files: 2000
+  timeout_seconds: 120
+  continue_on_timeout: true
+  exclude_dirs: ["node_modules/", ".git/", ".cleanup-quarantine/"]
+
+capability_probe:
+  enabled: true
+  probes:
+    - name: "size_measurement"
+      fallback: "python_scandir"
+    - name: "hash_tool"
+      fallback: "python_hashlib"
+    - name: "vcs_cli"
+      fallback: "manual_review"
+    - name: "external_build_tool"
+      fallback: "static_syntax_check"
+  on_missing: "report_and_degrade"
+  blocked_signals:
+    - "permission_denied_by_sandbox"
+    - "operation_not_permitted"
+    - "hook_intercepted"
+    - "process_killed_by_wall_clock"
+  degraded_verification:
+    enabled: true
+    methods: ["syntax_check", "parse_check", "diff_against_baseline"]
+    must_declare_gaps: true
+
+platform:
+  current: "windows"
+  list_files:
+    windows: 'Get-ChildItem -LiteralPath "{path}" -File'
+  file_hash:
+    windows: 'Get-FileHash -LiteralPath "{path}" -Algorithm SHA256'
+  port_check:
+    windows: 'Get-NetTCPConnection -State Listen -LocalPort {port}'
+  remove_file:
+    windows: 'Remove-Item -LiteralPath "{path}" -Force'
+  remove_dir:
+    windows: 'Remove-Item -LiteralPath "{path}" -Recurse -Force'
+  remove_file_python_s:
+    windows: 'python -S -c "import os; os.remove(r"{path}")"'
+  remove_dir_python_s:
+    windows: 'python -S -c "import shutil; shutil.rmtree(r"{path}")"'
+  file_occupancy_check:
+    windows: |
+      try { $s=[System.IO.File]::Open("{path}",'Open','Read','None'); $s.Close(); "not locked" } catch { "locked" }
+  venv_python:
+    windows: ".venv/Scripts/python.exe"
+
+execution:
+  remove_method: "python_s"
+  verify_without_bytecode: true
+  max_files_per_batch: 50
+  max_files_per_call: 200
+  parallel_delete: false
+  large_file_sequential: true
+  locked_file_strategy: "report_then_schedule"
+  locked_file_retry: 3
+  locked_file_retry_delay_seconds: 2
+  schedule_delete_on_reboot: false
+  locked_fallback_soft_rename: true
+  assert_exists_before_create: true
+  assert_target_absent_on_move: true
+  file_write_backend: "tool"
+
+audit:
+  hash_algorithm: "sha256"
+  targets_file: "cleanup-logs/cleanup-targets.txt"
+  backup_log_format: "cleanup-{YYYYMMDD-HHmmss}.log"
+  hash_dir_members: true
+  slice_size: 200
+  hash_policy:
+    quarantine: "full"
+    delete: "full_or_sampled"
+    full_max_bytes: 1048576
+    sample_bytes: 65536
+    workers: 4
+    sampled_prefix: "P:"
+    sampled_also_record: ["size", "mtime"]
+  reverify_at_execute: true
+
+verification:
+  python_imports: []
+  command: "python -B -m py_compile scripts/server.py"
+  venv_python:
+    windows: ".venv/Scripts/python.exe"
+  file_existence_checks:
+    - "scripts/server.py"
+    - "frontend/index.html"
+    - "frontend/src/index.src.html"
+    - "data/i18n/zh-CN.json"
+    - "data/i18n/en-US.json"
+    - "data/testdocs/t00928_req.docx"
+    - "build/installer.nsh"
+    - "工作量评估工具.spec"
+    - "cleanup-config.yaml"
+  optional_generated_checks:
+    - "build/electron_dist/"
+    - "build/工作量评估工具/"
+  on_failure:
+    - "检查 cleanup-logs/cleanup-*.log 中的 hash 记录"
+    - "从隔离区恢复：python .cleanup-quarantine/<stamp>/restore.py"
+    - "从 git 恢复：git checkout HEAD -- <file>"
+  test_command: ""
+  ignore_rule_checks: []
+
+report:
+  formats: ["markdown", "json"]
+  output_dir: "cleanup-logs"
+  sections:
+    - "summary_before_after"
+    - "by_category"
+    - "by_directory"
+    - "disposition_buckets"
+    - "recovery_risk"
+    - "not_cleaned_risky"
+    - "dependency_analysis"
+    - "recurrence_prevention"
+    - "audit_trail"
+    - "verification"
+  require_reason_for_skipped: true
+  filename_template: "cleanup-report-{YYYYMMDD}"
+  size_metric: "logical_bytes"
+  also_report_disk_usage: false
+  annotate_metric_delta: true
+  group_by: "item"
+  dedup_by: "normalized_abs_path"
+
+dependency_check:
+  enabled: false
+  auto_remove: false
+
+archive:
+  changelog_path: "cleanup-logs/cleanup-report-20261031.md"
+  gitignore_path: ".gitignore"
+  precommit_path: ".pre-commit-config.yaml"
+  gitattributes_path: ".gitattributes"
+  auto_update_gitignore: true
+  auto_update_precommit: false
+  gitignore_group_comments:
+    - "# ---------- 清理工具产物 ----------"
+  anchor_ignore_untracked_leftovers: true
+  gitattributes_export_ignore: []
+
+git_integration:
+  enabled: true
+  tracked_deleted_check: "git ls-files --deleted"
+  unstage_command: "git rm --cached --ignore-unmatch {files}"
+  add_gitignore_patterns: true
+  auto_commit: false
+  tracked_ignored_detect: "git ls-files | git check-ignore --stdin --no-index"
+  tracked_ignored_disposition: "report_only"
+  commit_pathspec_only: true
+  untrack_commit_mode: "pathspec"
+  stage_before_commit: false
+  warn_on_preexisting_staged: true
+  index_write_probe: false
+  wip_precheck: true
+  hunk_staging_fallback: false
+
+safety:
+  require_stopped_service: true
+  dry_run: false
+  min_confidence_to_delete: 0.8
+  max_files_per_batch: 50
+  large_file_threshold_mb: 5
+  max_non_regenerable_share: 0
+  flatten_directories: true
+  empty_dir_cleanup: true
+  special_filename_handling: "safe"
+  verify_after_each_batch: true
+  soft_delete_suffix: ".trash"
