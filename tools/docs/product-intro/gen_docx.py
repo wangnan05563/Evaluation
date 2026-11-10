@@ -5,7 +5,7 @@
 配图：直接取入库图版 docs/assets/product-intro/*.png（新克隆即可重生成）。
       图版由 compose_shots.py 从 build/shots 底图裁拼，底图由 shots.mjs /
       electron_shot.mjs / xlsx_shot.py 采集（Windows + Chrome/Electron/Excel 环境）。
-      联系方式/二维码一栏仍为占位框（真实联系方式待补）。
+      联系方式一栏已填真实联系人（王南 / 107038953@qq.com）；群二维码待用户提供后补充。
 
 用法：python tools/docs/product-intro/gen_docx.py [输出路径]
 """
@@ -130,6 +130,32 @@ def shot_placeholder(doc, what):
     p.paragraph_format.space_before = Pt(14)
     p.paragraph_format.space_after = Pt(14)
     return p
+
+
+def contact_card(doc, contact_name="王南", contact_email="107038953@qq.com"):
+    """联系方式卡片（T03681）：填真实联系人 / 邮箱；群二维码待用户提供后替换。"""
+    p0 = doc.add_paragraph()
+    p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p0.paragraph_format.space_before = Pt(8)
+    p0.paragraph_format.space_after = Pt(4)
+    p0.paragraph_format.line_spacing = 1.3
+    set_font(p0.add_run("联系我们"), HEI, 12, True, BRAND)
+    pc = doc.add_paragraph()
+    pc.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pc.paragraph_format.space_after = Pt(2)
+    set_font(pc.add_run("联系人："), SONG, 10.5, True, DARK)
+    set_font(pc.add_run(contact_name), SONG, 10.5, False, ACCENT)
+    pe = doc.add_paragraph()
+    pe.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pe.paragraph_format.space_after = Pt(2)
+    set_font(pe.add_run("邮　箱："), SONG, 10.5, True, DARK)
+    set_font(pe.add_run(contact_email), SONG, 10.5, False, ACCENT)
+    pn = doc.add_paragraph()
+    pn.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pn.paragraph_format.space_before = Pt(2)
+    pn.paragraph_format.space_after = Pt(10)
+    set_font(pn.add_run("（群二维码待补充，由用户提供后替换此卡片）"), SONG, 9, False, GREY)
+    return p0
 
 
 def shot_figure(doc, name, width_cm, caption=None):
@@ -343,9 +369,9 @@ p.paragraph_format.space_after = Pt(4)
 set_font(p.add_run("获取与支持"), HEI, 11.5, True, BRAND)
 bullet(doc, "安装包", "从发布渠道获取最新安装包（版本号形如 0.1.YYYYMMDD-NNN，与发布说明一一对应）。")
 bullet(doc, "使用方法", "内置帮助文档涵盖 IFPUG / NESMA / PERT 方法论与计算口径，帮助文档页可随时查阅。")
-bullet(doc, "反馈渠道", "此处补充联系人 / 邮箱 / 群二维码占位，便于收集试用反馈与定制需求。")
+bullet(doc, "反馈渠道", "联系人：王南　邮箱：107038953@qq.com（群二维码待用户提供后补充）。")
 
-shot_placeholder(doc, "建议放：获取二维码 / 联系方式卡片（替换上方「反馈渠道」占位）")
+contact_card(doc)
 
 # ---------------- 附：计算口径 ----------------
 heading(doc, "附：计算口径速查（与母版 Excel 公式一致）", 1)
@@ -388,7 +414,7 @@ para(doc, "注：以上口径与内置母版公式一一对应，引擎复算母
 doc.core_properties.title = "工作量评估助手 · 产品介绍"
 doc.core_properties.subject = "IFPUG / NESMA / PERT 本地化工作量评估工具"
 doc.core_properties.author = "工作量评估助手团队"
-doc.core_properties.comments = "配图取自本机运行的真实界面；联系方式/二维码一栏仍为占位，待补充后替换。"
+doc.core_properties.comments = "配图取自本机运行的真实界面；联系方式已填真实联系人（王南 / 107038953@qq.com），群二维码待用户提供后补充。"
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 doc.save(OUT)
