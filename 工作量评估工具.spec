@@ -14,11 +14,13 @@ a = Analysis(
     # 前端 + 母版 + 界面文案字典作为只读资源打入；运行时 server 从 _MEIPASS 读取。
     # data/i18n 必须收进datas：server 的 _i18n_seed() 从 _RES 播种字典到 %APPDATA%，
     # 不收则安装版首次启动读不到字典，前端静默回退中文（翻译功能整体失效且不易察觉）。
-    # 注：data/recognition_rules.json 与 rates_versions.json 至今未收入 datas，
-    # 冻结态下依赖 %APPDATA% 已有副本；属既有遗留，非本次引入。
+    # 识别规则表与费率基准同理：server 启动时从 _RES/data 播种到 %APPDATA%
+    # （server.py L195/L210），不收则全新安装无副本，识别回退内置链、费率页降级。
     datas=[(os.path.join(ROOT, 'frontend'), 'frontend'),
            (os.path.join(ROOT, 'tpl'), 'tpl'),
-           (os.path.join(ROOT, 'data', 'i18n'), 'data/i18n')],
+           (os.path.join(ROOT, 'data', 'i18n'), 'data/i18n'),
+           (os.path.join(ROOT, 'data', 'recognition_rules.json'), 'data'),
+           (os.path.join(ROOT, 'data', 'rates_versions.json'), 'data')],
     hiddenimports=['engine', 'generate_xlsx', 'replay_recognize'],
     hookspath=[],
     runtime_hooks=[],
