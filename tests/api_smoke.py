@@ -108,5 +108,14 @@ try:
 except urllib.error.HTTPError as e:
     check('坏正则保存被拒', e.code == 400, str(e.code))
 
+# 6) T05688：内置更新源地址应由后端回显（不依赖外网；隔离实例可用 off 停用检测）
+cfg = call('/api/config')
+us = cfg.get('update_source') or {}
+check('内置更新源默认地址为官方 GitHub Release API',
+      us.get('default_url') == 'https://api.github.com/repos/wangnan05563/Evaluation/releases/latest',
+      str(us.get('default_url')))
+check('配置接口回显更新源解析结果（来源可诊断）',
+      us.get('source') in ('off', 'builtin', 'config', 'env') and 'url' in us, str(us)[:120])
+
 print(f"==== S3 汇总 ==== 失败 {len(fails)}")
 sys.exit(1 if fails else 0)

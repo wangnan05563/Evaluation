@@ -541,6 +541,8 @@ async function bindConfig(){
       if($("#ctxOut")){$("#ctxOut").textContent=cj.rendered||"";}
     }catch(e){/* 上下文回显失败不阻塞配置页 */}
     if($("#updUrl"))$("#updUrl").value=llmCfg.update_url||"";
+    // T05688：留空时在配置中心展示实际生效的内置 GitHub Releases 地址
+    if($("#updDefaultUrl"))$("#updDefaultUrl").textContent=(res.update_source&&res.update_source.default_url)||"";
     // T00962：回显成品表公式缓存策略（后端缺省 async/120）
     if($("#recalcMode")){
       const rc=llmCfg.recalc||{},m=String(rc.mode||"async");
@@ -857,7 +859,10 @@ async function saveUpdateUrl(){
     const r=await fetch(API+"/api/update/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({update_url:url})});
     const res=await r.json();
     if(!res.ok)throw new Error(res.msg?lm(res):t("help.upd.save_fail"));
-    toast(url?t("help.upd.save_ok"):t("help.upd.save_off"));
+    // T05688：off=停用、空=恢复内置 GitHub Releases、其他=自定义源，三种终态不同提示
+    toast(/^(off|disable|disabled)$/i.test(url)?t("help.upd.save_off")
+      :(url?t("help.upd.save_ok"):t("help.upd.save_default")));
+    if($("#updDefaultUrl")&&res.default_url)$("#updDefaultUrl").textContent=res.default_url;
     cfgWriteSnap("upd");cfgRefreshDraft();
   }catch(e){toast(tf("help.upd.save_failed_detail",{msg:lm(e.message)}));}
 }

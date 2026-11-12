@@ -692,15 +692,16 @@ tr.rowr.showb .basis{display:block}
     <div class="glass pad" style="margin-top:20px">
       <div class="card-title"><i aria-hidden="true" data-lucide="refresh-cw"></i><span data-i18n="config.card.update">应用更新</span></div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
-        <span data-i18n="config.upd.url_label">配置更新源 JSON 地址（返回</span> <code>{version, url, notes}</code><span data-i18n="config.upd.url_label2">）。应用启动与打开帮助页时自动检测；发现新版本后在帮助页提供一键下载安装。</span>
+        <span data-i18n="config.upd.url_label">自定义更新源 JSON 地址（返回</span> <code>{version, url, notes}</code><span data-i18n="config.upd.url_label2">）；留空使用内置官方 GitHub Releases。应用启动与打开帮助页时自动检测；发现新版本后在帮助页提供一键下载安装。</span>
       </p>
       <div class="cfg-row">
-        <input id="updUrl" type="text" data-i18n-ph="config.upd.url_ph" placeholder="例如：http://内网服务器/workload-eval/latest.json" style="flex:1;padding:10px 12px;border:1px solid var(--line-ctrl);border-radius:var(--r-md);font-family:var(--ff);font-size:13px;outline:none">
+        <input id="updUrl" type="text" data-i18n-ph="config.upd.url_ph" placeholder="留空=内置 GitHub Releases；自定义例如：http://内网服务器/workload-eval/latest.json" style="flex:1;padding:10px 12px;border:1px solid var(--line-ctrl);border-radius:var(--r-md);font-family:var(--ff);font-size:13px;outline:none">
         <button class="btn btn-primary" onclick="saveUpdateUrl()" data-i18n="title=config.upd.save|aria-label=config.upd.save" title="保存" aria-label="保存"><i aria-hidden="true" data-lucide="save" style="width:15px;height:15px"></i></button>
       </div>
       <div class="cfg-note">
         <i aria-hidden="true" data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;color:var(--brand)"></i>
-        <span data-i18n="config.upd.note">留空表示不启用版本检测；更新包安装过程自动保留本机配置（配置中心/AI 配置/历史项目）。</span>
+        <span data-i18n="config.upd.note">留空使用内置官方 GitHub Releases 更新源；输入 off 停用版本检测；也可填自定义更新源 JSON 地址。更新包安装过程自动保留本机配置（配置中心/AI 配置/历史项目）。</span>
+        <div style="margin-top:6px"><span data-i18n="config.upd.default_label">内置更新源：</span><code id="updDefaultUrl" style="font-size:11px;word-break:break-all">…</code></div>
       </div>
     </div>
     <div class="glass pad" style="margin-top:20px">
@@ -861,7 +862,7 @@ tr.rowr.showb .basis{display:block}
       </div>
       <div class="cfg-note">
         <i aria-hidden="true" data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;color:var(--brand)"></i>
-        <span data-i18n="help.ver.note_a">更新源在 </span><b data-i18n="help.ver.note_b">配置中心 → 应用更新</b><span data-i18n="help.ver.note_c"> 中配置；检测到新版本后可一键下载安装，安装过程自动保留本机配置。</span>
+        <span data-i18n="help.ver.note_a">默认从项目官方 GitHub Releases 检测更新；可在 </span><b data-i18n="help.ver.note_b">配置中心 → 应用更新</b><span data-i18n="help.ver.note_c"> 覆盖为自定义地址或输入 off 停用；检测到新版本后可一键下载安装，安装过程自动保留本机配置。</span>
       </div>
     </div>
     <div class="glass pad" style="margin-bottom:20px">
@@ -1005,7 +1006,7 @@ tr.rowr.showb .basis{display:block}
           </div>
           <div class="doc-sec">
             <h4 data-i18n="help.h4.p9">7. 成品表母版前提</h4>
-            <p><span data-i18n="help.body.p9a">PERT 成品表以企业母版为基座生成：把母版放到 </span><code>tpl/pert-template.xlsx</code><span data-i18n="help.body.p9b">，或用环境变量 </span><code>WE_TPL_PERT</code><span data-i18n="help.body.p9c"> 指向母版文件。两者都没有时，点「生成成品表」会提示需自备母版——这是预期行为，不是故障。</span></p>
+            <p><span data-i18n="help.body.p9a">PERT 成品表以随包内置的空白母版为基座生成：</span><code>tpl/pert-template.xlsx</code><span data-i18n="help.body.p9b">；如需换用其他母版，用环境变量 </span><code>WE_TPL_PERT</code><span data-i18n="help.body.p9c"> 指向自定义母版文件即可。仅源码裁剪版缺少内置母版时，点「生成成品表」才会提示需自备母版。</span></p>
           </div>
         </div>
         <div class="doc-block">
@@ -1742,6 +1743,8 @@ async function bindConfig(){
       if($("#ctxOut")){$("#ctxOut").textContent=cj.rendered||"";}
     }catch(e){/* 上下文回显失败不阻塞配置页 */}
     if($("#updUrl"))$("#updUrl").value=llmCfg.update_url||"";
+    // T05688：留空时在配置中心展示实际生效的内置 GitHub Releases 地址
+    if($("#updDefaultUrl"))$("#updDefaultUrl").textContent=(res.update_source&&res.update_source.default_url)||"";
     // T00962：回显成品表公式缓存策略（后端缺省 async/120）
     if($("#recalcMode")){
       const rc=llmCfg.recalc||{},m=String(rc.mode||"async");
@@ -2058,7 +2061,10 @@ async function saveUpdateUrl(){
     const r=await fetch(API+"/api/update/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({update_url:url})});
     const res=await r.json();
     if(!res.ok)throw new Error(res.msg?lm(res):t("help.upd.save_fail"));
-    toast(url?t("help.upd.save_ok"):t("help.upd.save_off"));
+    // T05688：off=停用、空=恢复内置 GitHub Releases、其他=自定义源，三种终态不同提示
+    toast(/^(off|disable|disabled)$/i.test(url)?t("help.upd.save_off")
+      :(url?t("help.upd.save_ok"):t("help.upd.save_default")));
+    if($("#updDefaultUrl")&&res.default_url)$("#updDefaultUrl").textContent=res.default_url;
     cfgWriteSnap("upd");cfgRefreshDraft();
   }catch(e){toast(tf("help.upd.save_failed_detail",{msg:lm(e.message)}));}
 }

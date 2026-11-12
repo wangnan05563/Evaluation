@@ -53,6 +53,13 @@ CHAT_SUFFIX = "/chat/completions"   # OpenAI 兼容端点后缀
 F_PACKAGE_JSON = "package.json"     # 前端工程清单（技术栈探测用）
 SYS_TICKET = "票据业务系统"          # 项目主系统名（上下文推断的归并目标）
 AUTH_BEARER = "Bearer "              # 鉴权头前缀
+# T05688：内置官方 GitHub Releases 更新源，默认即可用，无需外部配置。
+# 仓库坐标与发布脚本 scripts/publish.config.json 的 publish.repo 保持一致；
+# /releases/latest 返回的 setup.exe 资产正是一键发布上传的安装包。
+GH_REPO = "wangnan05563/Evaluation"
+GH_API_BASE_DEFAULT = "https://api.github.com"
+UPDATE_OFF_VALUES = ("off", "disable", "disabled")   # 显式停用版本检测的哨兵值
+UPDATE_NOTES_LIMIT = 2000                            # Release body 可能很长，避免撑爆帮助页
 # 开发语言 → 母版语系标识的对照（Excel 公式按语系取值，见 _CTX_LANG_EXT）
 EXT_JAVA = ".java"
 
@@ -450,7 +457,8 @@ DEFAULT_CONFIG = {
             "model": "gpt-4o-mini", "key": ""},
     "provider": "openai",
     "context_dir": "",   # 项目上下文目录：AI 估算时注入该目录扫描出的项目级上下文
-    "update_url": "",    # 更新源 URL：指向返回 {version,url,notes} 的 JSON；空=不做版本检测
+    # T05688：空 = 使用内置 GitHub Releases 源；"off" = 显式停用；其他值 = 自定义 JSON 更新源
+    "update_url": "",    # 覆盖项：指向返回 {version,url,notes} 的 JSON 或 GitHub Release API
     "recalc": {"mode": "async", "timeout": 120},   # 成品表公式缓存重算策略（T00962）
 }
 PROVIDERS = {
@@ -582,21 +590,70 @@ def _ver_tuple(v):
     return tuple(int(x) for x in re.findall(r"\d+", v or ""))
 
 
+def _default_update_url():
+    """内置 GitHub Releases latest API；WE_UPDATE_API_BASE 可切企业版/镜像域名。"""
+    base = (os.environ.get("WE_UPDATE_API_BASE") or GH_API_BASE_DEFAULT).rstrip("/")
+    return f"{base}/repos/{GH_REPO}/releases/latest"
+
+
+def _update_source_info():
+    """生效更新源：配置中心 > 环境变量 > 内置默认；显式 off 停用版本检测。
+
+    返回 {url, default_url, source}，供 /api/config 回显与 check_update 使用。
+    旧版 config.json 里留空的 update_url 无需迁移：空值现在等同「用内置源」。
+    """
+    default_url = _default_update_url()
+    candidates = ((str(load_config().get("update_url") or "").strip(), "config"),
+                  (str(os.environ.get("WE_UPDATE_URL") or "").strip(), "env"))
+    for candidate, source in candidates:
+        if not candidate:
+            continue
+        if candidate.lower() in UPDATE_OFF_VALUES:
+            return {"url": "", "default_url": default_url, "source": "off"}
+        return {"url": candidate, "default_url": default_url, "source": source}
+    return {"url": default_url, "default_url": default_url, "source": "builtin"}
+
+
+def _normalize_update_source(data):
+    """把更新源响应归一为 {version,url,notes}。
+
+    GitHub Releases API：tag_name（允许 v 前缀）+ assets[].browser_download_url
+    （优先 *-setup.exe，即发布脚本 artifact_name_template）+ body 作更新日志；
+    自定义源：仍是 {version,url,notes}。两者复用同一套版本比较与下载逻辑。
+    """
+    if not isinstance(data, dict):
+        return {"version": "", "url": "", "notes": ""}
+    if "tag_name" in data or "assets" in data:
+        assets = [a for a in (data.get("assets") or []) if isinstance(a, dict)]
+        setup = [a for a in assets if str(a.get("name") or "").lower().endswith("-setup.exe")]
+        exe = setup or [a for a in assets if str(a.get("name") or "").lower().endswith(".exe")]
+        version = re.sub(r"^[vV](?=\d)", "", str(data.get("tag_name") or data.get("name") or "").strip())
+        return {"version": version,
+                "url": str((exe[0].get("browser_download_url") if exe else "") or ""),
+                "notes": str(data.get("body") or data.get("name") or "").strip()[:UPDATE_NOTES_LIMIT]}
+    return {"version": str(data.get("version") or "").strip(),
+            "url": str(data.get("url") or "").strip(),
+            "notes": str(data.get("notes") or "")[:UPDATE_NOTES_LIMIT]}
+
+
 def check_update():
-    """请求更新源 JSON({version,url,notes})，与当前版本比较。由后端代理规避浏览器 CORS。"""
-    url = (load_config().get("update_url") or "").strip()
+    """请求生效更新源并与当前版本比较。由后端代理规避浏览器 CORS。"""
+    info = _update_source_info()
+    url = info["url"]
     if not url:
         return {"ok": False, **_m("help.upd.msg_unconfigured", "未配置更新源"), "current": APP_VERSION}
     try:
-        req = Request(url, method="GET", headers={"User-Agent": "WorkloadEval/" + APP_VERSION})
+        req = Request(url, method="GET", headers={"User-Agent": "WorkloadEval/" + APP_VERSION,
+                                                  "Accept": "application/vnd.github+json"})
         with urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode("utf-8-sig"))
-        latest, pkg = str(data.get("version") or ""), str(data.get("url") or "")
+        src = _normalize_update_source(data)
+        latest, pkg = src["version"], src["url"]
         if not latest or not pkg:
             return {"ok": False, **_m("help.upd.msg_src_incomplete", "更新源数据不完整（需 version 与 url 字段）"), "current": APP_VERSION}
         return {"ok": True, "current": APP_VERSION, "latest": latest,
                 "hasUpdate": _ver_tuple(latest) > _ver_tuple(APP_VERSION),
-                "url": pkg, "notes": str(data.get("notes") or "")}
+                "url": pkg, "notes": src["notes"], "source": info["source"]}
     except Exception as e:
         return {"ok": False, **_m("help.upd.fetch_fail", "更新源访问失败：{err}", err=str(e)), "current": APP_VERSION}
 
@@ -1513,8 +1570,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, d)
         if u.path == "/api/config":
             # 配置中心：返回持久化配置 + 预设元数据（模型开发商/控制台链接）
+            # T05688：附带内置/生效更新源，供界面展示「留空时实际用哪个地址」
             cfg = load_config()
-            return self._json(200, {"ok": True, "config": cfg, "providers": PROVIDERS})
+            return self._json(200, {"ok": True, "config": cfg, "providers": PROVIDERS,
+                                    "update_source": _update_source_info()})
         if u.path == "/api/config/models":
             # 获取可用模型列表：优先用已存 key 调 /models；失败回退预设清单
             cfg = load_config()
@@ -1730,10 +1789,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", "")})
 
             if u.path == "/api/update/config":
-                # 保存更新源 URL 配置
+                # 保存更新源 URL 配置（空=内置 GitHub Releases，off=停用，其他=自定义）
                 payload = json.loads(raw.decode("utf-8"))
                 cfg = save_config({"update_url": payload.get("update_url", "")})
-                return self._json(200, {"ok": True, "update_url": cfg.get("update_url", "")})
+                info = _update_source_info()
+                return self._json(200, {"ok": True, "update_url": cfg.get("update_url", ""),
+                                        "default_url": info["default_url"], "effective_url": info["url"]})
 
             if u.path == "/api/update/download":
                 payload = json.loads(raw.decode("utf-8"))

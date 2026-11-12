@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /** M4/FR-5.2 编排器：npm test 一条命令跑核心链路自动化测试。
  *  用法：npm test [-- --only=S1,S3] [-- --with-flaky]
- *  套件：S1/S2/S10 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
- *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测 · S18 免安装产物冒烟，18 套全部默认纳入。
+ *  套件：S1/S2/S10/S19 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
+ *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测 · S18 免安装产物冒烟，19 套全部默认纳入。
+ *  T05688：内置 GitHub Releases 更新源默认启用，隔离实例统一用 WE_UPDATE_URL=off 关掉外网自动检测
+ *  （否则 S12 的「检查更新」断言会被 10s 网络超时拖成假红）；要验在线链路显式传 WE_TEST_UPDATE_URL。
  *  S18 只在「已构建 release/win-unpacked」时才真判，产物没构建就整套 SKIP（原因逐条打印）；
  *  发布门 scripts/publish.ps1 里它排在 electron-builder 之后、上传之前，那里产物必定存在。
  *  （--with-flaky 为历史开关：S6 曾在 T01079 前被标 flaky 默认跳过，夹具改绝对路径后已转 default-on，现无套件挂 flaky。）
@@ -95,7 +97,9 @@ const reapOwnedExcel = () => {
 
 function startServer(dataDir, port = API_PORT) {
   const p = spawn(PY, ['-u', 'scripts/server.py', String(port), '--serve-frontend'],
-    { cwd: ROOT, env: { ...process.env, WE_DATA: dataDir, WE_EXCEL_LEDGER: LEDGER }, stdio: ['ignore', 'pipe', 'pipe'] });
+    { cwd: ROOT, env: { ...process.env, WE_DATA: dataDir, WE_EXCEL_LEDGER: LEDGER,
+      // T05688：测试实例不访问外网；S19 自己起隔离实例验证内置源的在线/离线行为
+      WE_UPDATE_URL: process.env.WE_TEST_UPDATE_URL || 'off' }, stdio: ['ignore', 'pipe', 'pipe'] });
   p.stdout.resume(); p.stderr.resume();
   return p;
 }
@@ -179,6 +183,9 @@ const suites = [
   // 不进 desktopGate：它跳过与否取决于「产物是否已构建」，脚本自己逐条判并打印原因，缺什么就 SKIP 什么。
   { id: 'S18', title: '免安装产物冒烟（T04014，需 release/win-unpacked）', kind: 'node',
     script: 'tests/prod_smoke.mjs', timeoutMs: 900000 },
+  // T05688：内置更新源默认启用后，必须有离线用例守住「默认地址/覆盖/停用/Release 解析」
+  { id: 'S19', title: '内置 GitHub 更新源单测（T05688）', kind: 'py',
+    script: 'tests/unit_update_source.py', timeoutMs: 180000 },
 ];
 
 let server = null, chrome = null;
