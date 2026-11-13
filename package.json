@@ -1,8 +1,16 @@
 {
   "name": "workload-estimate",
-  "version": "0.1.20261105-001",
+  "version": "0.1.20261112-001",
   "private": true,
   "description": "工作量评估工具桌面应用根（Electron 桌面壳 + PyInstaller 后端 sidecar）",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wangnan05563/Evaluation.git"
+  },
+  "homepage": "https://github.com/wangnan05563/Evaluation",
+  "bugs": {
+    "url": "https://github.com/wangnan05563/Evaluation/issues"
+  },
   "scripts": {
     "start": "cd dev-shell && npm start",
     "dist": "electron-builder",

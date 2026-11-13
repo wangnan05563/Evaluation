@@ -10,6 +10,12 @@
 
 > 上文徽章是仓库内本地 SVG（`assets/badges/`，由 `python scripts/make_badges.py` 生成），不引用 shields.io 等外部图床 —— 离线 / 内网环境同样正常渲染。
 
+## 仓库与下载
+
+- 源码仓库：<https://github.com/wangnan05563/Evaluation>
+- 桌面安装包（GitHub Releases）：<https://github.com/wangnan05563/Evaluation/releases>
+- 问题反馈（Issues）：<https://github.com/wangnan05563/Evaluation/issues>
+
 ## 特性
 
 - **IFPUG 估算**：上传 `.docx` 需求文档 → 本地引擎解析候选功能点 → 逐条审核（类别/复杂度/重用/修改）→ 一键生成《规模估算》《费用估算》成品 xlsx（公式与样式保真，Excel 打开即重算）
@@ -17,7 +23,7 @@
 - **PERT 三点估算**：新建/选择项目 → 需求导入（AI 拆分或人工录入）→ 乐观/最可能/悲观三值 → 预期 = (O + 4M + P) ÷ 6、σ = (P − O) ÷ 6 → 生成 PERT 成品表（内置空白母版 `tpl/pert-template.xlsx` 随包分发，安装即用；如需换母版，用 `WE_TPL_PERT` 指向自定义文件）
 - **大模型识别增强**：配置中心可接入任意 OpenAI 兼容接口（OpenAI / Claude / 通义 / 火山 / Agnes / 自定义），支持连接测试、模型列表自动拉取；启用后对候选做复核补全，并可注入项目上下文目录扫描出的技术栈/规模信息
 - **估算历史与版本对比**：估算历史持久化、重开复用，两次估算可逐项 diff（新增/删除/变更高亮）
-- **用户故事导出**：结果页按 INVEST 模板从已确认功能点生成用户故事（含验收标准与规模），导出 MD/CSV，可一键推送到 GitHub Issues（token/仓库自配，失败可重试）
+- **用户故事导出**：结果页按 INVEST 模板从已确认功能点生成用户故事（含验收标准与规模），导出 MD/CSV，或一键推送到 GitHub Issues（需自备 Personal Access Token 与 `owner/repo`，单次上限 50 条，失败逐条回传可重试）
 - **母版管理**：配置中心可上传新成品母版并登记口径说明，生成时按所选母版出表
 - **多语言与主题**：界面中/英双语切换（893 组文案 key 全量对齐）；浅色 / 深色 / 高对比三套主题，品牌主色可自定义
 - **可访问性**：全链路键盘可完成主流程，语义化 role/aria，焦点环与对比度按 WCAG 口径校验
@@ -79,7 +85,7 @@
 
 ### 用户故事导出：从评估结果直达研发待办
 
-结果页按 INVEST 模板把已确认的功能点生成为用户故事（含验收标准与规模），导出 MD / CSV，或一键推送到 GitHub Issues（仓库与 token 由使用者自配）。
+结果页按 INVEST 模板把已确认的功能点生成为用户故事（含验收标准与规模），导出 MD / CSV，或一键推送到 GitHub Issues（需自备 GitHub Personal Access Token 与 `owner/repo`，单次上限 50 条，失败逐条回传可重试）。
 
 ![用户故事](docs/assets/product-intro/fig_story.png)
 
@@ -141,7 +147,7 @@
 
 ### 桌面版（推荐）
 
-从 `release/` 获取安装包 `WorkloadEstimate-<版本>-setup.exe`（版本号为日期序列 `0.1.YYYYMMDD-NNN`，与 `package.json` 的 `version` 一致），双击安装后启动桌面应用（自动拉起本地引擎并打开界面）。已发布到 GitHub Releases 的版本同样以该标签命名。
+从 [GitHub Releases](https://github.com/wangnan05563/Evaluation/releases) 获取安装包 `WorkloadEstimate-<版本>-setup.exe`（版本号为日期序列 `0.1.YYYYMMDD-NNN`，与 `package.json` 的 `version` 一致），双击安装后启动桌面应用（自动拉起本地引擎并打开界面）。Release 标签即 `package.json` 的 `version`。
 
 ### 开发运行
 
@@ -202,9 +208,14 @@ electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
 
 ## 发布（一键发布到 GitHub Releases）
 
-`scripts\一键发布.bat` 在「构建」基础上多了「发布」一步：调用 `构建打包.bat` 出包 →
-定位 `release\WorkloadEstimate-<版本>-setup.exe` → 生成/复用发布说明 →
-`scripts\publish-release.py` 创建（或复用）GitHub Release 并上传安装包。
+`scripts\一键发布.bat` → `scripts\publish.ps1` 跑完 6 步后调 `scripts\publish-release.py` 上传，**全部配置零硬编码**，统一来自 `scripts\publish.config.json`：
+
+1. 前置检查：Python / Node / git 是否就位，并注入 CN 镜像（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`）提升 electron 下载成功率
+2. 读取版本号：取 `package.json` 的 `version`（形如 `0.1.YYYYMMDD-NNN`），`tag = tag_prefix + version`（`tag_prefix` 当前为空）
+3. 构建：调 `构建打包.bat` 出包（PyInstaller sidecar + electron-builder NSIS）；构建内 `bump_version.py` 会把日期序号 +1，**发布以构建后的版本为准**
+4. 免安装产物冒烟：`release\win-unpacked` 跑 `tests\prod_smoke.mjs`，**非 0 即阻断上传**（装包态的三条前提只在成品里成立，回归套件覆盖不到）
+5. 定位安装包：按 `publish.setup_glob`（`release\WorkloadEstimate-*-setup.exe`）取最新一份
+6. 准备说明并发布：说明命中 `publish.notes_glob`（`release-notes-<版本>.md`）即用；缺失时从 `git log --no-merges` 取最近 `auto_notes_git_log_count`（默认 20）条自动生成 `release-notes-<版本>.auto.md`；随后以 `GH_REPO` / `GH_TAG` / `GH_DRY_RUN` 调 `publish-release.py <setup> <notes> <显示名>` 创建 Release 并上传资产
 
 ```bat
 rem 一键构建并发布（需先在 .env 配置 GH_TOKEN，详见 scripts\.env.example）
@@ -212,12 +223,17 @@ scripts\一键发布.bat
 
 rem 只打印将要执行的发布动作、不真正发布
 set GH_DRY_RUN=1 && scripts\一键发布.bat
+
+rem 仅发布已存在的 release/WorkloadEstimate-*-setup.exe（CI 重发 / 跳过构建）
+powershell -File scripts\publish.ps1 -SkipBuild
 ```
 
-- 配置全部走 `scripts\publish.config.json`（仓库坐标、镜像源、构建入口、版本/安装包 glob 等），不硬编码。
-- Token 仅从本地 `.env`（`GH_TOKEN=...`，已被 `.gitignore` 忽略）或 git 凭据库读取，绝不入库。
-- 版本号取 `package.json` 的 `version`（形如 `0.1.YYYYMMDD-NNN`）作为 Release 标签。
-- 发布说明优先用 `release-notes-<版本>.md`，缺失时自动用 `git log` 生成。
+- 仓库坐标 `GH_REPO`（默认 `wangnan05563/Evaluation`）与镜像源、构建入口、版本/安装包 glob 全部走 `scripts\publish.config.json`，不硬编码。
+- Token 仅从本地 `.env`（`GH_TOKEN=...`，已被 `.gitignore` 忽略）或 git 凭据库（`git credential fill` 的 github.com 密码）读取，绝不入库；格式见 `scripts\.env.example`（fine-grained 或 classic PAT，需 `repo` 权限）。
+- 版本号取 `package.json` 的 `version` 作为 Release 标签（`tag_prefix` 默认空）。
+- `publish-release.py` 幂等：Release 已存在则按 tag 复用，资产已存在则跳过上传；网络抖动自动重试。
+- 环境变量（均可选，缺省自动推断）：`GH_REPO`（仓库坐标）、`GH_TAG`（标签）、`GH_TOKEN`（token）、`GH_TARGET`（目标分支/commit，默认当前分支）、`GH_DRAFT`（草稿）、`GH_PRERELEASE`（预发布）、`GH_API_BASE`（企业版/镜像 API 域名，默认 `https://api.github.com`）、`GH_DRY_RUN`（演练）。
+- 完成后控制台打印 Release 地址：`https://github.com/wangnan05563/Evaluation/releases/tag/<version>`。
 - 编码规范：`.bat` 纯 ASCII + `chcp 65001`，`.ps1` 全部 UTF-8 BOM；`scripts\verify.ps1` 可做字节级静态校验。
 
 ## 目录结构
@@ -346,15 +362,7 @@ Get-ChildItem $env:TEMP -Directory -Filter 'we_*' | Remove-Item -Recurse -Force 
 
 ## 贡献指南
 
-1. 拉取 `main`（本仓库单人维护，改动直接提交 `main`，提交信息以任务号开头，如 `T03631 README 同步…`，便于与任务系统互相溯源）。
-2. 按改动类型自测：
-   - 改前端：先 `python scripts/build_frontend.py` 重新打包 `frontend/index.html`，再 `npm test`；
-   - 改计算口径：必须过金标准 `python scripts/generate_xlsx.py --verify`（US 合计 = `105.07`）；
-   - 加界面文案：`data/i18n/zh-CN.json` 与 `en-US.json` **同时**补 key，跑 `python tests/i18n_check.py`（key 对齐 + 服务端 msgKey 覆盖）；
-   - 加服务端提示：用 `scripts/server.py` 的 `_m(key, 中文兜底)` 返回 msgKey，前端经 `lm()` 查字典渲染，不要直接硬编码中文给英文态。
-3. 交付线：`npm test` **17/17 全绿**（S17 无桌面会话时允许 SKIP）；只跑单套件用 `npm test -- --only=S4`。
-4. 不要提交：`data/` 运行时产物（`config.json`、`*.db`、`generated/`、`uploads/`）、`release/`、`logs/`、根目录 `.env`（`.gitignore` 已覆盖；`data/i18n/` 与 `data/testdocs/` 是例外，属源码/夹具必须入库）。
-5. 发布：本地 `scripts\构建打包.bat` 出包，或 `scripts\一键发布.bat` 构建 + 发布 GitHub Releases（先 `set GH_DRY_RUN=1` 演练一遍）。
+> 完整版贡献指南见 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)。
 
 ## 许可证
 

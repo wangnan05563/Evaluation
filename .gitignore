@@ -101,3 +101,4 @@ release-notes-*.md
 # 隔离区与审计报告由 workspace-cleanup 技能产生，属本机状态而非仓库内容。
 /.cleanup-quarantine/
 /cleanup-logs/
+.workbuddy-ai/
