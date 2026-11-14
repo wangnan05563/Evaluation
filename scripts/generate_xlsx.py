@@ -266,11 +266,7 @@ def schedule_excel_recalc(out, on_progress=None, mode=None, timeout=None, on_sta
         return False, "circuit-open"
     # T01481（P1-2）：有界等待槽位（默认 0 = 拿不到立刻跳过，保持原「不阻塞生成」语义；
     # 需要提高重算命中率时可设 WE_RECALC_WAIT>0，代价是最多等这么久）。
-    try:
-        wait = float(os.environ.get("WE_RECALC_WAIT") or 0)
-    except ValueError:
-        wait = 0.0
-    if not _RECALC_SLOT.acquire(timeout=wait):
+    if not _RECALC_SLOT.acquire(timeout=_recalc_wait_seconds()):
         print("[recalc] 未等到重算槽位，本次跳过（不影响生成结果）", flush=True)
         state("skipped")
         return False, "busy"
@@ -279,44 +275,60 @@ def schedule_excel_recalc(out, on_progress=None, mode=None, timeout=None, on_sta
     # sweep_recalc_leftovers 靠这个 PID 判归属，才不会误删在飞/并发那一份。
     tmp = out.with_name(out.stem + f".recalc{os.getpid()}.xlsx")
     _track_recalc_file(tmp)
+    threading.Thread(target=_run_async_recalc,
+                     args=(out, tmp, on_progress, timeout, state),
+                     name="we-excel-recalc-async", daemon=True).start()
+    return True, "async"
 
-    def work():
+
+def _recalc_wait_seconds():
+    """等待重算槽位的上限（WE_RECALC_WAIT，坏值按 0 处理）。"""
+    try:
+        return float(os.environ.get("WE_RECALC_WAIT") or 0)
+    except ValueError:
+        return 0.0
+
+
+def _run_async_recalc(out, tmp, on_progress, timeout, state):
+    """async 重算线程主体：算副本 → 校验目标未被更新 → 原子写回。"""
+    try:
+        st0 = out.stat().st_mtime_ns                   # M6：记录重算起点，写回前校验防止覆盖更新的产物
+        shutil.copy2(out, tmp)                         # 只动副本，主产物始终可下载
+        if not _try_excel_recalc(tmp, on_progress=on_progress, timeout=timeout):
+            tmp.unlink(missing_ok=True)
+            _recalc_note_fail()          # T01481（P1-2）：计入熔断计数
+            state("skipped")
+            return
+        _write_back_recalc(tmp, out, st0, state)
+    except Exception as e:
+        print(f"[recalc] 后台重算异常: {type(e).__name__}: {e}", flush=True)
+        state("failed")
+        if tmp.exists():
+            _remove_save_tmp(str(tmp))   # T04125：异常路径也别把副本留在产物目录里
+    finally:
+        _RECALC_SLOT.release()
+
+
+def _write_back_recalc(tmp, out, st0, state):
+    """写回重算副本：目标可能正被下载读取，退避重试；目标已更新则放弃。"""
+    for i in range(6):
         try:
-            st0 = out.stat().st_mtime_ns               # M6：记录重算起点，写回前校验防止覆盖更新的产物
-            shutil.copy2(out, tmp)                     # 只动副本，主产物始终可下载
-            if not _try_excel_recalc(tmp, on_progress=on_progress, timeout=timeout):
+            if out.stat().st_mtime_ns != st0:
                 tmp.unlink(missing_ok=True)
-                _recalc_note_fail()          # T01481（P1-2）：计入熔断计数
+                print("[recalc] 目标在重算期间已被更新，放弃写回（避免覆盖新产物）", flush=True)
                 state("skipped")
                 return
-            for i in range(6):                          # 目标可能正被下载读取，退避重试
-                try:
-                    if out.stat().st_mtime_ns != st0:
-                        tmp.unlink(missing_ok=True)
-                        print("[recalc] 目标在重算期间已被更新，放弃写回（避免覆盖新产物）", flush=True)
-                        state("skipped")
-                        return
-                    os.replace(tmp, out)
-                    _recalc_note_ok()        # T01481（P1-2）：成功即清零连续失败计数
-                    print(f"[recalc] 后台重算完成并已写回: {out.name}", flush=True)
-                    state("written")
-                    return
-                except OSError as e:
-                    if i == 5:
-                        print(f"[recalc] 写回失败（{e}），保留副本: {tmp.name}", flush=True)
-                        state("skipped")
-                        return
-                    time.sleep(0.5)
-        except Exception as e:
-            print(f"[recalc] 后台重算异常: {type(e).__name__}: {e}", flush=True)
-            state("failed")
-            if tmp.exists():
-                _remove_save_tmp(str(tmp))   # T04125：异常路径也别把副本留在产物目录里
-        finally:
-            _RECALC_SLOT.release()
-
-    threading.Thread(target=work, name="we-excel-recalc-async", daemon=True).start()
-    return True, "async"
+            os.replace(tmp, out)
+            _recalc_note_ok()        # T01481（P1-2）：成功即清零连续失败计数
+            print(f"[recalc] 后台重算完成并已写回: {out.name}", flush=True)
+            state("written")
+            return
+        except OSError as e:
+            if i == 5:
+                print(f"[recalc] 写回失败（{e}），保留副本: {tmp.name}", flush=True)
+                state("skipped")
+                return
+            time.sleep(0.5)
 
 
 def _is_header_fill(fg):
@@ -423,18 +435,7 @@ def run_from_json(js, out, systems=None, method="估算功能点", on_progress=N
     """
     _prog = lambda p, s: _emit(on_progress, p, s)
 
-    if isinstance(js, (str, Path)):
-        data = json.loads(Path(js).read_text(encoding="utf-8"))
-    else:
-        data = js
-    # data 可以是 {system:[items...]} 或 [items]（带 system 字段）
-    planned = {}
-    if isinstance(data, list):
-        for it in data:
-            s = (it.get("system") or (systems and systems[0])) or "综合服务平台"
-            planned.setdefault(s, []).append(it)
-    else:
-        planned = data
+    planned = _load_gen_data(js, systems)
     rows, ranges = arrange_systems(planned)
     _prog(20, "正在排布系统与明细行…")
     wb = copy_and_load(out, template)   # M9/FR-2.8：按所选母版生成（缺省内置母版）
@@ -452,15 +453,49 @@ def run_from_json(js, out, systems=None, method="估算功能点", on_progress=N
     # 强制 Excel 打开即重算：J/M 列是母版公式，openpyxl 不算缓存值，
     # 不设此标志的话 Excel 默认按"上次缓存"展示，导致用户看到 J/M 是空。
     wb.calculation.fullCalcOnLoad = True
+    _save_generated(wb, out)
+    _prog(58, "正在保存成品表…")
+    # 若本机装有 Excel，再用 COM 跑一次重算并写回 cached value，
+    # 这样即便用户 Excel 处于"手动重算"也能立即看到数值。
+    _prog(62, "正在处理母版公式缓存（Excel 重算）…")
+    queued, how = schedule_excel_recalc(out, on_progress=on_progress,
+                                        mode=recalc_mode, timeout=recalc_timeout,
+                                        on_state=on_recalc_state)
+    if recalc_info is not None:
+        recalc_info["mode"] = how
+    _report_recalc_stage(how, queued, _prog)
+    us_sum = engine.total_us([{"type": r["type"], "reuse": r["reuse"], "modify": r["modify"]} for r in rows])
+    print(f"[gen] 已生成 {out}；功能点 {len(rows)} 条，US 合计 {us_sum}")
+    return rows, ranges
+
+
+def _load_gen_data(js, systems):
+    """读入候选清单：文件路径/对象 → {system: [items]}（列表形态按 system 归并）。"""
+    if isinstance(js, (str, Path)):
+        data = json.loads(Path(js).read_text(encoding="utf-8"))
+    else:
+        data = js
+    # data 可以是 {system:[items...]} 或 [items]（带 system 字段）
+    if not isinstance(data, list):
+        return data
+    planned = {}
+    for it in data:
+        s = (it.get("system") or (systems and systems[0])) or "综合服务平台"
+        planned.setdefault(s, []).append(it)
+    return planned
+
+
+def _save_generated(wb, out):
+    """原子落盘（T01481 P0-2）：先写同目录唯一临时文件再 os.replace。
+
+    并发/重开同标题时两个线程曾直接 save 同一路径互相踩踏
+    （T01369 对照实验：固定 title 并发 42.33% 500 vs 唯一 title 0%）。
+    """
     tmp = None
     try:
-        # T01481（P0-2）：先写同目录唯一临时文件再 os.replace 原子替换。
-        # 并发/重开同标题时两个线程曾直接 save 同一路径互相踩踏
-        # （T01369 对照实验：固定 title 并发 42.33% 500 vs 唯一 title 0%）。
         tmp = out + f".tmp{os.getpid()}.{threading.get_ident()}"
         wb.save(tmp)
         _atomic_replace(tmp, out)
-        tmp = None   # 已原子落位，无需清理
     except PermissionError as e:
         # 目标被占用：最常见是上一次卡死的 Excel 还开着它（T00960）；
         # os.replace 在 Windows 上替换被占用目标同样抛 PermissionError，保留原提示语义
@@ -471,24 +506,16 @@ def run_from_json(js, out, systems=None, method="估算功能点", on_progress=N
     except Exception:
         _remove_save_tmp(tmp)
         raise
-    _prog(58, "正在保存成品表…")
-    # 若本机装有 Excel，再用 COM 跑一次重算并写回 cached value，
-    # 这样即便用户 Excel 处于"手动重算"也能立即看到数值。
-    _prog(62, "正在处理母版公式缓存（Excel 重算）…")
-    queued, how = schedule_excel_recalc(out, on_progress=on_progress,
-                                        mode=recalc_mode, timeout=recalc_timeout,
-                                        on_state=on_recalc_state)
-    if recalc_info is not None:
-        recalc_info["mode"] = how
+
+
+def _report_recalc_stage(how, queued, _prog):
+    """把重算调度结果翻译成进度文案（sync 按是否真的写回区分）。"""
     if how == "sync":
         _prog(95, "母版公式重算完成，正在收尾…" if queued else "已跳过 Excel 重算，正在收尾…")
     elif how == "async":
         _prog(95, "成品表已生成；母版公式缓存在后台补算，正在收尾…")
     else:
         _prog(95, "已跳过 Excel 重算，正在收尾…")
-    us_sum = engine.total_us([{"type": r["type"], "reuse": r["reuse"], "modify": r["modify"]} for r in rows])
-    print(f"[gen] 已生成 {out}；功能点 {len(rows)} 条，US 合计 {us_sum}")
-    return rows, ranges
 
 
 def _excel_pid(xl):
@@ -711,6 +738,21 @@ def _proc_alive(pid):
         return True                       # 判不准就当作活着，宁可不动
 
 
+def _env_float(name, default):
+    """读环境变量为 float（缺省/非法均回退默认值）。"""
+    try:
+        return float(os.environ.get(name) or default)
+    except ValueError:
+        return float(default)
+
+
+def _recalc_timeout_seconds(timeout):
+    """COM 重算的等待预算：显式入参优先，否则取 WE_RECALC_TIMEOUT（缺省 120s）。"""
+    if timeout is None:
+        return _env_float("WE_RECALC_TIMEOUT", 120.0)
+    return float(timeout)
+
+
 def _try_excel_recalc(path, on_progress=None, timeout=None):
     """若本机装有 Excel，用 COM 打开→Calculate→Save，把公式的 cached value 写回 xlsx。
     失败（无 Excel/无 pywin32）静默跳过，不影响主流程。
@@ -723,7 +765,6 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
       超时后再按 PID 定向回收该实例（宽限 WE_RECALC_KILL_GRACE 秒，默认 30s，T00960）。
     返回 True=已重算写回；False=跳过/失败。
     """
-    import os
     try:
         import win32com.client  # type: ignore
         import pythoncom
@@ -731,83 +772,12 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
         if os.environ.get("WE_DEBUG_RECALC"):
             print(f"[recalc] skip: import win32com failed: {e}", flush=True)
         return False
-    if timeout is None:
-        try:
-            timeout = float(os.environ.get("WE_RECALC_TIMEOUT") or 120)
-        except ValueError:
-            timeout = 120.0
-    try:
-        grace = float(os.environ.get("WE_RECALC_KILL_GRACE") or 30)
-    except ValueError:
-        grace = 30.0
+    timeout = _recalc_timeout_seconds(timeout)
+    grace = _env_float("WE_RECALC_KILL_GRACE", 30.0)
     result = {"ok": False, "err": None, "pid": None, "done": False}
 
     def work():
-        pythoncom.CoInitialize()          # COM 需按线程初始化（已在独立线程内执行）
-        xl = None
-        wbs = None
-        wb = None
-        tmp_recalc = None
-        try:
-            _emit(on_progress, 66, "正在启动 Excel 进程…")
-            sweep_recalc_leftovers(Path(path).parent)   # T04125：先收掉上一位主人已死的残留
-            _ledger_write("BEGIN")                      # T04125：Dispatch 在飞，跑器杀我之前等它落地
-            xl = win32com.client.DispatchEx("Excel.Application")
-            xl.Visible = False
-            xl.DisplayAlerts = False      # 抑制对话框：多数"卡住"其实是在等一个看不见的弹窗
-            result["pid"] = _excel_pid(xl)   # 记下实例 PID：超时后只回收这一个进程（T00960）
-            _ledger_write("PID", result["pid"]) if result["pid"] else _ledger_write("NOPID")
-            _emit(on_progress, 72, "正在打开成品表…")
-            wbs = xl.Workbooks            # 集合代理也要有名可放，否则 Quit 后进程仍不退（T04125）
-            wb = wbs.Open(str(Path(path).resolve()))
-            _emit(on_progress, 82, "正在重算母版公式…")
-            xl.Calculate()
-            _emit(on_progress, 90, "正在写回计算结果并关闭 Excel…")
-            # T01481（P0-2）：SaveAs 到临时副本再原子替换——直接 Save 回写 out
-            # 会与并发同名请求的原子替换互相踩踏（实测 "File is not a zip file"）。
-            tmp_recalc = str(Path(path).with_name(
-                Path(path).name + f".recalc{os.getpid()}.{threading.get_ident()}.tmp"))
-            _track_recalc_file(tmp_recalc)
-            wb.SaveAs(tmp_recalc)
-            wb.Close(); wb = None           # 必须先放开句柄，否则原子替换会撞 EPERM
-            xl.Quit(); xl = None
-            _atomic_replace(tmp_recalc, str(path))
-            tmp_recalc = None
-            result["ok"] = True
-            if os.environ.get("WE_DEBUG_RECALC"):
-                print(f"[recalc] OK: {path}", flush=True)
-        except Exception as e:
-            result["err"] = f"{type(e).__name__}: {e}"
-            print(f"[recalc] FAILED: {result['err']}", flush=True)
-            try:
-                if tmp_recalc:
-                    _remove_save_tmp(tmp_recalc)
-            except Exception:
-                pass
-        finally:
-            # 无论成功/失败都尽量收尾，避免残留 EXCEL.EXE 与文件句柄。
-            # T04125：Quit 返回不等于进程退出——COM 引用必须全部放开，
-            # 实例才会在稍后自行结束；确认退出交给调用方的统一回收口。
-            try:
-                if wb is not None:
-                    wb.Close(False)
-            except Exception:
-                pass
-            try:
-                if xl is not None:
-                    xl.Quit()
-            except Exception:
-                pass
-            wb = None
-            wbs = None
-            xl = None
-            if not result.get("pid"):
-                _ledger_write("NOPID")       # 永远不会有 PID 了，别让跑器为一个 BEGIN 白等一轮
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
-            result["done"] = True          # 工作线程生命周期结束（含收尾）的标记
+        _excel_recalc_worker(path, on_progress, result, win32com.client, pythoncom)
 
     th = threading.Thread(target=work, name="we-excel-recalc", daemon=True)
     with _LIVE_RECALC_LOCK:                # 供 atexit 接住：进程退出会冻结守护线程（T04125）
@@ -816,6 +786,11 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
     th.join(timeout)
     with _LIVE_RECALC_LOCK:
         _LIVE_RECALC.pop(th.ident, None)
+    return _finalize_recalc(th, timeout, result, grace, on_progress)
+
+
+def _finalize_recalc(th, timeout, result, grace, on_progress):
+    """等待结束后的收尾：超时则定向回收实例，正常路径确认进程真的退出。"""
     pid = result.get("pid")
     if th.is_alive():
         print(f"[recalc] 超时：{timeout:.0f}s 内未完成，放弃本次 COM 重算"
@@ -834,6 +809,78 @@ def _try_excel_recalc(path, on_progress=None, timeout=None):
         if st != "exited":
             print(f"[recalc] 正常收尾后 PID={pid} 未自行退出，回收结果：{st}", flush=True)
     return bool(result["ok"])
+
+
+def _excel_recalc_worker(path, on_progress, result, win32_client, pythoncom):
+    """COM 重算线程主体：Dispatch 隐藏实例 → 打开 → Calculate → SaveAs 副本 → 原子替换。"""
+    pythoncom.CoInitialize()          # COM 需按线程初始化（已在独立线程内执行）
+    xl = None
+    wbs = None
+    wb = None
+    tmp_recalc = None
+    try:
+        _emit(on_progress, 66, "正在启动 Excel 进程…")
+        sweep_recalc_leftovers(Path(path).parent)   # T04125：先收掉上一位主人已死的残留
+        _ledger_write("BEGIN")                      # T04125：Dispatch 在飞，跑器杀我之前等它落地
+        xl = win32_client.DispatchEx("Excel.Application")
+        xl.Visible = False
+        xl.DisplayAlerts = False      # 抑制对话框：多数"卡住"其实是在等一个看不见的弹窗
+        result["pid"] = _excel_pid(xl)   # 记下实例 PID：超时后只回收这一个进程（T00960）
+        _ledger_write("PID", result["pid"]) if result["pid"] else _ledger_write("NOPID")
+        _emit(on_progress, 72, "正在打开成品表…")
+        wbs = xl.Workbooks            # 集合代理也要有名可放，否则 Quit 后进程仍不退（T04125）
+        wb = wbs.Open(str(Path(path).resolve()))
+        _emit(on_progress, 82, "正在重算母版公式…")
+        xl.Calculate()
+        _emit(on_progress, 90, "正在写回计算结果并关闭 Excel…")
+        # T01481（P0-2）：SaveAs 到临时副本再原子替换——直接 Save 回写 out
+        # 会与并发同名请求的原子替换互相踩踏（实测 "File is not a zip file"）。
+        tmp_recalc = str(Path(path).with_name(
+            Path(path).name + f".recalc{os.getpid()}.{threading.get_ident()}.tmp"))
+        _track_recalc_file(tmp_recalc)
+        wb.SaveAs(tmp_recalc)
+        wb.Close(); wb = None           # 必须先放开句柄，否则原子替换会撞 EPERM
+        xl.Quit(); xl = None
+        _atomic_replace(tmp_recalc, str(path))
+        tmp_recalc = None
+        result["ok"] = True
+        if os.environ.get("WE_DEBUG_RECALC"):
+            print(f"[recalc] OK: {path}", flush=True)
+    except Exception as e:
+        result["err"] = f"{type(e).__name__}: {e}"
+        print(f"[recalc] FAILED: {result['err']}", flush=True)
+        try:
+            if tmp_recalc:
+                _remove_save_tmp(tmp_recalc)
+        except Exception:
+            pass
+    finally:
+        _release_excel(xl, wb, result, pythoncom)
+
+
+def _release_excel(xl, wb, result, pythoncom):
+    """COM 收尾：无论成功/失败都尽量放开引用并退出实例，避免残留 EXCEL.EXE 与文件句柄。
+
+    T04125：Quit 返回不等于进程退出——COM 引用必须全部放开，实例才会在稍后自行结束；
+    确认退出交给调用方的统一回收口。
+    """
+    try:
+        if wb is not None:
+            wb.Close(False)
+    except Exception:
+        pass
+    try:
+        if xl is not None:
+            xl.Quit()
+    except Exception:
+        pass
+    if not result.get("pid"):
+        _ledger_write("NOPID")       # 永远不会有 PID 了，别让跑器为一个 BEGIN 白等一轮
+    try:
+        pythoncom.CoUninitialize()
+    except Exception:
+        pass
+    result["done"] = True          # 工作线程生命周期结束（含收尾）的标记
 
 
 if __name__ == "__main__":

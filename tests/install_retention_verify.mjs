@@ -52,7 +52,7 @@ const appdataHasDelete = appdataLines.some((l) => /\b(RMDir|Delete)\b/i.test(l))
 const r4IsAppdata = /StrCpy\s+\$R4\s+"\$APPDATA\\WorkloadEval"/i.test(nsh)
 const hasCopyToR4 = /\bCopyFiles\b[^\n]*\$R4/i.test(nsh)
 check('B1. installer.nsh 对 APPDATA 的操作均不含删除动词（RMDir/Delete）', !appdataHasDelete, appdataLines.join(' | '))
-check('B2. installer.nsh 对 APPDATA 唯一的可变操作是 CopyFiles（老版本一次性迁移到 $R4=$APPDATA\\WorkloadEval，非删除）',
+check(String.raw`B2. installer.nsh 对 APPDATA 唯一的可变操作是 CopyFiles（老版本一次性迁移到 $R4=$APPDATA\WorkloadEval，非删除）`,
   r4IsAppdata && hasCopyToR4, `r4IsAppdata=${r4IsAppdata} hasCopyToR4=${hasCopyToR4}`)
 
 // C. installer.nsh 无 RMDir /r 或 Delete 命中 userData

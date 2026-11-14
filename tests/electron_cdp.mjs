@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
-import { reclaimStaleTmp, registerTmp, removeTmp } from './tmp_janitor.mjs'
+import { reclaimStaleTmp, registerTmp } from './tmp_janitor.mjs'
 
 export const killTree = pid => {
   try { spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' }) } catch { /* noop */ }

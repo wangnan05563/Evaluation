@@ -86,5 +86,6 @@ const rm = dir => { try { fs.rmSync(dir, { recursive: true, force: true }) } cat
 }
 
 const failed = res.filter(r => !r.ok)
-console.log(`\n==== 窗口偏好单测 ==== ${failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`}`)
+const summary = failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`
+console.log(`\n==== 窗口偏好单测 ==== ${summary}`)
 process.exitCode = failed.length ? 1 : 0

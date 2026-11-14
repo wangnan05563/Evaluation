@@ -577,7 +577,7 @@ export function driveDialog(pid, { tick = 0, button = -1, dump = 0, mode = 0, wa
     '-ProcId', String(pid), '-Tick', String(tick), '-Button', String(button), '-Dump', String(dump),
     '-Mode', String(mode), '-WaitMs', String(waitMs), '-GraceMs', String(graceMs)], { encoding: 'utf8' })
   // PowerShell stdout 是 CRLF，留着 \r 会让按行前缀匹配的解析全部落空
-  const clean = s => (s || '').replace(/\r/g, '').trim()
+  const clean = s => (s || '').replaceAll('\r', '').trim()
   const out = clean(r.stdout) + (r.stderr ? ' | ERR:' + clean(r.stderr) : '')
   return { out, code: r.status }
 }
@@ -650,7 +650,7 @@ function ensureWinScript() {
 const runWinPs = (args) => {
   const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
     ensureWinScript(), ...args], { encoding: 'utf8' })
-  return ((r.stdout || '') + (r.stderr || '')).replace(/\r/g, '').trim()
+  return ((r.stdout || '') + (r.stderr || '')).replaceAll('\r', '').trim()
 }
 
 export function probeWindow(pid) {

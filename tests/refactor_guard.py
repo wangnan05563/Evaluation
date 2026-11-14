@@ -61,7 +61,10 @@ snap = {}
 #    可能一次 SSL 失败（+0 条）、一次成功（+1 条），进而改变 items 与 US 合计，
 #    会被守门脚本误报成「重构改了行为」。故快照一律在 llm_enabled=false 下进行。
 #    注：S1-S9 套件本身不受影响（S3 显式传 llm_enabled=false）。
-LLM_OFF = {"llm_enabled": False}
+#    开关必须放在 params 里：识别端点读的是 payload["params"]["llm_enabled"]，
+#    此前误放在顶层，导致基线仍调用外部大模型（items 随接口波动），已修正。
+LLM_OFF = {"params": {"llm_enabled": False}}
+LLM_OFF_FLAT = {"llm_enabled": False}     # 生成链路只读顶层（仅用于历史落库参数）
 _cfg = call("/api/config")
 if _cfg.get("body", {}).get("ok"):
     _saved = _cfg["body"].get("config", {}).get("llm", {})
@@ -85,7 +88,7 @@ if rec.get("body", {}).get("ok"):
     hist = [{**it, "cx": CX_DEFAULT, "ok": True} for it in items]
     snap["generate"] = norm(call(EP_GENERATE, {"items": items, "method": METHOD,
                                                     "title": "T01501-guard", "job": "guard_gen",
-                                                    "hist_items": hist, **LLM_OFF}))
+                                                    "hist_items": hist, **LLM_OFF_FLAT}))
 
 # 5) 错误路径：各类非法输入的拒绝行为
 snap["err_empty_items"] = norm(call(EP_GENERATE, {"items": [], "job": "g1"}))

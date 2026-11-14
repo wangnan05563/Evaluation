@@ -29,6 +29,14 @@ PHASES = ["需求分析", "系统设计", "开发", "实施", "公共及远程",
 PHASE_ROW = {"需求分析": 6, "系统设计": 7, "开发": 8, "实施": 32, "公共及远程": 33, "现场维护": 34}
 DEV_START, DEV_END = 8, 30          # 开发明细数据区行号
 SHEET = "项目工作量估算表"
+# T01501 系列（S1192）：zip 内部件名与 XML 片段在多处出现，统一提常量
+SHEET_XML = "xl/worksheets/sheet1.xml"
+CONTENT_TYPES = "[Content_Types].xml"
+RELS_END = "</Relationships>"
+SHEET_END = "</worksheet>"
+HEADER_FOOTER_RE = re.compile(r"<headerFooter\b.*?</headerFooter>", re.S)
+_PRINT_ASSET_PREFIXES = ("xl/media/", "xl/printerSettings/",
+                         "xl/drawings/vmlDrawing", "xl/drawings/_rels/vmlDrawing")
 
 
 class PertDB:
@@ -150,6 +158,15 @@ def summarize(con, pid):
 
 
 # ---------------- 阜新 V2.0 生成 ----------------
+def _read_print_parts(master):
+    """从母版读 sheet1.xml 与页眉图形/打印机设置等 zip 级资源。"""
+    with zipfile.ZipFile(master) as zt:
+        tpl_sheet = zt.read(SHEET_XML).decode("utf-8")
+        assets = [(n, zt.read(n)) for n in zt.namelist()
+                  if n.startswith(_PRINT_ASSET_PREFIXES)]
+    return tpl_sheet, assets
+
+
 def _restore_print_artifacts(master, out):
     """把母版的页眉图形/页脚域/打印设置部件回填到 openpyxl 的产出件。
 
@@ -158,27 +175,43 @@ def _restore_print_artifacts(master, out):
     与 pageSetup 的 r:id 引用也一并丢失。单元格数据仍由 openpyxl 写，
     这里只做 zip 级回填，不依赖 Excel COM。
     """
-    with zipfile.ZipFile(master) as zt:
-        tpl_names = zt.namelist()
-        tpl_sheet = zt.read("xl/worksheets/sheet1.xml").decode("utf-8")
-        assets = [(n, zt.read(n)) for n in tpl_names
-                  if n.startswith(("xl/media/", "xl/printerSettings/",
-                                   "xl/drawings/vmlDrawing",
-                                   "xl/drawings/_rels/vmlDrawing"))]
-    hf_m = re.search(r"<headerFooter\b.*?</headerFooter>", tpl_sheet, re.S)
+    tpl_sheet, assets = _read_print_parts(master)
+    hf_m = HEADER_FOOTER_RE.search(tpl_sheet)
     if not hf_m and not assets:
         return
     with zipfile.ZipFile(out) as zs:
         parts = {n: zs.read(n) for n in zs.namelist()}
-    sheet = parts["xl/worksheets/sheet1.xml"].decode("utf-8")
-    ct = parts["[Content_Types].xml"].decode("utf-8")
-
+    sheet = parts[SHEET_XML].decode("utf-8")
+    ct = parts[CONTENT_TYPES].decode("utf-8")
     vml = next((n for n, _ in assets
                 if n.startswith("xl/drawings/vmlDrawing") and n.endswith(".vml")), None)
     printer = next((n for n, _ in assets if n.startswith("xl/printerSettings/")), None)
 
     rels_name = "xl/worksheets/_rels/sheet1.xml.rels"
     rels = parts.get(rels_name, b"").decode("utf-8")
+    vml_rid, printer_rid = _add_print_relationships(parts, rels_name, rels, vml, printer)
+
+    if hf_m:
+        sheet = _merge_header_footer(sheet, hf_m.group(0))
+    if printer_rid or vml_rid:
+        sheet = _ensure_rel_ns(sheet)
+    if printer_rid:
+        sheet = re.sub(r"<pageSetup\b[^>]*>",
+                       lambda m: _tag_with_rid(m.group(0), printer_rid), sheet, count=1)
+    if vml_rid and "<legacyDrawingHF" in tpl_sheet and "<legacyDrawingHF" not in sheet:
+        sheet = sheet.replace(SHEET_END, f'<legacyDrawingHF r:id="{vml_rid}"/>{SHEET_END}')
+
+    ct = _merge_content_types(ct, assets, vml, printer)
+
+    parts[SHEET_XML] = sheet.encode("utf-8")
+    parts[CONTENT_TYPES] = ct.encode("utf-8")
+    for n, data in assets:
+        parts[n] = data
+    _write_zip_parts(out, parts)
+
+
+def _add_print_relationships(parts, rels_name, rels, vml, printer):
+    """把 vml/打印机设置写成 sheet 级 Relationship，返回 (vml_rid, printer_rid)。"""
     used = set(re.findall(r'Id="(rId\d+)"', rels))
     added = []
 
@@ -200,41 +233,45 @@ def _restore_print_artifacts(master, out):
         added.append(f'<Relationship Id="{printer_rid}" Type="http://schemas.openxmlformats.org/'
                      f'officeDocument/2006/relationships/printerSettings" '
                      f'Target="../printerSettings/{Path(printer).name}"/>')
-    if added:
-        if rels:
-            rels = rels.replace("</Relationships>", "".join(added) + "</Relationships>")
-        else:
-            rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-                    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
-                    'relationships">' + "".join(added) + "</Relationships>")
-        parts[rels_name] = rels.encode("utf-8")
+    if not added:
+        return vml_rid, printer_rid
+    if rels:
+        rels = rels.replace(RELS_END, "".join(added) + RELS_END)
+    else:
+        rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
+                'relationships">' + "".join(added) + RELS_END)
+    parts[rels_name] = rels.encode("utf-8")
+    return vml_rid, printer_rid
 
-    if hf_m:
-        hf = hf_m.group(0)
-        if re.search(r"<headerFooter\b.*?</headerFooter>", sheet, re.S):
-            sheet = re.sub(r"<headerFooter\b.*?</headerFooter>", lambda _m: hf, sheet,
-                           count=1, flags=re.S)
-        else:
-            sheet = sheet.replace("</worksheet>", hf + "</worksheet>")
 
-    if (printer_rid or vml_rid) and 'xmlns:r=' not in sheet[:sheet.find(">") + 1]:
-        # openpyxl 用不到关系命名空间时会省略声明，补上 r:id 前必须先声明。
-        sheet = re.sub(r"<worksheet\b",
-                       '<worksheet xmlns:r="http://schemas.openxmlformats.org/'
-                       'officeDocument/2006/relationships"', sheet, count=1)
+def _merge_header_footer(sheet, hf):
+    """用母版 headerFooter 段替换产出件同名段；没有则追加到 worksheet 末尾。"""
+    if HEADER_FOOTER_RE.search(sheet):
+        return HEADER_FOOTER_RE.sub(lambda _m: hf, sheet, count=1)
+    return sheet.replace(SHEET_END, hf + SHEET_END)
 
-    if printer_rid:
-        def _with_rid(m):
-            tag = m.group(0)
-            if "r:id=" in tag:
-                return tag
-            return (tag[:-2] + f' r:id="{printer_rid}"/>') if tag.endswith("/>") \
-                else (tag[:-1] + f' r:id="{printer_rid}">')
-        sheet = re.sub(r"<pageSetup\b[^>]*>", _with_rid, sheet, count=1)
 
-    if vml_rid and "<legacyDrawingHF" in tpl_sheet and "<legacyDrawingHF" not in sheet:
-        sheet = sheet.replace("</worksheet>", f'<legacyDrawingHF r:id="{vml_rid}"/></worksheet>')
+def _ensure_rel_ns(sheet):
+    """openpyxl 用不到关系命名空间时会省略声明，补上 r:id 前必须先声明。"""
+    if "xmlns:r=" in sheet[:sheet.find(">") + 1]:
+        return sheet
+    return re.sub(r"<worksheet\b",
+                  '<worksheet xmlns:r="http://schemas.openxmlformats.org/'
+                  'officeDocument/2006/relationships"', sheet, count=1)
 
+
+def _tag_with_rid(tag, rid):
+    """给 pageSetup 标签补 r:id（已有则不动；自闭合与成对标签分别处理）。"""
+    if "r:id=" in tag:
+        return tag
+    if tag.endswith("/>"):
+        return tag[:-2] + f' r:id="{rid}"/>'
+    return tag[:-1] + f' r:id="{rid}">'
+
+
+def _merge_content_types(ct, assets, vml, printer):
+    """补齐母版资源所需的 Default 扩展名声明（已存在则跳过）。"""
     defaults = []
     for ext, mime in (("jpeg", "image/jpeg"), ("jpg", "image/jpeg"),
                       ("png", "image/png"), ("gif", "image/gif")):
@@ -247,13 +284,13 @@ def _restore_print_artifacts(master, out):
     if printer and 'Extension="bin"' not in ct:
         defaults.append('<Default Extension="bin" ContentType="application/vnd.'
                         'openxmlformats-officedocument.spreadsheetml.printerSettings"/>')
-    if defaults:
-        ct = ct.replace("</Types>", "".join(defaults) + "</Types>")
+    if not defaults:
+        return ct
+    return ct.replace("</Types>", "".join(defaults) + "</Types>")
 
-    parts["xl/worksheets/sheet1.xml"] = sheet.encode("utf-8")
-    parts["[Content_Types].xml"] = ct.encode("utf-8")
-    for n, data in assets:
-        parts[n] = data
+
+def _write_zip_parts(out, parts):
+    """按原顺序重打包 zip（母版资源与 sheet 级回填结果一并写入）。"""
     tmp = out + ".tmp"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zw:
         for n, data in parts.items():
@@ -266,15 +303,31 @@ def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
     开发明细写 R8 起(E/F/G)，其余阶段写阶段行(E/F/G)；H/I 列保留模板公式自动计算。
     """
     import openpyxl
+    path = _require_template(tpl)
+    shutil.copy2(path, out)
+    wb = openpyxl.load_workbook(out, data_only=False)
+    ws = wb[SHEET]
+    _fill_pert_sheet(ws, project_name, est_date, estimator)
+    _write_pert_rows(ws, rows)
+    wb.calculation.fullCalcOnLoad = True   # 强制 Excel 打开重算 H/I 公式
+    wb.save(out)
+    _restore_print_artifacts(path, out)
+    return out
+
+
+def _require_template(tpl):
+    """解析母版路径；不存在时抛可读错误（并指出当前解析到的路径）。"""
     path = tpl or _resolve_pert_template()
     if not path or not Path(path).exists():
         raise FileNotFoundError(
             "PERT 母版未找到：打包资源 tpl/pert-template.xlsx 缺失；"
             "请设置环境变量 WE_TPL_PERT 指向母版文件"
             + (f"（当前解析到：{path}）" if path else ""))
-    shutil.copy2(path, out)
-    wb = openpyxl.load_workbook(out, data_only=False)
-    ws = wb[SHEET]
+    return path
+
+
+def _fill_pert_sheet(ws, project_name, est_date, estimator):
+    """写入项目名/评估日期/评估人，并清空模板自带示例数据（D/E/F/G）。"""
     ws["D3"] = project_name
     if est_date:
         ws["D2"] = est_date
@@ -287,33 +340,39 @@ def generate(project_name, rows, out, est_date=None, estimator="", tpl=None):
     for r in PHASE_ROW.values():
         for c in (5, 6, 7):
             ws.cell(r, c).value = None
+
+
+def _pert_desc(r):
+    """系统/小模块语义并入描述前缀（B/C 是模板合并只读区，不破坏结构）。"""
+    desc = r.get("desc") or ""
+    if r.get("system") and desc:
+        desc = f"{r['system']}·{desc}"
+    if r.get("module") and desc:
+        desc = f"{r['module']}·{desc}"
+    return desc
+
+
+def _write_pert_rows(ws, rows):
+    """开发明细按行号依次写 R8 起；非开发阶段（或开发明细溢出）写各自阶段行。"""
     dev_idx = DEV_START
     for r in rows:
         ph = r.get("phase") or "开发"
-        if ph == "开发" and dev_idx <= DEV_END:
-            # B/C 列为模板合并分区（MergedCell 只读），仅写入 D 描述与 E/F/G 三值；
-            # 系统/小模块语义纳入 desc 前缀，避免破坏合并结构。
-            desc = r.get("desc") or ""
-            if r.get("system") and desc:
-                desc = f"{r['system']}·{desc}" if desc else r["system"]
-            if r.get("module") and desc:
-                desc = f"{r['module']}·{desc}" if desc else r["module"]
-            if desc:
-                ws.cell(dev_idx, 4).value = desc
-            ws.cell(dev_idx, 5).value = r.get("most_likely")
-            ws.cell(dev_idx, 6).value = r.get("optimistic")
-            ws.cell(dev_idx, 7).value = r.get("pessimistic")
-            dev_idx += 1
-        else:
+        if ph != "开发" or dev_idx > DEV_END:
             row = PHASE_ROW.get(ph)
             if row:
                 ws.cell(row, 5).value = r.get("most_likely")
                 ws.cell(row, 6).value = r.get("optimistic")
                 ws.cell(row, 7).value = r.get("pessimistic")
-    wb.calculation.fullCalcOnLoad = True   # 强制 Excel 打开重算 H/I 公式
-    wb.save(out)
-    _restore_print_artifacts(path, out)
-    return out
+            continue
+        # B/C 列为模板合并分区（MergedCell 只读），仅写入 D 描述与 E/F/G 三值；
+        # 系统/小模块语义纳入 desc 前缀，避免破坏合并结构。
+        desc = _pert_desc(r)
+        if desc:
+            ws.cell(dev_idx, 4).value = desc
+        ws.cell(dev_idx, 5).value = r.get("most_likely")
+        ws.cell(dev_idx, 6).value = r.get("optimistic")
+        ws.cell(dev_idx, 7).value = r.get("pessimistic")
+        dev_idx += 1
 
 
 def rows_for_generate(con, pid):

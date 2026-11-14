@@ -196,9 +196,13 @@ async function cleanup() {
   process.exitCode = results.some(r => !r.ok) ? 1 : 0;
 }
 
-process.on('exit', () => { if (server) killTree(server.pid); 
-if (chrome) killTree(chrome.pid); reapOwnedExcel(); });
-['SIGINT', 'SIGTERM'].forEach(sig => process.on(sig, async () => { await cleanup(); process.exit(130); }));
+process.on('exit', () => {
+  if (server) killTree(server.pid)
+  if (chrome) killTree(chrome.pid)
+  reapOwnedExcel()
+})
+process.on('SIGINT', async () => { await cleanup(); process.exit(130) })
+process.on('SIGTERM', async () => { await cleanup(); process.exit(130) })
 
 // 主体改用顶层 await（S7785：不再用 async IIFE）
 {
@@ -263,9 +267,13 @@ if (chrome) killTree(chrome.pid); reapOwnedExcel(); });
   }
   await cleanup();
 
+  const repRows = results.map(r => {
+    const why = r.why ? `（跳过原因：${r.why}）` : ''
+    return `| ${r.id} | ${r.title}${why} | ${r.skipped ? 'SKIP' : r.ok ? 'PASS' : '**FAIL**'} | |`
+  })
   const rep = ['# 核心链路自动化测试报告', `${new Date().toLocaleString('zh-CN')}`, '',
     '| 套件 | 说明 | 结果 |', '|---|---|---|',
-    ...results.map(r => `| ${r.id} | ${r.title}${r.why ? `（跳过原因：${r.why}）` : ''} | ${r.skipped ? 'SKIP' : r.ok ? 'PASS' : '**FAIL**'} | |`), ''];
+    ...repRows, ''];
   const repPath = path.join(ROOT, 'logs', `test_report_${Date.now()}.md`);
   fs.writeFileSync(repPath, rep.join('\n'));
   log(`\n==== 汇总 ==== 通过 ${results.filter(r => r.ok && !r.skipped).length}/${results.filter(r => !r.skipped).length}` +

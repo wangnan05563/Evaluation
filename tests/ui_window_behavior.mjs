@@ -127,6 +127,7 @@ check('纯浏览器环境隐藏窗口行为卡片', browserMode.display === 'non
 check('页面运行期间无未捕获异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
 
 const failed = res.filter(r => !r.ok)
-console.log(`\n==== 窗口行为 UI 验证 ==== ${failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`}`)
+const summary = failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`
+console.log(`\n==== 窗口行为 UI 验证 ==== ${summary}`)
 try { ws.close() } catch { /* 已断开 */ }
 process.exit(failed.length ? 1 : 0)

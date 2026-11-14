@@ -70,26 +70,39 @@ def check_generate(p):
     if not items:
         raise VErr("items 不能为空", "items", key="srv.v.items_empty")
     for i, it in enumerate(items[:5000]):
-        if not isinstance(it, dict):
-            raise VErr(f"items[{i}] 应为对象", f"items[{i}]", key="srv.v.item_not_obj", field=f"items[{i}]")
-        t = it.get("type")
-        if t not in TYPES:
-            raise VErr(f"items[{i}].type 非法（{t}）", f"items[{i}].type", key="srv.v.item_type_invalid", field=f"items[{i}].type", t=t)
-        if it.get("reuse") not in REUSES:
-            raise VErr(f"items[{i}].reuse 非法", f"items[{i}].reuse", key="srv.v.item_reuse_invalid", field=f"items[{i}].reuse")
-        if it.get("modify") not in MODIFIES:
-            raise VErr(f"items[{i}].modify 非法", f"items[{i}].modify", key="srv.v.item_modify_invalid", field=f"items[{i}].modify")
-    bc = p.get("brand_color")
+        _check_item(it, i)
+    _check_brand_color(p.get("brand_color"))
+    if p.get("gb_state") is not None:
+        _check_gb_state(p["gb_state"])
+    return p
+
+
+def _check_item(it, i):
+    """单条候选功能点校验：对象结构 + 类型/重用度/变更类型枚举。"""
+    if not isinstance(it, dict):
+        raise VErr(f"items[{i}] 应为对象", f"items[{i}]", key="srv.v.item_not_obj", field=f"items[{i}]")
+    t = it.get("type")
+    if t not in TYPES:
+        raise VErr(f"items[{i}].type 非法（{t}）", f"items[{i}].type", key="srv.v.item_type_invalid", field=f"items[{i}].type", t=t)
+    if it.get("reuse") not in REUSES:
+        raise VErr(f"items[{i}].reuse 非法", f"items[{i}].reuse", key="srv.v.item_reuse_invalid", field=f"items[{i}].reuse")
+    if it.get("modify") not in MODIFIES:
+        raise VErr(f"items[{i}].modify 非法", f"items[{i}].modify", key="srv.v.item_modify_invalid", field=f"items[{i}].modify")
+
+
+def _check_brand_color(bc):
+    """主题色须为 #RRGGBB（缺省/空值不校验，保持原语义）。"""
     if bc and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(bc)):
         raise VErr("brand_color 应为 #RRGGBB", "brand_color", key="srv.v.brand_color_invalid")
-    gb = p.get("gb_state")
-    if gb is not None:
-        if not isinstance(gb, dict):
-            raise VErr("gb_state 应为对象", "gb_state", key="srv.v.gb_state_invalid")
-        for k in ("gsc", "cf", "swf", "rdf", "pdr", "rate", "dnhc"):
-            if k in gb:
-                _num(gb[k], f"gb_state.{k}", lo=0)
-    return p
+
+
+def _check_gb_state(gb):
+    """国标造价参数：须为对象，已知键的值须为非负数。"""
+    if not isinstance(gb, dict):
+        raise VErr("gb_state 应为对象", "gb_state", key="srv.v.gb_state_invalid")
+    for k in ("gsc", "cf", "swf", "rdf", "pdr", "rate", "dnhc"):
+        if k in gb:
+            _num(gb[k], f"gb_state.{k}", lo=0)
 
 
 def check_rules(doc):

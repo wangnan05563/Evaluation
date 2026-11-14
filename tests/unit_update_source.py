@@ -22,6 +22,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 REPO_PATH = '/repos/wangnan05563/Evaluation/releases/latest'
+# S1192：以下接口路径/源路径在断言与 mock 路由多处出现，统一提常量
+EP_CONFIG = '/api/config'
+EP_UPDATE_CHECK = '/api/update/check'
+EP_UPDATE_CONFIG = '/api/update/config'
+CUSTOM_LATEST = '/custom/latest.json'
 fails = []
 BASE = ''
 PKG_URL = ''
@@ -39,7 +44,9 @@ class MockHandler(BaseHTTPRequestHandler):
     hits = []
 
     def log_message(self, *args):
-        pass
+        """静默 mock 服务访问日志（默认不打；排查时置 WE_TEST_VERBOSE=1 走父类输出）。"""
+        if os.environ.get('WE_TEST_VERBOSE'):
+            super().log_message(*args)
 
     def do_GET(self):
         path = self.path.split('?')[0]
@@ -50,8 +57,8 @@ class MockHandler(BaseHTTPRequestHandler):
             '/gh/no-exe': {'tag_name': '0.1.20990101-999',
                            'assets': [{'name': 'release-notes.md',
                                        'browser_download_url': BASE + '/notes.md'}]},
-            '/custom/latest.json': {'version': '0.1.20990101-999',
-                                    'url': PKG_URL, 'notes': '自定义源'},
+            CUSTOM_LATEST: {'version': '0.1.20990101-999',
+                            'url': PKG_URL, 'notes': '自定义源'},
             '/custom/bad.json': {'version': '0.1.20990101-999'},
         }
         if path not in routes:
@@ -138,7 +145,7 @@ try:
         port1, port2 = free_port(), free_port()
         # 2) 主实例：内置默认地址改指本地 mock，验证「留空即可用」全链路
         p1 = start_backend(tmp, port1, {'WE_UPDATE_API_BASE': BASE})
-        cfg = call(port1, '/api/config')
+        cfg = call(port1, EP_CONFIG)
         info = cfg.get('update_source') or {}
         check('默认地址格式为 <API 域名>/repos/<owner>/<repo>/releases/latest',
               info.get('default_url') == BASE + REPO_PATH, str(info.get('default_url')))
@@ -147,7 +154,7 @@ try:
               and info.get('source') == 'builtin'
               and info.get('url') == info.get('default_url'), str(info))
 
-        r = call(port1, '/api/update/check')
+        r = call(port1, EP_UPDATE_CHECK)
         check('默认源真实发起请求：不再报「未配置更新源」',
               r.get('ok') is True and r.get('source') == 'builtin'
               and REPO_PATH in MockHandler.hits, str(r)[:160])
@@ -156,43 +163,43 @@ try:
               and r.get('url') == PKG_URL and '更新日志' in (r.get('notes') or ''), str(r)[:200])
 
         # 3) 配置中心覆盖：自定义 JSON 源仍兼容，保存接口回传内置/生效地址
-        saved = call(port1, '/api/update/config',
-                     {'update_url': BASE + '/custom/latest.json'})
+        saved = call(port1, EP_UPDATE_CONFIG,
+                     {'update_url': BASE + CUSTOM_LATEST})
         check('保存接口回传 default_url 与 effective_url',
               saved.get('ok') is True and saved.get('default_url') == BASE + REPO_PATH
-              and saved.get('effective_url') == BASE + '/custom/latest.json', str(saved)[:160])
-        r = call(port1, '/api/update/check')
+              and saved.get('effective_url') == BASE + CUSTOM_LATEST, str(saved)[:160])
+        r = call(port1, EP_UPDATE_CHECK)
         check('自定义 {version,url,notes} 源行为不变',
               r.get('ok') is True and r.get('latest') == '0.1.20990101-999'
               and r.get('url') == PKG_URL and r.get('notes') == '自定义源'
               and r.get('source') == 'config', str(r)[:160])
 
         # 4) 坏数据与无安装包资产：明确报错而非静默误判
-        call(port1, '/api/update/config', {'update_url': BASE + '/custom/bad.json'})
-        r = call(port1, '/api/update/check')
+        call(port1, EP_UPDATE_CONFIG, {'update_url': BASE + '/custom/bad.json'})
+        r = call(port1, EP_UPDATE_CHECK)
         check('自定义源缺 url 时报「数据不完整」',
               r.get('ok') is False and r.get('msgKey') == 'help.upd.msg_src_incomplete', str(r)[:160])
-        call(port1, '/api/update/config', {'update_url': BASE + '/gh/no-exe'})
-        r = call(port1, '/api/update/check')
+        call(port1, EP_UPDATE_CONFIG, {'update_url': BASE + '/gh/no-exe'})
+        r = call(port1, EP_UPDATE_CHECK)
         check('GitHub Release 无 exe 资产时报「数据不完整」',
               r.get('ok') is False and r.get('msgKey') == 'help.upd.msg_src_incomplete', str(r)[:160])
 
         # 5) 显式停用与恢复内置：off 是哨兵值，空值回到内置源
-        call(port1, '/api/update/config', {'update_url': 'off'})
-        r = call(port1, '/api/update/check')
+        call(port1, EP_UPDATE_CONFIG, {'update_url': 'off'})
+        r = call(port1, EP_UPDATE_CHECK)
         check('显式 off 仍可停用版本检测',
               r.get('ok') is False and r.get('msgKey') == 'help.upd.msg_unconfigured', str(r)[:160])
-        call(port1, '/api/update/config', {'update_url': ''})
-        info = (call(port1, '/api/config').get('update_source') or {})
+        call(port1, EP_UPDATE_CONFIG, {'update_url': ''})
+        info = (call(port1, EP_CONFIG).get('update_source') or {})
         check('清空输入框恢复内置源（不再等同于停用）',
               info.get('source') == 'builtin' and info.get('url') == info.get('default_url'), str(info))
 
         # 6) 环境变量通道：编排器用 WE_UPDATE_URL=off 隔离外网，须确实生效
         p2 = start_backend(tmp, port2, {'WE_UPDATE_URL': 'off'})
-        info = (call(port2, '/api/config').get('update_source') or {})
+        info = (call(port2, EP_CONFIG).get('update_source') or {})
         check('WE_UPDATE_URL=off 隔离外网自动检测',
               info.get('source') == 'off' and info.get('url') == '', str(info))
-        r = call(port2, '/api/update/check')
+        r = call(port2, EP_UPDATE_CHECK)
         check('隔离实例检测更新走守卫分支（供 i18n 套件稳定断言）',
               r.get('ok') is False and r.get('msgKey') == 'help.upd.msg_unconfigured', str(r)[:160])
 finally:

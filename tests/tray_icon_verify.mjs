@@ -40,7 +40,7 @@ const icoMapping = extra.find(
     typeof e === 'object' &&
     e.from &&
     e.to &&
-    e.from.replace(/\\/g, '/').endsWith('assets/we_icon.ico') &&
+    e.from.replaceAll('\\', '/').endsWith('assets/we_icon.ico') &&
     e.to === 'we-icon.ico'
 )
 check(

@@ -70,40 +70,52 @@ def guess_modify(desc: str) -> str:
 def main():
     rows = g.read_template_rows()
     stats = {"total": 0, "type_hit": 0, "type_skip(空描述)": 0, "modify_hit": 0, "diff": []}
-    cands = []
-    for r in rows:
-        desc = r["desc"]
-        text = desc or r["m1"] or r["count_item"] or ""
-        if not text:
-            # 无可用描述：沿用权威标注，标注需人工
-            gtype, gmod = r["type"], r["modify"]
-            stats["type_skip(空描述)"] += 1
-        else:
-            gtype = guess_type(text, r["count_item"])
-            gmod = guess_modify(text)
-        stats["total"] += 1
-        if gtype == r["type"]:
-            stats["type_hit"] += 1
-        else:
-            stats["diff"].append({"sys": r["system"], "name": r["count_item"], "desc": text[:40],
-                                  "判": gtype, "权威": r["type"]})
-        if gmod == r["modify"]:
-            stats["modify_hit"] += 1
-        if gtype != r["type"]:
-            basis = f"AI判{gtype}，权威为{r['type']}，需确认。"
-        else:
-            basis = f"识别为{gtype}；" + (f"见描述：{desc[:60]}" if desc else "描述为空，沿用标注")
-        cands.append({
-            "system": r["system"], "m1": r["m1"], "desc": desc or r["count_item"] or "",
-            "count_item": r["count_item"], "type": gtype,
-            "reuse": r["reuse"], "modify": gmod,
-            "basis": basis,
-        })
+    cands = [_judge_row(r, stats) for r in rows]
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(cands, f, ensure_ascii=False, indent=1)
 
-    def pct(a, b): return f"{a}/{b} = {a / b * 100:.1f}%" if b else "-"
+    _print_stats(stats)
+
+
+def _judge_row(r, stats):
+    """判定单行类型/修改类型，累积统计并返回候选记录。"""
+    desc = r["desc"]
+    text = desc or r["m1"] or r["count_item"] or ""
+    if text:
+        gtype = guess_type(text, r["count_item"])
+        gmod = guess_modify(text)
+    else:
+        # 无可用描述：沿用权威标注，标注需人工
+        gtype, gmod = r["type"], r["modify"]
+        stats["type_skip(空描述)"] += 1
+    stats["total"] += 1
+    if gtype == r["type"]:
+        stats["type_hit"] += 1
+    else:
+        stats["diff"].append({"sys": r["system"], "name": r["count_item"], "desc": text[:40],
+                              "判": gtype, "权威": r["type"]})
+    if gmod == r["modify"]:
+        stats["modify_hit"] += 1
+    return {
+        "system": r["system"], "m1": r["m1"], "desc": desc or r["count_item"] or "",
+        "count_item": r["count_item"], "type": gtype,
+        "reuse": r["reuse"], "modify": gmod,
+        "basis": _basis_for(gtype, r, desc),
+    }
+
+
+def _basis_for(gtype, r, desc):
+    """候选条目的判定依据文案（不一致的标注为需人工确认）。"""
+    if gtype != r["type"]:
+        return f"AI判{gtype}，权威为{r['type']}，需确认。"
+    return f"识别为{gtype}；" + (f"见描述：{desc[:60]}" if desc else "描述为空，沿用标注")
+
+
+def _print_stats(stats):
+    """打印回放统计与不一致清单。"""
+    def pct(a, b):
+        return f"{a}/{b} = {a / b * 100:.1f}%" if b else "-"
     print("识别层回放统计：")
     print(f"  总条数 {stats['total']}；类型命中 {pct(stats['type_hit'], stats['total'])}；"
           f"修改类型命中 {pct(stats['modify_hit'], stats['total'])}；空描述沿用 {stats['type_skip(空描述)']} 条")

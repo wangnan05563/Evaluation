@@ -346,5 +346,6 @@ for (const [tag, port, lang] of [['G', 9457, 'en-US'], ['H', 9458, 'zh-CN']]) {
 cleanupDialogScript()
 
 const failed = res.filter(r => !r.ok)
-console.log(`\n==== Electron 关闭行为烟测 ==== ${failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`}`)
+const summary = failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`
+console.log(`\n==== Electron 关闭行为烟测 ==== ${summary}`)
 process.exit(failed.length ? 1 : 0)

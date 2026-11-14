@@ -17,6 +17,8 @@ fails = []
 check = lambda n, ok, d='': (print(f"  {'PASS' if ok else 'FAIL'}  {n} {d}"), None if ok else fails.append(n))
 
 TYPES = ["EI", "EO", "EQ", "ILF", "EIF"]
+METHOD = "估算功能点"          # S1192：口径名在多处断言中出现，提常量
+TPL_NAME = 'pert-template.xlsx'   # S1192：母版文件名在 4 处路径断言中出现
 ITEMS = [
     {"system": "S1", "m1": "M1", "desc": "查询客户信息", "count_item": "客户查询", "type": "EQ", "reuse": "中", "modify": "新增"},
     {"system": "S1", "m1": "M1", "desc": "维护客户基础数据表", "count_item": "客户维护", "type": "ILF", "reuse": "低", "modify": "新增"},
@@ -25,21 +27,21 @@ ITEMS = [
 
 # weight：确定性 + 枚举完备 + 未知类别报错
 for t in TYPES:
-    w = g.weight(t, "估算功能点")
-    check(f"weight({t}) 确定性且为正", w == g.weight(t, "估算功能点") and w > 0, f"w={w}")
+    w = g.weight(t, METHOD)
+    check(f"weight({t}) 确定性且为正", w == g.weight(t, METHOD) and w > 0, f"w={w}")
 try:
-    g.weight("XX", "估算功能点")
+    g.weight("XX", METHOD)
     check("未知类别抛 ValueError", False, "未抛异常")
 except ValueError:
     check("未知类别抛 ValueError", True)
 
 # total_us：等于逐条 US 之和
 expect = round(sum(g.weight(it["type"]) * g.REUSE[it["reuse"]] * g.MODIFY[it["modify"]] for it in ITEMS), 2)
-check("total_us = Σ(权重×重用×修改)", g.total_us(ITEMS, "估算功能点") == expect,
-      f"{g.total_us(ITEMS, '估算功能点')} vs {expect}")
+check("total_us = Σ(权重×重用×修改)", g.total_us(ITEMS, METHOD) == expect,
+      f"{g.total_us(ITEMS, METHOD)} vs {expect}")
 
 # summary：口径链完整（UFP→US→调整后→工作量→费用三值）
-s = g.summary(ITEMS, method="估算功能点")
+s = g.summary(ITEMS, method=METHOD)
 check("summary 键完整", all(k in s for k in ("ufp", "us", "adjusted_fp", "work", "cost")))
 check("工作量三值区间有序 low<mid<high", s["work"]["low"] < s["work"]["mid"] < s["work"]["high"])
 check("费用三值区间有序且与工作量同向", s["cost"]["low"] < s["cost"]["mid"] < s["cost"]["high"]
@@ -49,8 +51,8 @@ check("调整后规模 = US×因子", abs(s["adjusted_fp"] - round(s["us"] * g.S
 
 # T03724：复杂度仅记录，不参与 UFP/US（母版成品表无复杂度列）
 CX_ITEMS = [{"type": "ILF", "reuse": "低", "modify": "新增", "cx": cx} for cx in ("低", "中", "高")]
-cx_u = {g.summary([i], method="估算功能点")["ufp"] for i in CX_ITEMS}
-cx_s = {g.summary([i], method="估算功能点")["us"] for i in CX_ITEMS}
+cx_u = {g.summary([i], method=METHOD)["ufp"] for i in CX_ITEMS}
+cx_s = {g.summary([i], method=METHOD)["us"] for i in CX_ITEMS}
 check("复杂度不影响 UFP（低/中/高同为 10）", cx_u == {10}, str(cx_u))
 check("复杂度不影响 US（低/中/高同为 10）", cx_s == {10.0}, str(cx_s))
 pre = g.summary([{"type": "ILF", "reuse": "低", "modify": "新增"},
@@ -75,7 +77,7 @@ check("rates_ok 非数值拒绝", not gb.rates_ok({"pdr": "abc", "rate": 28000})
 # ---- T03680：PERT 母版随包就位 + 生成链路 ----
 import openpyxl
 
-TPL = os.path.join(ROOT, 'tpl', 'pert-template.xlsx')
+TPL = os.path.join(ROOT, 'tpl', TPL_NAME)
 check("PERT 母版随包就位（tpl/pert-template.xlsx）", os.path.isfile(TPL), TPL)
 
 if os.path.isfile(TPL):
@@ -89,7 +91,7 @@ if os.path.isfile(TPL):
         # 打包态：_MEIPASS 下 tpl/ 才是母版所在，不能用 __file__ 反推仓库结构
         with tempfile.TemporaryDirectory() as _td:
             os.makedirs(os.path.join(_td, 'tpl'))
-            shutil.copy2(TPL, os.path.join(_td, 'tpl', 'pert-template.xlsx'))
+            shutil.copy2(TPL, os.path.join(_td, 'tpl', TPL_NAME))
             _old_meipass = getattr(sys, "_MEIPASS", None)
             sys._MEIPASS = _td
             try:
@@ -101,7 +103,7 @@ if os.path.isfile(TPL):
                     sys._MEIPASS = _old_meipass
             check("打包态（_MEIPASS）解析到包内母版",
                   os.path.normcase(os.path.normpath(_got or '')) ==
-                  os.path.normcase(os.path.normpath(os.path.join(_td, 'tpl', 'pert-template.xlsx'))), _got)
+                  os.path.normcase(os.path.normpath(os.path.join(_td, 'tpl', TPL_NAME))), _got)
     finally:
         if _saved_env is not None:
             os.environ["WE_TPL_PERT"] = _saved_env

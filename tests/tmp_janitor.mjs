@@ -139,7 +139,8 @@ function sampleFiles(dir, cap = 40, maxScan = 800) {
     }
   }
   walk(dir, 0)
-  return found.sort((a, b) => b[0] - a[0]).slice(0, cap).map(([, p]) => p)
+  found.sort((a, b) => b[0] - a[0])
+  return found.slice(0, cap).map(([, p]) => p)
 }
 /** 谁正持有这个目录里的文件：返回一行可直接拼进日志的描述，查不到/不适用返回 ''。
  *  只在「当场删不掉」这条支路上跑（一次 PowerShell 冷启动约 1~2s），退出钩子里不调用它。 */
@@ -152,7 +153,7 @@ export function holdersOf(dir) {
     try {
       const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', rmScriptPath(), '-ListFile', listFile], { encoding: 'utf8', timeout: 20000 })
-      const lines = (r.stdout || '').replace(/\r/g, '').split('\n').map(l => l.trim()).filter(Boolean)
+      const lines = (r.stdout || '').replaceAll('\r', '').split('\n').map(l => l.trim()).filter(Boolean)
       const count = (lines.find(l => l.startsWith('HOLDER_COUNT=')) || '').split('=')[1]
       const holders = lines.filter(l => l.startsWith('HOLDER pid='))
         .map(l => {
@@ -246,7 +247,7 @@ export function registerTmp(dir) {
   hooksInstalled = true
   // 钩子里重试给小一点：退出路径不该被回收卡住几秒，兜底还有超龄那道门
   const flush = () => {
-    for (const d of [...registered]) removeTmp(d, { quiet: true, tries: 3, waitMs: 250 })
+    for (const d of registered) removeTmp(d, { quiet: true, tries: 3, waitMs: 250 })
     if (rmScript) { try { fs.rmSync(rmScript, { force: true }) } catch { /* 归因脚本删不掉有超龄门兜底 */ } }
   }
   process.on('exit', flush)
@@ -273,36 +274,46 @@ function newestMtime(dir) {
 /** 开跑前回收：先按上一轮的钉子户名单收（不看年龄），再按 mtime 收掉超龄的 we_* 孤儿。
  *  返回 { removed, stuck, keptFresh, listed }。 */
 export function reclaimStaleTmp() {
+  if (keepRequested()) return { removed: 0, stuck: 0, keptFresh: 0, listed: 0 }
   const out = { removed: 0, stuck: 0, keptFresh: 0, listed: 0 }
-  if (keepRequested()) return out
+  const now = Date.now()
   // 名单先走：这些是「上一轮明知没删掉」的目录，句柄这会儿大概率已经松了。
   // 7 天还没松手的（真有活的 EXCEL.EXE 之类）从名单里弃记，免得清单无限长——
   // 目录本身仍归下面那道超龄门管，不算丢。
-  const now = Date.now()
+  _reclaimFromStuck(out, now)
+  const cutoff = now - _reclaimHours() * 3600e3
+  let entries = []
+  try { entries = fs.readdirSync(os.tmpdir(), { withFileTypes: true }) } catch { return out }
+  for (const e of entries) {
+    const full = path.join(os.tmpdir(), e.name)
+    if (!e.isDirectory()) { _reclaimHolderScript(out, e.name, full, cutoff); continue }
+    if (!e.name.startsWith('we_')) continue
+    if (newestMtime(full) > cutoff) { out.keptFresh++; continue }
+    removeTmp(full, { quiet: true }) ? out.removed++ : out.stuck++
+  }
+  return out
+}
+
+/** 回收上一轮钉子户名单：超龄/已消失的弃记，其余再试删一次。 */
+function _reclaimFromStuck(out, now) {
   for (const rec of readStuck()) {
     const agedOut = !Number.isFinite(rec.at) || now - rec.at > STUCK_TTL_MS
     if (agedOut || !fs.existsSync(rec.dir)) { forgetStuck(rec.dir); continue }
     out.listed++
     removeTmp(rec.dir, { quiet: true }) ? out.removed++ : out.stuck++
   }
-  const hours = Number(process.env.WE_TMP_RECLAIM_HOURS || 24)
-  const cutoff = now - hours * 3600e3
-  let entries = []
-  try { entries = fs.readdirSync(os.tmpdir(), { withFileTypes: true }) } catch { return out }
-  for (const e of entries) {
-    const full = path.join(os.tmpdir(), e.name)
-    if (!e.isDirectory()) {
-      // holdersOf 的归因脚本每次进程落一个 we_rm_holders_<pid>.ps1；下面那道门只看目录，
-      // 不管文件，所以在这里按同样的龄期顺手收掉，不然跑几十轮就往 temp 堆几十个脚本。
-      // 只认自己这两个前缀，别把 we_tmp_stuck.json（名单）之类误伤。
-      if (RM_FILES_RE.test(e.name) && newestMtime(full) <= cutoff) {
-        try { fs.rmSync(full, { force: true }); out.removed++ } catch { out.stuck++ }
-      }
-      continue
-    }
-    if (!e.name.startsWith('we_')) continue
-    if (newestMtime(full) > cutoff) { out.keptFresh++; continue }
-    removeTmp(full, { quiet: true }) ? out.removed++ : out.stuck++
-  }
-  return out
+}
+
+/** 回收归因脚本文件 we_rm_holders_<pid>.ps1：只认自家前缀且已超龄。 */
+function _reclaimHolderScript(out, name, full, cutoff) {
+  // holdersOf 的归因脚本每次进程落一个；下面那道门只看目录，不管文件，
+  // 所以在这里按同样的龄期顺手收掉，不然跑几十轮就往 temp 堆几十个脚本。
+  // 只认自己这两个前缀，别把 we_tmp_stuck.json（名单）之类误伤。
+  if (!RM_FILES_RE.test(name) || newestMtime(full) > cutoff) return
+  try { fs.rmSync(full, { force: true }); out.removed++ } catch { out.stuck++ }
+}
+
+/** 超龄门时限（小时，WE_TMP_RECLAIM_HOURS，默认 24）。 */
+function _reclaimHours() {
+  return Number(process.env.WE_TMP_RECLAIM_HOURS || 24)
 }

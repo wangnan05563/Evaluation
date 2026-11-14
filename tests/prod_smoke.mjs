@@ -116,7 +116,8 @@ function exitGate(n, waited, load, extra = '') {
   const { exited, ms } = waited
   const tail = extra ? `；${extra}` : ''
   if (!exited) {
-    return check(n, false, `${waited.notDelivered ? '这一按没被接住，未进入退出计时' : `${ms}ms 内未退出`}——关不掉/卡死与负载无关，始终判红${tail}`)
+    const reason = waited.notDelivered ? '这一按没被接住，未进入退出计时' : `${ms}ms 内未退出`
+    return check(n, false, `${reason}——关不掉/卡死与负载无关，始终判红${tail}`)
   }
   if (ms <= EXIT_MS_BUDGET) return check(n, true, `${ms}ms ≤ 基础门 ${EXIT_MS_BUDGET}ms；${loadText(load)}${tail}`)
   if (load.count !== null && load.count >= LOAD_NODE_HIGH && ms <= EXIT_MS_HARD) {
@@ -179,7 +180,7 @@ async function until(kw, tries = 12) {
   }
   return tail()
 }
-const lastLine = (text, kw) => text.split('\n').filter(l => l.includes(kw)).slice(-1)[0] || `(本轮日志无 ${kw})`
+const lastLine = (text, kw) => text.split('\n').findLast(l => l.includes(kw)) || `(本轮日志无 ${kw})`
 
 async function teardown(s, rmBase = true) {
   try { if (s.ws) s.ws.close() } catch { /* noop */ }
@@ -350,211 +351,229 @@ if (productGate) {
 }
 
 async function runScenarios() {
-  // ---- P-A：首启（userData 无偏好文件）关闭 → 必须弹框，文案来自壳侧表，真点「最小化到托盘」----
-  {
-    resetLogBase()
-    const s = await scenario('prod_pa', 9461, null)
-    if (!s.ok) {
-      check('P-A 产物可启动且首页加载完成', false, s.detail)
-    } else {
-      check('P-A 产物可启动且首页加载完成', true, 'CDP readyState=complete')
-      const boot = lastLine(await until('[boot]'), '[boot]')
-      const field = (boot.match(/sidecar=(.+)$/) || [])[1] || ''
-      // 装包态必须是 exe:资源目录里那份；出现 python: 说明 extraResources 没到位、回退到源码解释器
-      check('P-A sidecar 走的是打进包的 exe（非 python 回退）',
-        field === 'exe:' + SIDECAR.replace(/\\/g, '/'), field || boot)
-      requestClose(s.child.pid)
-      await sleep(2500)
-      check('P-A 未记住选择时进程保持运行（等待用户决策）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
-      const before = probeWindow(s.child.pid)
-      check('P-A 弹框前主窗仍可见（模态框未替用户做选择）', before.visible === 1, before.out)
-      // 先 dump 再按文案取按钮——写死 0/1 会在换语言/换系统按钮顺序时假失败
-      const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
-      const got = readDialogTexts(dump.out)
-      check('P-A 模态框出现且暴露两个按钮', dump.out.includes('DIALOG=found') && got.buttons.length === 2,
-        dump.out.split('\n')[0] + ' buttons=' + got.buttons.length)
-      // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测 30 次吞 7 次；与「对话框还在初始化」无关，
-      // 0ms/400ms 延时都吞），主进程既没落 [close] 也没隐藏窗口（run1 生效、run3 无反应）。
-      // 判据与开发态套件 tests/shell_close_smoke.mjs 的 clickDialog() 对齐（T04506）：只看驱动自己
-      // 报出的 DIALOG_AFTER——按完对话框窗口真没了才算接住，还开着才补按（≤3 次），不再拿
-      // 「固定 sleep + 主窗可见性」当重试触发器（那既慢又是间接信号：最小化到托盘后主窗本就隐藏，
-      // 两个信号在这里恰好同向纯属巧合）。driveDialog 自己已经轮询 IsWindow 约 700ms 才报这一行，
-      // 所以这里不需要额外等。
-      const first = driveDialog(s.child.pid, { button: 0 })
-      let clicked = first
-      let retries = 0
-      for (let i = 0; i < 2 && clicked.out.includes('DIALOG_AFTER=yes'); i++) {
-        clicked = driveDialog(s.child.pid, { button: 0 })
-        retries++
-        if (clicked.out.includes('DIALOG=not_found')) break
-      }
-      // 决策已接住，给主进程一点时间把窗口收进托盘，再读「窗口在不在屏幕上」这条独立断言。
-      await sleep(2000)
-      const after = probeWindow(s.child.pid)
-      const closeLine = lastLine(await until('[close]'), '[close]')
-      const lang = (closeLine.match(/lang=(\S+)/) || [])[1] || ''
-      const want = CLOSE_TEXTS[lang]
-      const miss = []
-      if (!want) miss.push(`主进程日志未给出可识别的 lang（${closeLine}）`)
-      else {
-        if (got.title !== want.title) miss.push(`title="${got.title}"`)
-        if (!got.texts.includes(want.message)) miss.push('message 未出现')
-        if (!got.texts.includes(want.detail)) miss.push('detail 未出现')
-        if (got.checkbox !== want.checkbox) miss.push(`checkbox="${got.checkbox}"`)
-        if (got.buttons[0] !== want.buttons[0] || got.buttons[1] !== want.buttons[1])
-          miss.push('按钮文案/顺序不符：' + got.buttons.join('|'))
-      }
-      check('P-A 弹框标题/正文/复选框/按钮文案与壳侧语言一致', miss.length === 0, miss.join(' / ') || `lang=${lang}`)
-      // 勾选状态只看第一次（补按不再翻勾，但证据要落在真正带勾选动作的那次上）
-      check('P-A 未勾选时复选框保持 Off',
-        first.out.includes('CHECKBOX_BEFORE=Off') && first.out.includes('CHECKBOX_AFTER=Off'), first.out)
-      // 投递判据用 DIALOG_AFTER=no（对话框窗口真没了），不用 INVOKE：SendMessageTimeout
-      // 返回 TRUE 只证明消息进了队列，首按被吞掉时它照样是 sent（T04475）。
-      check('P-A 真点「最小化到托盘」后窗口隐藏、进程不退出',
-        clicked.out.includes('DIALOG_AFTER=no') && s.child.exitCode === null && after.visible === 0,
-        `首按${retries ? `被吞、补按 ${retries} 次后 DIALOG_AFTER=no` : '即接住（0 次补按）'}；${after.out}`)
-      const trayLine = lastLine(await until('[tray]'), '[tray]')
-      const iconSrc = (trayLine.match(/icon=(\S+)/) || [])[1] || ''
-      check('P-A 托盘图标取自打进包的 we-icon.ico（非通用 exe 图标回退）',
-        iconSrc !== 'FALLBACK-execIcon' && path.normalize(iconSrc) === ICON, trayLine)
-      check('P-A 关闭决策日志为 action=minimize_to_tray prompted=true',
-        /\[close\] action=minimize_to_tray prompted=true/.test(closeLine), closeLine)
-      check('P-A 未勾选「记住」则不落盘偏好（下次仍弹）', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
-      await teardown(s)
-    }
-  }
+  await scenarioPA()
+  const a2 = await scenarioPA2()
+  await scenarioPA3(a2)
+  await scenarioPB()
+  await scenarioPC()
+}
 
-  // ---- P-A2：真点复选框「记住此选择」+「直接关闭应用」→ 落盘 + 退出 ----
-  let a2 = null
-  {
-    const s = await scenario('prod_pa2', 9462, null)
-    if (!s.ok) {
-      check('P-A2 产物可启动', false, s.detail)
-    } else {
-      const loadBefore = sampleLoad()
-      requestClose(s.child.pid)
-      await sleep(2000)
-      const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
-      const got = readDialogTexts(dump.out)
-      // 「直接关闭应用」按实机 dump 出的文案定位，取两种语言表里的第二个按钮名
-      const exitIdx = got.buttons.findIndex(b => b === CLOSE_TEXTS['zh-CN'].buttons[1] || b === CLOSE_TEXTS['en-US'].buttons[1])
-      const drv = exitIdx >= 0 ? driveDialog(s.child.pid, { tick: 1, button: exitIdx }) : { out: 'BUTTON=missing' }
-      // 与 P-A 同一个首按被吞（T04475 实测约 1/4，与对话框是否还在初始化无关）。T04506 起补点的
-      // 触发条件换成驱动自己报的 DIALOG_AFTER=yes：原先拿「8s 内没退出」当信号，会把一次被吞的按
-      // 误判成「退出链慢」，最坏白等 8s 再补点、再等 45s。补点只按按钮、不再翻勾，
-      // 免得把已勾上的「记住」又取消掉。
-      let last = drv
-      let retries = 0
-      for (let i = 0; i < 2 && exitIdx >= 0 && last.out.includes('DIALOG_AFTER=yes'); i++) {
-        last = driveDialog(s.child.pid, { button: exitIdx })
-        retries++
-        if (last.out.includes('DIALOG=not_found')) break
-      }
-      // 三按都没接住时对话框还开着，等退出必然等到超时——直接带证据判红，不再空等 EXIT_WAIT。
-      const delivered = last.out.includes('DIALOG_AFTER=no') || last.out.includes('DIALOG=not_found')
-      const waited = delivered ? await waitExit(s.child, EXIT_WAIT) : { exited: false, ms: 0, notDelivered: true }
-      const load = loadPeak(loadBefore)
-      const { exited, ms } = waited
-      check('P-A2 模态框两个按钮都在、能按文案定位到「直接关闭应用」',
-        dump.out.includes('DIALOG=found') && got.buttons.length === 2 && exitIdx >= 0, got.buttons.join(' | '))
-      check('P-A2 界面勾选「记住此选择」生效',
-        drv.out.includes('CHECKBOX_BEFORE=Off') && drv.out.includes('CHECKBOX_AFTER=On'),
-        drv.out.split('\n').slice(-1)[0])
-      check('P-A2 真点「直接关闭应用」后进程退出', exited,
-        exited ? `耗时 ${ms}ms${retries ? `（补点 ${retries} 次后）` : '（首按即接住）'}`
-          : delivered ? `${ms}ms 内未退出` : `这一按没被接住：${last.out.split('\n').slice(-1)[0]}`)
-      let onDisk = null
-      try { onDisk = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* 勾选后应落盘 */ }
-      check('P-A2 选择落盘为 exit_app + remember_choice=true',
-        !!onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
-      exitGate('P-A2 本轮退出耗时在预算内', waited, load,
-        retries ? `补点 ${retries} 次后` : '首按即接住')
-      a2 = s // userData 留给 P-A3 复用，临时目录到 A3 结束才删
-    }
+/** 首按可能被 TaskDialog 吞掉（T04475/T04506）：补按到 DIALOG_AFTER=no 或 not_found 为止（≤2 次）。 */
+function clickUntilGone(pid, button, first) {
+  let clicked = first
+  let retries = 0
+  for (let i = 0; i < 2 && clicked.out.includes('DIALOG_AFTER=yes'); i++) {
+    clicked = driveDialog(pid, { button })
+    retries++
+    if (clicked.out.includes('DIALOG=not_found')) break
   }
+  return { clicked, retries }
+}
 
-  // ---- P-A3：同一 userData 冷重启 → 不再弹框，直接按记住的选择退出 ----
+/** 弹框文案与壳侧语言表比对，返回不一致项（空数组=全对）。 */
+function dialogMismatches(got, closeLine, lang) {
+  const want = CLOSE_TEXTS[lang]
+  if (!want) return [`主进程日志未给出可识别的 lang（${closeLine}）`]
+  const miss = []
+  if (got.title !== want.title) miss.push(`title="${got.title}"`)
+  if (!got.texts.includes(want.message)) miss.push('message 未出现')
+  if (!got.texts.includes(want.detail)) miss.push('detail 未出现')
+  if (got.checkbox !== want.checkbox) miss.push(`checkbox="${got.checkbox}"`)
+  if (got.buttons[0] !== want.buttons[0] || got.buttons[1] !== want.buttons[1])
+    miss.push('按钮文案/顺序不符：' + got.buttons.join('|'))
+  return miss
+}
+
+/** 读 userData 下的 window-prefs.json（缺失/坏 JSON 返回 null）。 */
+function readWindowPrefs(ud) {
+  try { return JSON.parse(fs.readFileSync(path.join(ud, 'window-prefs.json'), 'utf8')) } catch { return null }
+}
+
+/** P-A：首启（userData 无偏好文件）关闭 → 必须弹框，文案来自壳侧表，真点「最小化到托盘」。 */
+async function scenarioPA() {
+  resetLogBase()
+  const s = await scenario('prod_pa', 9461, null)
+  if (!s.ok) {
+    check('P-A 产物可启动且首页加载完成', false, s.detail)
+    return
+  }
+  check('P-A 产物可启动且首页加载完成', true, 'CDP readyState=complete')
+  const boot = lastLine(await until('[boot]'), '[boot]')
+  const field = (boot.match(/sidecar=(.+)$/) || [])[1] || ''
+  // 装包态必须是 exe:资源目录里那份；出现 python: 说明 extraResources 没到位、回退到源码解释器
+  check('P-A sidecar 走的是打进包的 exe（非 python 回退）',
+    field === 'exe:' + SIDECAR.replaceAll('\\', '/'), field || boot)
+  requestClose(s.child.pid)
+  await sleep(2500)
+  check('P-A 未记住选择时进程保持运行（等待用户决策）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
+  const before = probeWindow(s.child.pid)
+  check('P-A 弹框前主窗仍可见（模态框未替用户做选择）', before.visible === 1, before.out)
+  // 先 dump 再按文案取按钮——写死 0/1 会在换语言/换系统按钮顺序时假失败
+  const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
+  const got = readDialogTexts(dump.out)
+  check('P-A 模态框出现且暴露两个按钮', dump.out.includes('DIALOG=found') && got.buttons.length === 2,
+    dump.out.split('\n')[0] + ' buttons=' + got.buttons.length)
+  // BM_CLICK 的首按会被 TaskDialog 偶发吞掉（T04475 空载实测 30 次吞 7 次；与「对话框还在初始化」无关，
+  // 0ms/400ms 延时都吞），主进程既没落 [close] 也没隐藏窗口（run1 生效、run3 无反应）。
+  // 判据与开发态套件 tests/shell_close_smoke.mjs 的 clickDialog() 对齐（T04506）：只看驱动自己
+  // 报出的 DIALOG_AFTER——按完对话框窗口真没了才算接住，还开着才补按（≤3 次），不再拿
+  // 「固定 sleep + 主窗可见性」当重试触发器（那既慢又是间接信号：最小化到托盘后主窗本就隐藏，
+  // 两个信号在这里恰好同向纯属巧合）。driveDialog 自己已经轮询 IsWindow 约 700ms 才报这一行，
+  // 所以这里不需要额外等。
+  const first = driveDialog(s.child.pid, { button: 0 })
+  const { clicked, retries } = clickUntilGone(s.child.pid, 0, first)
+  // 决策已接住，给主进程一点时间把窗口收进托盘，再读「窗口在不在屏幕上」这条独立断言。
+  await sleep(2000)
+  const after = probeWindow(s.child.pid)
+  const closeLine = lastLine(await until('[close]'), '[close]')
+  const lang = (closeLine.match(/lang=(\S+)/) || [])[1] || ''
+  const miss = dialogMismatches(got, closeLine, lang)
+  check('P-A 弹框标题/正文/复选框/按钮文案与壳侧语言一致', miss.length === 0, miss.join(' / ') || `lang=${lang}`)
+  // 勾选状态只看第一次（补按不再翻勾，但证据要落在真正带勾选动作的那次上）
+  check('P-A 未勾选时复选框保持 Off',
+    first.out.includes('CHECKBOX_BEFORE=Off') && first.out.includes('CHECKBOX_AFTER=Off'), first.out)
+  // 投递判据用 DIALOG_AFTER=no（对话框窗口真没了），不用 INVOKE：SendMessageTimeout
+  // 返回 TRUE 只证明消息进了队列，首按被吞掉时它照样是 sent（T04475）。
+  const retryNote = retries ? `被吞、补按 ${retries} 次后 DIALOG_AFTER=no` : '即接住（0 次补按）'
+  check('P-A 真点「最小化到托盘」后窗口隐藏、进程不退出',
+    clicked.out.includes('DIALOG_AFTER=no') && s.child.exitCode === null && after.visible === 0,
+    `首按${retryNote}；${after.out}`)
+  const trayLine = lastLine(await until('[tray]'), '[tray]')
+  const iconSrc = (trayLine.match(/icon=(\S+)/) || [])[1] || ''
+  check('P-A 托盘图标取自打进包的 we-icon.ico（非通用 exe 图标回退）',
+    iconSrc !== 'FALLBACK-execIcon' && path.normalize(iconSrc) === ICON, trayLine)
+  check('P-A 关闭决策日志为 action=minimize_to_tray prompted=true',
+    /\[close\] action=minimize_to_tray prompted=true/.test(closeLine), closeLine)
+  check('P-A 未勾选「记住」则不落盘偏好（下次仍弹）', !fs.existsSync(path.join(s.ud, 'window-prefs.json')))
+  await teardown(s)
+}
+
+/** P-A2：真点复选框「记住此选择」+「直接关闭应用」→ 落盘 + 退出。返回实例供 P-A3 复用。 */
+async function scenarioPA2() {
+  const s = await scenario('prod_pa2', 9462, null)
+  if (!s.ok) {
+    check('P-A2 产物可启动', false, s.detail)
+    return null
+  }
+  const loadBefore = sampleLoad()
+  requestClose(s.child.pid)
+  await sleep(2000)
+  const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
+  const got = readDialogTexts(dump.out)
+  // 「直接关闭应用」按实机 dump 出的文案定位，取两种语言表里的第二个按钮名
+  const exitIdx = got.buttons.findIndex(b => b === CLOSE_TEXTS['zh-CN'].buttons[1] || b === CLOSE_TEXTS['en-US'].buttons[1])
+  const drv = exitIdx >= 0 ? driveDialog(s.child.pid, { tick: 1, button: exitIdx }) : { out: 'BUTTON=missing' }
+  // 与 P-A 同一个首按被吞（T04475 实测约 1/4，与对话框是否还在初始化无关）。T04506 起补点的
+  // 触发条件换成驱动自己报的 DIALOG_AFTER=yes：原先拿「8s 内没退出」当信号，会把一次被吞的按
+  // 误判成「退出链慢」，最坏白等 8s 再补点、再等 45s。补点只按按钮、不再翻勾，
+  // 免得把已勾上的「记住」又取消掉。
+  const { clicked: last, retries } = exitIdx >= 0 ? clickUntilGone(s.child.pid, exitIdx, drv) : { clicked: drv, retries: 0 }
+  // 三按都没接住时对话框还开着，等退出必然等到超时——直接带证据判红，不再空等 EXIT_WAIT。
+  const delivered = last.out.includes('DIALOG_AFTER=no') || last.out.includes('DIALOG=not_found')
+  const waited = delivered ? await waitExit(s.child, EXIT_WAIT) : { exited: false, ms: 0, notDelivered: true }
+  const load = loadPeak(loadBefore)
+  const { exited, ms } = waited
+  check('P-A2 模态框两个按钮都在、能按文案定位到「直接关闭应用」',
+    dump.out.includes('DIALOG=found') && got.buttons.length === 2 && exitIdx >= 0, got.buttons.join(' | '))
+  check('P-A2 界面勾选「记住此选择」生效',
+    drv.out.includes('CHECKBOX_BEFORE=Off') && drv.out.includes('CHECKBOX_AFTER=On'),
+    drv.out.split('\n').at(-1))
+  const retryTag = retries ? `（补点 ${retries} 次后）` : '（首按即接住）'
+  check('P-A2 真点「直接关闭应用」后进程退出', exited,
+    exited ? `耗时 ${ms}ms${retryTag}`
+      : delivered ? `${ms}ms 内未退出` : `这一按没被接住：${last.out.split('\n').at(-1)}`)
+  const onDisk = readWindowPrefs(s.ud)
+  check('P-A2 选择落盘为 exit_app + remember_choice=true',
+    !!onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
+  exitGate('P-A2 本轮退出耗时在预算内', waited, load,
+    retries ? `补点 ${retries} 次后` : '首按即接住')
+  return s // userData 留给 P-A3 复用，临时目录到 A3 结束才删
+}
+
+/** P-A3：同一 userData 冷重启 → 不再弹框，直接按记住的选择退出。 */
+async function scenarioPA3(a2) {
   if (!a2) {
     const why = 'P-A2 未能建立「已记住」状态'
     for (const n of ['冷重启可启动', '按记住的选择直接退出（不再弹框）', '关闭决策日志 prompted=false remembered=true', '偏好文件仍是上轮写入的那份'])
       skip('P-A3 ' + n, why)
+    return
+  }
+  resetLogBase()
+  const s = await scenario('prod_pa3', 9463, null, { udDir: a2.ud })
+  if (!s.ok) {
+    check('P-A3 冷重启可启动', false, s.detail)
   } else {
-    resetLogBase()
-    const s = await scenario('prod_pa3', 9463, null, { udDir: a2.ud })
-    if (!s.ok) {
-      check('P-A3 冷重启可启动', false, s.detail)
-    } else {
-      check('P-A3 冷重启可启动', true, a2.ud)
-      const loadBefore = sampleLoad()
-      requestClose(s.child.pid)
-      const waited = await waitExit(s.child, EXIT_WAIT)
-      const load = loadPeak(loadBefore)
-      const { exited, ms } = waited
-      const closeLine = lastLine(await until('[close]'), '[close]')
-      // 装包态「记住」生效 = 主进程根本没走 askCloseAction（prompted=false），比「屏幕没弹框」更硬
-      // P-A3 只判「有没有退出」、不设耗时门；耗时与水位一并落进明细，给 T04507 当负载读数用。
-      check('P-A3 按记住的选择直接退出（不再弹框）', exited,
-        `${exited ? `耗时 ${ms}ms` : `${ms}ms 内未退出`}；${loadText(load)}`)
-      check('P-A3 关闭决策日志 prompted=false remembered=true',
-        /\[close\] action=exit_app prompted=false remembered=true/.test(closeLine), closeLine)
-      let onDisk = null
-      try { onDisk = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* noop */ }
-      check('P-A3 偏好文件仍是上轮写入的那份',
-        !!onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
-    }
-    await teardown(a2, false)
-    await teardown(s, true)
+    check('P-A3 冷重启可启动', true, a2.ud)
+    const loadBefore = sampleLoad()
+    requestClose(s.child.pid)
+    const waited = await waitExit(s.child, EXIT_WAIT)
+    const load = loadPeak(loadBefore)
+    const { exited, ms } = waited
+    const closeLine = lastLine(await until('[close]'), '[close]')
+    // 装包态「记住」生效 = 主进程根本没走 askCloseAction（prompted=false），比「屏幕没弹框」更硬
+    // P-A3 只判「有没有退出」、不设耗时门；耗时与水位一并落进明细，给 T04507 当负载读数用。
+    const exitText = exited ? `耗时 ${ms}ms` : `${ms}ms 内未退出`
+    check('P-A3 按记住的选择直接退出（不再弹框）', exited,
+      `${exitText}；${loadText(load)}`)
+    check('P-A3 关闭决策日志 prompted=false remembered=true',
+      /\[close\] action=exit_app prompted=false remembered=true/.test(closeLine), closeLine)
+    let onDisk = null
+    try { onDisk = JSON.parse(fs.readFileSync(path.join(s.ud, 'window-prefs.json'), 'utf8')) } catch { /* noop */ }
+    check('P-A3 偏好文件仍是上轮写入的那份',
+      !!onDisk && onDisk.close_action === 'exit_app' && onDisk.remember_choice === true, JSON.stringify(onDisk))
   }
+  await teardown(a2, false)
+  await teardown(s, true)
+}
 
-  // ---- P-B：预置「记住=退出」的干净退出耗时门（不走界面勾选路径）----
-  {
-    resetLogBase()
-    const s = await scenario('prod_pb', 9464, { close_action: 'exit_app', remember_choice: true })
-    if (!s.ok) {
-      check('P-B 记住=退出场景可启动', false, s.detail)
-    } else {
-      const loadBefore = sampleLoad()
-      requestClose(s.child.pid)
-      const waited = await waitExit(s.child, EXIT_WAIT)
-      const load = loadPeak(loadBefore)
-      exitGate('P-B 关窗后进程退出且耗时在预算内', waited, load, '空载同产物实测散布 1224~2825ms')
-      const closeLine = lastLine(await until('[close]'), '[close]')
-      check('P-B 退出链未落入保底分支（action=exit_app 而非 decision failed）',
-        /action=exit_app/.test(closeLine), closeLine)
-      await teardown(s)
-    }
+/** P-B：预置「记住=退出」的干净退出耗时门（不走界面勾选路径）。 */
+async function scenarioPB() {
+  resetLogBase()
+  const s = await scenario('prod_pb', 9464, { close_action: 'exit_app', remember_choice: true })
+  if (!s.ok) {
+    check('P-B 记住=退出场景可启动', false, s.detail)
+    return
   }
+  const loadBefore = sampleLoad()
+  requestClose(s.child.pid)
+  const waited = await waitExit(s.child, EXIT_WAIT)
+  const load = loadPeak(loadBefore)
+  exitGate('P-B 关窗后进程退出且耗时在预算内', waited, load, '空载同产物实测散布 1224~2825ms')
+  const closeLine = lastLine(await until('[close]'), '[close]')
+  check('P-B 退出链未落入保底分支（action=exit_app 而非 decision failed）',
+    /action=exit_app/.test(closeLine), closeLine)
+  await teardown(s)
+}
 
-  // ---- P-C：托盘图标实点恢复窗口（要求托盘项在 UIA 可枚举，否则 SKIP）----
-  {
-    resetLogBase()
-    const s = await scenario('prod_pc', 9465, { close_action: 'minimize_to_tray', remember_choice: true })
-    if (!s.ok) {
-      check('P-C 最小化到托盘场景可启动', false, s.detail)
-    } else {
-      const loadBefore = sampleLoad()
-      requestClose(s.child.pid)
-      const waitedHide = await waitHidden(s.child, PC_WAIT_HARD)
-      const load = loadPeak(loadBefore)
-      // 决策行原文进明细：没有 [close] 行 = 决策压根没到（不是判据问题），有行但落得晚 = 本单要治的那种。
-      const closeLine = lastLine(await until('[close]'), '[close]')
-      hideGate('P-C 记住=最小化后窗口隐藏、进程存活', waitedHide, load, `决策行=${closeLine}`)
-      const probe = probeTrayIcon(1)
-      if (!probe.out.includes('TRAY_ICON=found')) {
-        const why = '托盘图标在本机 UIA 中不可枚举（T03958 实测四条通道均不可达）：' + (probe.out.split('\n').slice(0, 2).join(' ') || '无输出')
-        skip('P-C 托盘图标可枚举且 tooltip 为应用名', why)
-        skip('P-C 实点托盘图标后窗口重新可见', why)
-        skip('P-C 恢复窗口后进程仍是同一个（未重启）', why)
-      } else {
-        check('P-C 托盘图标可枚举且 tooltip 为应用名', true, probe.out.split('\n').slice(0, 2).join(' '))
-        await sleep(2000)
-        const shown = probeWindow(s.child.pid)
-        check('P-C 实点托盘图标后窗口重新可见', shown.visible === 1, `${shown.out} ${probe.out.split('\n')[2] || ''}`)
-        check('P-C 恢复窗口后进程仍是同一个（未重启）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
-      }
-      await teardown(s)
-    }
+/** P-C：托盘图标实点恢复窗口（要求托盘项在 UIA 可枚举，否则 SKIP）。 */
+async function scenarioPC() {
+  resetLogBase()
+  const s = await scenario('prod_pc', 9465, { close_action: 'minimize_to_tray', remember_choice: true })
+  if (!s.ok) {
+    check('P-C 最小化到托盘场景可启动', false, s.detail)
+    return
   }
+  const loadBefore = sampleLoad()
+  requestClose(s.child.pid)
+  const waitedHide = await waitHidden(s.child, PC_WAIT_HARD)
+  const load = loadPeak(loadBefore)
+  // 决策行原文进明细：没有 [close] 行 = 决策压根没到（不是判据问题），有行但落得晚 = 本单要治的那种。
+  const closeLine = lastLine(await until('[close]'), '[close]')
+  hideGate('P-C 记住=最小化后窗口隐藏、进程存活', waitedHide, load, `决策行=${closeLine}`)
+  const probe = probeTrayIcon(1)
+  if (!probe.out.includes('TRAY_ICON=found')) {
+    const why = '托盘图标在本机 UIA 中不可枚举（T03958 实测四条通道均不可达）：' + (probe.out.split('\n').slice(0, 2).join(' ') || '无输出')
+    skip('P-C 托盘图标可枚举且 tooltip 为应用名', why)
+    skip('P-C 实点托盘图标后窗口重新可见', why)
+    skip('P-C 恢复窗口后进程仍是同一个（未重启）', why)
+  } else {
+    check('P-C 托盘图标可枚举且 tooltip 为应用名', true, probe.out.split('\n').slice(0, 2).join(' '))
+    await sleep(2000)
+    const shown = probeWindow(s.child.pid)
+    check('P-C 实点托盘图标后窗口重新可见', shown.visible === 1, `${shown.out} ${probe.out.split('\n')[2] || ''}`)
+    check('P-C 恢复窗口后进程仍是同一个（未重启）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
+  }
+  await teardown(s)
 }
 
 /** 托盘图标定位 + 真点。应用名可能含中文，作参数传进去（argv 走 UTF-16，不经代码页）；
@@ -568,7 +587,7 @@ function probeTrayIcon(click) {
   const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', f,
     '-Names', names, '-Click', String(click)], { encoding: 'utf8' })
   try { fs.rmSync(f, { force: true }) } catch { /* noop */ }
-  return { out: ((r.stdout || '') + (r.stderr || '')).replace(/\r/g, '').trim() }
+  return { out: ((r.stdout || '') + (r.stderr || '')).replaceAll('\r', '').trim() }
 }
 
 
@@ -581,9 +600,9 @@ if (skipReason) console.log(`说明：实机场景整体跳过——${skipReason
 // 负载水位读数（T04543）：每次退出计时都采了「关闭前 / 退出后」两个数并取大者。
 // 这一行同时是 T04507（吞按率是否随负载放大）要的水位口径，两边用同一个 LOAD_NODE= 计数法。
 const ns = loadSamples.map(l => l.count).filter(n => n !== null).sort((a, b) => a - b)
-const mid = ns.length ? (ns.length % 2 ? ns[(ns.length - 1) / 2] : (ns[ns.length / 2 - 1] + ns[ns.length / 2]) / 2) : null
+const mid = ns.length ? (ns.length % 2 ? ns.at((ns.length - 1) / 2) : (ns.at(ns.length / 2 - 1) + ns.at(ns.length / 2)) / 2) : null
 console.log(`负载水位：node.exe 采样 ${loadSamples.length} 次` +
-  (ns.length ? `，min/中位/max = ${ns[0]}/${mid}/${ns[ns.length - 1]}` : '（未采到计数）') +
+  (ns.length ? `，min/中位/max = ${ns[0]}/${mid}/${ns.at(-1)}` : '（未采到计数）') +
   `；高水位阈值 ${LOAD_NODE_HIGH}；退出耗时门 基础 ${EXIT_MS_BUDGET}ms / 有水位时宽松上限 ${EXIT_MS_HARD}ms`)
 if (warns.length) console.log(`宽松判定项：${warns.join('；')}`)
 process.exit(failed.length ? 1 : 0)

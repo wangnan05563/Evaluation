@@ -34,7 +34,7 @@ ws.onmessage = e => {
   } else if (m.method === 'Runtime.exceptionThrown') {
     pageErrors.push(m.params?.exceptionDetails?.exception?.description || 'exception')
   } else if (m.method === 'Fetch.requestPaused') {
-    const kind = (m.params.request.url.match(/\/api\/(rates|rules)(\?|$)/) || [, 'none'])[1]
+    const kind = (m.params.request.url.match(/\/api\/(rates|rules)(\?|$)/) || [null, 'none'])[1]
     const rule = DEGRADED[`*/api/${kind}`]
     const body = rule ? JSON.stringify(rule.body) : '{}'
     send('Fetch.fulfillRequest', {
@@ -219,6 +219,7 @@ const restored = await waitState(s => s.opts >= 1 && /v\d+/.test(s.ver))
 check('解除降级后费率卡片恢复版本显示', restored.opts >= 1 && /v\d+/.test(restored.ver), JSON.stringify(restored.ver))
 
 const failed = res.filter(r => !r.ok)
-console.log(`\n==== 配置中心降级态 UI 验证 ==== ${failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`}`)
+const summary = failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`
+console.log(`\n==== 配置中心降级态 UI 验证 ==== ${summary}`)
 try { ws.close() } catch { /* 已断开 */ }
 process.exit(failed.length ? 1 : 0)

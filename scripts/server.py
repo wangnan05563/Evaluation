@@ -62,6 +62,8 @@ UPDATE_OFF_VALUES = ("off", "disable", "disabled")   # 显式停用版本检测�
 UPDATE_NOTES_LIMIT = 2000                            # Release body 可能很长，避免撑爆帮助页
 # 开发语言 → 母版语系标识的对照（Excel 公式按语系取值，见 _CTX_LANG_EXT）
 EXT_JAVA = ".java"
+MIME_JSON = "application/json"      # 请求/响应体媒体类型（原内联 4 处）
+API_CONFIG = "/api/config"          # 配置中心路径（原内联 3 处）
 
 
 def _migrate_legacy_data():
@@ -495,21 +497,16 @@ def load_config():
     return json.loads(json.dumps(DEFAULT_CONFIG))
 
 
-def save_config(payload):
-    """写入配置到磁盘；payload 中 llm 仅接受合法键。"""
-    cfg = load_config()
-    if payload.get("provider") in PROVIDERS:
-        cfg["provider"] = payload["provider"]
-    llm = payload.get("llm") or {}
+def _apply_llm_settings(cfg, llm):
+    """llm 仅接受合法键，其余字段原样保留。"""
     for k in ("enabled", "api", "model", "key"):
         if k in llm:
             cfg["llm"][k] = llm[k]
-    if "context_dir" in payload:
-        cfg["context_dir"] = str(payload["context_dir"] or "").strip()
-    if "update_url" in payload:
-        cfg["update_url"] = str(payload["update_url"] or "").strip()
-    rc = payload.get("recalc") or {}
-    if "mode" in rc:      # T00962：只接受合法值，非法一律回退默认
+
+
+def _apply_recalc_overrides(cfg, rc):
+    """T00962：重算模式/超时只接受合法值，非法一律回退默认。"""
+    if "mode" in rc:
         m = str(rc["mode"] or "").strip().lower()
         cfg["recalc"]["mode"] = m if m in ("async", "sync", "off") else "async"
     if "timeout" in rc:
@@ -517,6 +514,18 @@ def save_config(payload):
             cfg["recalc"]["timeout"] = max(5, min(1800, float(rc["timeout"])))
         except (TypeError, ValueError):
             pass
+
+
+def save_config(payload):
+    """写入配置到磁盘；payload 中 llm 仅接受合法键。"""
+    cfg = load_config()
+    if payload.get("provider") in PROVIDERS:
+        cfg["provider"] = payload["provider"]
+    _apply_llm_settings(cfg, payload.get("llm") or {})
+    for key in ("context_dir", "update_url"):
+        if key in payload:
+            cfg[key] = str(payload[key] or "").strip()
+    _apply_recalc_overrides(cfg, payload.get("recalc") or {})
     CONF_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     return cfg
 
@@ -719,46 +728,72 @@ def _sty(p):
     return ""
 
 
+_FEATURE_HEAD_KEYS = ("功能点", "子功能", "模块", "功能")
+# 列语义 → 表头关键词（按列顺序逐列判定，先命中先得）
+_FEATURE_COL_RULES = (("name", ("名称", "功能")), ("desc", ("描述",)),
+                      ("type", ("类型",)), ("sys", ("系统",)))
+
+
+def _feature_col_index(head):
+    """按表头文字定位功能点清单表的列索引。"""
+    colidx = {"name": None, "type": None, "sys": None, "desc": None}
+    for i, h in enumerate(head):
+        for key, words in _FEATURE_COL_RULES:
+            if colidx[key] is None and any(w in h for w in words):
+                colidx[key] = i
+                break
+    return colidx
+
+
 def _find_feature_table(doc):
     """定位功能点清单表；返回(表, 列索引字典) 或 (None,None)。"""
-    colidx = {"name": None, "type": None, "sys": None, "desc": None}
     for tb in doc.tables:
         head = [c.text.strip() for c in tb.rows[0].cells]
-        joined = " ".join(head)
-        if not any(k in joined for k in ("功能点", "子功能", "模块", "功能")):
+        if not any(k in " ".join(head) for k in _FEATURE_HEAD_KEYS):
             continue
-        for i, h in enumerate(head):
-            if colidx["name"] is None and ("名称" in h or "功能" in h): colidx["name"] = i
-            if colidx["desc"] is None and "描述" in h: colidx["desc"] = i
-            if colidx["type"] is None and "类型" in h: colidx["type"] = i
-            if colidx["sys"] is None and "系统" in h: colidx["sys"] = i
+        colidx = _feature_col_index(head)
         if colidx["name"] is not None:
             return tb, colidx
     return None, None
 
 
-def _body_subitems(doc):
-    """从正文提取可拆分的功能子项（反洗钱类：校验阶段/数据接入/查询导出/参数）。"""
+def _validation_table_items(doc):
+    """校验阶段表（表头含「校验位置说明」）→ 子项列表。"""
     subs = []
-    # 校验阶段表（表头含"校验位置说明"）
     for tb in doc.tables:
         head = " ".join(c.text for c in tb.rows[0].cells)
-        if "校验位置" in head:
-            for r in tb.rows[1:]:
-                cells = [c.text.strip() for c in r.cells]
-                if cells and (cells[0] or cells[1]):
-                    subs.append((cells[0] or cells[1], " / ".join(x for x in cells[1:3] if x)))
+        if "校验位置" not in head:
+            continue
+        for r in tb.rows[1:]:
+            cells = [c.text.strip() for c in r.cells]
+            if cells and (cells[0] or cells[1]):
+                subs.append((cells[0] or cells[1], " / ".join(x for x in cells[1:3] if x)))
+    return subs
+
+
+# 全文特征句 → 子项（名称, 描述）
+_BODY_FEATURE_PATTERNS = (
+    (r"查询.{0,3}[和与].{0,3}导出|查询和导出",
+     "中互金关注名单数据查询导出", "对名单数据进行查询和导出"),
+    (r"首次全量.{0,4}增量|全量.{0,2}增量|名单数据.{0,6}(抽取|接入|同步)",
+     "中互金关注名单数据接入同步", "对接数据平台抽取ECIF名单，全量+增量入库"),
+    (r"新增参数控制.{0,20}校验开关|设置参数控制.{0,20}校验开关|参数控制.{0,15}(校验|名单)",
+     "中互金名单校验开关参数", "参数控制校验开关，默认开启"),
+)
+
+
+def _text_feature_items(full):
+    """按全文特征句收集子项，保持声明顺序。"""
+    return [(name, desc) for pat, name, desc in _BODY_FEATURE_PATTERNS if re.search(pat, full)]
+
+
+def _body_subitems(doc):
+    """从正文提取可拆分的功能子项（反洗钱类：校验阶段/数据接入/查询导出/参数）。"""
+    subs = _validation_table_items(doc)
     # 全文特征句
     full = "\n".join(_ptext(p) for p in doc.element.body.iterchildren()
                      if p.tag.rsplit("}", 1)[-1] == "p")
-    if re.search(r"查询.{0,3}[和与].{0,3}导出|查询和导出", full):
-        subs.append(("中互金关注名单数据查询导出", "对名单数据进行查询和导出"))
-    if re.search(r"首次全量.{0,4}增量|全量.{0,2}增量|名单数据.{0,6}(抽取|接入|同步)", full):
-        subs.append(("中互金关注名单数据接入同步", "对接数据平台抽取ECIF名单，全量+增量入库"))
-    m = re.search(r"新增参数控制.{0,20}校验开关|设置参数控制.{0,20}校验开关|参数控制.{0,15}(校验|名单)", full)
-    if m:
-        subs.append(("中互金名单校验开关参数", "参数控制校验开关，默认开启"))
-    return subs
+    return subs + _text_feature_items(full)
 
 
 # 标题层级固定子节名：功能模块标题下挂的说明性小节，不是独立功能点
@@ -939,85 +974,117 @@ def _merge_items(primary, extras):
     return out + primary
 
 
-def recognize_doc(path, llm=None):
-    """解析需求文档 → 候选功能点清单（type 复用 guess_type，modify 以清单类型为准）。
-    llm: dict(enabled, api, model, key) 或 None；启用时调用大模型对候选做复核/补全。
-    """
-    doc = Document(str(path))
+def _cell_text(cells, colidx, key):
+    """按列索引取单元格文本；越界或缺列返回空串。"""
+    i = colidx.get(key)
+    return cells[i] if (i is not None and i < len(cells)) else ""
+
+
+def _collect_table_items(tb, colidx, sys_name, base_mod):
+    """功能点清单表格 → 候选项；返回 (items, 更新后的 base_mod)。"""
     items = []
-    base_mod = "新增"
-    # T00851：system 从文档提取主涉及系统名，替代硬编码「综合平台」，禁止默认「票据系统」
-    sys_name = _extract_doc_system(doc)
+    for r in tb.rows[1:]:
+        cells = [x.text.strip() for x in r.cells]
+        name = _cell_text(cells, colidx, "name") or _cell_text(cells, colidx, "desc") \
+            or (cells[0] if cells else "")
+        if not name or name.isdigit():
+            continue  # 空壳行（仅编号，名称/描述全空）不产生候选
+        mt = (_cell_text(cells, colidx, "type") or "").strip()
+        if mt in engine.MODIFY:
+            base_mod = mt
+        items.append({
+            "system": _cell_text(cells, colidx, "sys") or sys_name,
+            "m1": name, "m2": "",
+            "desc": f"{name}（来自功能点清单）", "count_item": name,
+            "type": guess_type(name, name), "reuse": "中", "modify": base_mod,
+            "basis": f"识别自功能点清单，官方类型={mt or '未填'}；AI判{guess_type(name, name)}。",
+        })
+    return items, base_mod
 
-    tb, colidx = _find_feature_table(doc)
-    table_items = []
-    if tb is not None:
-        for r in tb.rows[1:]:
-            c = [x.text.strip() for x in r.cells]
-            def ci(k):
-                i = colidx.get(k)
-                return c[i] if (i is not None and i < len(c)) else ""
-            name = ci("name") or ci("desc") or (c[0] if c else "")
-            if not name or name.isdigit():
-                continue  # 空壳行（仅编号，名称/描述全空）不产生候选
-            mt = (ci("type") or "").strip()
-            if mt in engine.MODIFY:
-                base_mod = mt
-            sysv = ci("sys") or sys_name
-            table_items.append({
-                "system": sysv, "m1": name, "m2": "",
-                "desc": f"{name}（来自功能点清单）", "count_item": name,
-                "type": guess_type(name, name), "reuse": "中", "modify": base_mod,
-                "basis": f"识别自功能点清单，官方类型={mt or '未填'}；AI判{guess_type(name, name)}。",
-            })
 
-    # 来源一：功能点清单表格；来源二：正文特征句（反洗钱类）；来源三：文档标题层级
-    body = _body_subitems(doc)
-    body_items = [{
-        "system": table_items[0]["system"] if table_items else sys_name,
-        "m1": "业务功能点：反洗钱业务功能优化" if "洗钱" in str(path) else (table_items[0]["m1"] if table_items else ""),
-        "m2": "", "desc": d or n, "count_item": n,
+def _body_candidate_items(body, table_items, sys_name, base_mod, path):
+    """正文特征句 → 候选项；少于 2 条时不作为主来源（原判定口径）。"""
+    if len(body) < 2:
+        return []
+    system = table_items[0]["system"] if table_items else sys_name
+    if "洗钱" in str(path):
+        m1 = "业务功能点：反洗钱业务功能优化"
+    else:
+        m1 = table_items[0]["m1"] if table_items else ""
+    return [{
+        "system": system, "m1": m1, "m2": "", "desc": d or n, "count_item": n,
         "type": guess_type(d, n), "reuse": "中", "modify": base_mod,
         "basis": f"正文语义识别为{guess_type(d, n)}；官方类型={base_mod}。",
-    } for n, d in body] if len(body) >= 2 else []
+    } for n, d in body]
 
-    head_titles = _heading_features(doc)
-    head_items = [{
+
+def _heading_candidate_items(head_titles, sys_name, base_mod):
+    """文档标题层级 → 候选项。"""
+    return [{
         "system": sys_name, "m1": t, "m2": "",
         "desc": f"{t}（识别自文档标题）", "count_item": t,
         "type": guess_type(t, t), "reuse": "中", "modify": base_mod,
         "basis": f"识别自文档标题层级（需求章节模块标题）；AI判{guess_type(t, t)}。",
     } for t in head_titles]
 
-    # 主来源选择：标题维度覆盖最全时以标题为主（T00605：标题组织的文档表格/正则只捞到零头），
-    # 表格行与正文特征句中未被标题覆盖的项并入；标题不足时维持原有行为。
+
+def _select_primary_items(head_items, table_items, body_items):
+    """主来源选择：标题维度覆盖最全时以标题为主（T00605），其余按原优先级回退。"""
     if len(head_items) >= max(len(table_items), len(body_items), 2):
-        items = _merge_items(head_items, table_items + body_items)
+        return _merge_items(head_items, table_items + body_items)
+    return body_items if len(body_items) >= 2 else table_items
+
+
+def _placeholder_item(sys_name, base_mod):
+    return {"system": sys_name, "m1": "待人工识别", "m2": "", "desc": "",
+            "count_item": "待人工识别", "type": "EI", "reuse": "中", "modify": base_mod,
+            "basis": "未在文档中定位到可识别清单，请人工补充。"}
+
+
+def _llm_enhance(path, items, llm):
+    """LLM 增强（可选；失败不阻断）。返回 meta 或 None。"""
+    if not (llm and llm.get("enabled") and llm.get("api") and llm.get("model") and llm.get("key")):
+        return None
+    try:
+        extra, llm_meta = _llm_refine(str(path), items, llm)
+    except Exception as e:
+        return {"enabled": True, "error": f"{type(e).__name__}: {e}", "added": 0}
+    if not extra:
+        llm_meta["added"] = 0
+        return llm_meta
+    # LLM 补全的项追加到尾部，basis 标记来源
+    for x in extra:
+        x["basis"] = (x.get("basis") or "") + " [LLM补全]"
+    items.extend(extra)
+    llm_meta["added"] = len(extra)
+    return llm_meta
+
+
+def recognize_doc(path, llm=None):
+    """解析需求文档 → 候选功能点清单（type 复用 guess_type，modify 以清单类型为准）。
+    llm: dict(enabled, api, model, key) 或 None；启用时调用大模型对候选做复核/补全。
+    """
+    doc = Document(str(path))
+    base_mod = "新增"
+    # T00851：system 从文档提取主涉及系统名，替代硬编码「综合平台」，禁止默认「票据系统」
+    sys_name = _extract_doc_system(doc)
+
+    tb, colidx = _find_feature_table(doc)
+    if tb is None:
+        table_items = []
     else:
-        items = table_items
-        if len(body_items) >= 2:
-            items = body_items
+        table_items, base_mod = _collect_table_items(tb, colidx, sys_name, base_mod)
 
+    # 来源一：功能点清单表格；来源二：正文特征句（反洗钱类）；来源三：文档标题层级
+    body = _body_subitems(doc)
+    body_items = _body_candidate_items(body, table_items, sys_name, base_mod, path)
+    head_items = _heading_candidate_items(_heading_features(doc), sys_name, base_mod)
+
+    items = _select_primary_items(head_items, table_items, body_items)
     if not items:
-        items = [{"system": sys_name, "m1": "待人工识别", "m2": "", "desc": "",
-                  "count_item": "待人工识别", "type": "EI", "reuse": "中", "modify": base_mod,
-                  "basis": "未在文档中定位到可识别清单，请人工补充。"}]
+        items = [_placeholder_item(sys_name, base_mod)]
 
-    # ---------------- LLM 增强（可选；失败不阻断） ----------------
-    llm_meta = None
-    if llm and llm.get("enabled") and llm.get("api") and llm.get("model") and llm.get("key"):
-        try:
-            extra, llm_meta = _llm_refine(str(path), items, llm)
-            if extra:
-                # LLM 补全的项追加到尾部，basis 标记来源
-                for x in extra:
-                    x["basis"] = (x.get("basis") or "") + " [LLM补全]"
-                items.extend(extra)
-                llm_meta["added"] = len(extra)
-            else:
-                llm_meta["added"] = 0
-        except Exception as e:
-            llm_meta = {"enabled": True, "error": f"{type(e).__name__}: {e}", "added": 0}
+    llm_meta = _llm_enhance(path, items, llm)
 
     for i, it in enumerate(items, 1):
         it["seq"] = i
@@ -1092,38 +1159,46 @@ _CTX_LANG_EXT = {".java", ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".c
                  ".cpp", ".cs", ".php", ".rb", ".swift", ".kt", ".vue", ".sql"}
 
 
+_MANIFEST_STACK = {F_PACKAGE_JSON: "Node.js / JS/TS", "pom.xml": "Java", "build.gradle": "Java",
+                   "requirements.txt": "Python", "pyproject.toml": "Python",
+                   "go.mod": "Go", "Cargo.toml": "Rust"}
+
+
 def _detect_stack_from_manifest(root):
     """根据工程清单文件推断技术栈，返回 (stack 集合, 命中清单相对路径)。"""
+    stack, hits = _manifest_stacks(root)
+    if stack:
+        return stack, hits
+    return _stack_from_extensions(root), hits
+
+
+def _manifest_stacks(root):
+    """按清单文件命中技术栈标签（无清单命中时返回空集）。"""
     stack, hits = set(), {}
-    for mf in (F_PACKAGE_JSON, "pom.xml", "build.gradle", "requirements.txt",
-               "pyproject.toml", "go.mod", "Cargo.toml"):
+    for mf, label in _MANIFEST_STACK.items():
         f = root / mf
         if f.is_file():
             hits[mf] = str(f)
-            if mf == F_PACKAGE_JSON:
-                stack.add("Node.js / JS/TS")
-            elif mf in ("pom.xml", "build.gradle"):
-                stack.add("Java")
-            elif mf in ("requirements.txt", "pyproject.toml"):
-                stack.add("Python")
-            elif mf == "go.mod":
-                stack.add("Go")
-            elif mf == "Cargo.toml":
-                stack.add("Rust")
-    if not stack:
-        found = set()
-        for p in list(root.rglob("*"))[:20000]:
-            if p.suffix in _CTX_LANG_EXT:
-                found.add(p.suffix)
-        # T01501（S1192）：.java/.py 原在此内联 3 次（判断 + 差集 + 差集），
-        # 改判定语言须同步 3 处，漏改会静默产生「Java 既不入栈又混进杂项列表」的分叉。
-        for ext, label in ((EXT_JAVA, "Java"), (".py", "Python")):
-            if ext in found:
-                stack.add(label)
-        others = found - {EXT_JAVA, ".py"}
-        if others:
-            stack.add(",".join(sorted(others)))
+            stack.add(label)
     return stack, hits
+
+
+def _stack_from_extensions(root):
+    """清单缺失时按源码扩展名兜底推断：Java/Python 入栈，其余扩展名合成杂项标签。"""
+    found = set()
+    for p in list(root.rglob("*"))[:20000]:
+        if p.suffix in _CTX_LANG_EXT:
+            found.add(p.suffix)
+    # T01501（S1192）：.java/.py 原在此内联 3 次（判断 + 差集 + 差集），
+    # 改判定语言须同步 3 处，漏改会静默产生「Java 既不入栈又混进杂项列表」的分叉。
+    stack = set()
+    for ext, label in ((EXT_JAVA, "Java"), (".py", "Python")):
+        if ext in found:
+            stack.add(label)
+    others = found - {EXT_JAVA, ".py"}
+    if others:
+        stack.add(",".join(sorted(others)))
+    return stack
 
 
 _CTX_MAX_FILES = 20000          # 遍历文件数上限，避免大仓库拖垮
@@ -1306,7 +1381,7 @@ def _llm_refine(path, local_items, llm):
         "temperature": 0.1,
     }, ensure_ascii=False).encode("utf-8")
     req = Request(url, data=body, method="POST", headers={
-        "Content-Type": "application/json",
+        "Content-Type": MIME_JSON,
         "Authorization": AUTH_BEARER + llm["key"],
     })
     t0 = time.time()
@@ -1328,6 +1403,26 @@ def _extract_json_array(content):
     except Exception:
         arr_text = re.sub(r"\s*```$", "", re.sub(r"^```(?:json)?\s*", "", content, flags=re.M), flags=re.M).strip()
         return json.loads(arr_text)
+
+
+def _normalize_pert_candidate(x):
+    """把 LLM 返回的一项归一为合法候选；desc 为空返回 None，三值非法则置空。"""
+    desc = (x.get("desc") or "").strip()
+    if not desc:
+        return None
+    phase = x.get("phase") or "开发"
+    if phase not in pert.PHASES:
+        phase = "开发"
+    # 三值归一：非法则置空，由用户补填
+    try:
+        o, m, p = float(x.get("optimistic")), float(x.get("most_likely")), float(x.get("pessimistic"))
+        valid = 0 <= o <= m <= p
+    except (TypeError, ValueError):
+        o, m, p, valid = None, None, None, False
+    if not valid:
+        o = m = p = None
+    return {"desc": desc, "phase": phase, "system": (x.get("system") or "").strip(),
+            "optimistic": o, "most_likely": m, "pessimistic": p}
 
 
 def _llm_pert_split(api, model, key, excerpt):
@@ -1352,31 +1447,18 @@ def _llm_pert_split(api, model, key, excerpt):
                                     {"role": "user", "content": user}],
                        "temperature": 0.1}, ensure_ascii=False).encode("utf-8")
     req = Request(url, data=body, method="POST", headers={
-        "Content-Type": "application/json", "Authorization": AUTH_BEARER + key})
+        "Content-Type": MIME_JSON, "Authorization": AUTH_BEARER + key})
     with urlopen(req, timeout=120) as r:
         resp = json.loads(r.read().decode("utf-8"))
     content = resp["choices"][0]["message"]["content"].strip()
     raw = _extract_json_array(content)
     out = []
-    if isinstance(raw, list):
-        for x in raw:
-            if not isinstance(x, dict):
-                continue
-            desc = (x.get("desc") or "").strip()
-            if not desc:
-                continue
-            phase = x.get("phase") or "开发"
-            if phase not in pert.PHASES:
-                phase = "开发"
-            # 三值归一：非法则置空，由用户补填
-            try:
-                o, m, p = float(x.get("optimistic")), float(x.get("most_likely")), float(x.get("pessimistic"))
-            except (TypeError, ValueError):
-                o = m = p = None
-            if not (o is not None and 0 <= o <= m <= p):
-                o = m = p = None
-            out.append({"desc": desc, "phase": phase, "system": (x.get("system") or "").strip(),
-                        "optimistic": o, "most_likely": m, "pessimistic": p})
+    for x in raw if isinstance(raw, list) else []:
+        if not isinstance(x, dict):
+            continue
+        item = _normalize_pert_candidate(x)
+        if item:
+            out.append(item)
     return out
 
 
@@ -1409,7 +1491,7 @@ def _build_diag_zip():
             "app": "workload-estimate", "schema_ver": SCHEMA_VER,
             "python": sys.version.split()[0],
             "routes": ["/api/health", "/api/recognize", "/api/generate", "/api/history",
-                       "/api/rules", "/api/rates", "/api/config", "/api/diag",
+                       "/api/rules", "/api/rates", API_CONFIG, "/api/diag",
                        "/api/data/export"]}, ensure_ascii=False, indent=1))
     SLOG.info("diag", "export", size=zp.stat().st_size)
     return zp
@@ -1481,25 +1563,33 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
-    def do_GET(self):
-        u = urlparse(self.path)
+    # ---- do_GET 路由分组（python:S3776）----
+    # 原 do_GET 是 160 行线性 if 链，路由判断与各端点业务处理混在一起（认知复杂度 77）。
+    # 按职责拆组后每组只做「匹配 → 写响应」，命中返回 True；分发顺序与原 if 链完全一致。
+    def _get_page_routes(self, u):
         if u.path in ("/", "/index.html"):
             # 由引擎 serve 前端（exe 自包含场景）；开发态同样可用
-            return self._serve_frontend()
+            self._serve_frontend()
+            return True
         if u.path == "/health":
-            return self._json(200, {"ok": True, "engine": "ready", "us": "105.07 口径"})
+            self._json(200, {"ok": True, "engine": "ready", "us": "105.07 口径"})
+            return True
         if u.path == "/api/generate/progress":
             # T00927：生成进度轮询（无该 job 记录时返回 progress=null，前端自行降级）
             job = (parse_qs(u.query).get("job") or [""])[0]
-            return self._json(200, {"ok": True, "progress": _gen_progress_get(job)})
+            self._json(200, {"ok": True, "progress": _gen_progress_get(job)})
+            return True
         if u.path == "/api/rules":
             # M3/FR-2.9：识别规则表读取
             if RULES is None:
-                return self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
-            return self._json(200, RULES.list_rules())
+                self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
+            else:
+                self._json(200, RULES.list_rules())
+            return True
         if u.path == "/api/templates":
             # M9/FR-2.8：母版目录（xlsx + meta.json 口径说明）
-            return self._json(200, {"ok": True, "templates": _list_templates()})
+            self._json(200, {"ok": True, "templates": _list_templates()})
+            return True
         if u.path == "/api/i18n":
             # FR-5.5：界面文案字典。lang 收敛为白名单值，不接受任意文件名，
             # 响应中的 lang 也用收敛后的值（不回显原始入参）。
@@ -1507,12 +1597,17 @@ class Handler(BaseHTTPRequestHandler):
             # 属可降级增强项，不该让页面因缺翻译而报错。
             q = parse_qs(u.query)
             lang = _i18n_lang((q.get("lang") or [I18N_DEFAULT_LANG])[0])
-            return self._json(200, {"ok": True, "lang": lang, "strings": load_i18n(lang)})
+            self._json(200, {"ok": True, "lang": lang, "strings": load_i18n(lang)})
+            return True
+        return False
+
+    def _get_export_routes(self, u):
         if u.path == "/api/diag":
             # M8/FR-5.4：一键诊断包（日志近7天 + 脱敏配置 + 版本信息；不含 uploads/generated）
             # 注：T01481 评估过加 TTL 缓存（P1-3），但诊断包按需即时生成是产品语义
             # （用户点一次就应拿到当下快照），不为此做语义妥协。
-            return self._json(200, {"ok": True, "file": str(_build_diag_zip())})
+            self._json(200, {"ok": True, "file": str(_build_diag_zip())})
+            return True
         if u.path == "/api/data/export":
             # M8/FR-5.6：导出全部数据（pert.db + json + schema_ver）
             import zipfile
@@ -1520,92 +1615,141 @@ class Handler(BaseHTTPRequestHandler):
             zp = APP_DATA / "exports" / f"data_{time.strftime('%Y%m%d-%H%M%S')}.zip"
             names = _dk.export_zip(APP_DATA, zp)
             SLOG.info("datakeeper", "data_export", files=len(names))
-            return self._json(200, {"ok": True, "file": str(zp), "files": names})
+            self._json(200, {"ok": True, "file": str(zp), "files": names})
+            return True
         if u.path == "/api/rates":
             # M6/FR-2.3：费率与基准版本读取
             if RATES is None:
-                return self._json(503, {"ok": False, **_m("rates.srv_unavail", "费率版本表不可用")})
-            return self._json(200, RATES.list())
+                self._json(503, {"ok": False, **_m("rates.srv_unavail", "费率版本表不可用")})
+            else:
+                self._json(200, RATES.list())
+            return True
+        return False
+
+    def _get_history_routes(self, u):
         # ---------------- M1 估算历史（FR-1.1/1.8/2.5） ----------------
         if u.path == "/api/history":
-            if HIST is None:
-                return self._json(200, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH), "total": 0, "rows": []})
-            q = parse_qs(u.query)
-            return self._json(200, HIST.list(
-                query=(q.get("query") or [""])[0],
-                limit=(q.get("limit") or [50])[0],
-                offset=(q.get("offset") or [0])[0]))
+            self._history_list(u)
+            return True
         m_hist = re.match(r"^/api/history/([0-9a-f]{32})$", u.path)
         if m_hist:
-            if HIST is None:
-                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
-            hid = m_hist.group(1)
-            row = HIST.get(hid)
-            if not row:
-                return self._json(404, {"ok": False, **_m("history.srv_gone", "历史记录不存在或已被清理")})
-            return self._json(200, {"ok": True, "row": row})
+            self._history_item(m_hist.group(1))
+            return True
         m_grp = re.match(r"^/api/history/([0-9a-f]{32})/group$", u.path)
         if m_grp:
-            if HIST is None:
-                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
-            return self._json(200, HIST.group(m_grp.group(1)))
-        # ---------------- M1/FR-FE05：版本间 diff ----------------
+            self._history_group(m_grp.group(1))
+            return True
         if u.path == "/api/history/diff":
-            if HIST is None:
-                return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
-            q = parse_qs(u.query)
-            aid = (q.get("a") or [None])[0]
-            bid = (q.get("b") or [None])[0]
-            if not aid or not bid:
-                return self._json(400, {"ok": False,
-                    "msg": "需提供 a 与 b 两个版本 id（/api/history/diff?a=<id>&b=<id>）",
-                    "msgKey": "history.srv_need_ab"})
-            try:
-                d = HIST.diff(aid, bid)
-            except Exception as e:
-                return self._json(500, {"ok": False, **_m("history.diff_calc_fail", "diff 计算失败：{err}", err=str(e))})
-            if not d.get("ok"):
-                code = 404 if d.get("which") else 400
-                return self._json(code, d)
-            return self._json(200, d)
-        if u.path == "/api/config":
+            # ---------------- M1/FR-FE05：版本间 diff ----------------
+            self._history_diff(u)
+            return True
+        return False
+
+    def _history_list(self, u):
+        if HIST is None:
+            self._json(200, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH), "total": 0, "rows": []})
+            return
+        q = parse_qs(u.query)
+        self._json(200, HIST.list(
+            query=(q.get("query") or [""])[0],
+            limit=(q.get("limit") or [50])[0],
+            offset=(q.get("offset") or [0])[0]))
+
+    def _history_item(self, hid):
+        if HIST is None:
+            self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+            return
+        row = HIST.get(hid)
+        if not row:
+            self._json(404, {"ok": False, **_m("history.srv_gone", "历史记录不存在或已被清理")})
+        else:
+            self._json(200, {"ok": True, "row": row})
+
+    def _history_group(self, hid):
+        if HIST is None:
+            self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+        else:
+            self._json(200, HIST.group(hid))
+
+    def _history_diff(self, u):
+        if HIST is None:
+            self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+            return
+        q = parse_qs(u.query)
+        aid = (q.get("a") or [None])[0]
+        bid = (q.get("b") or [None])[0]
+        if not aid or not bid:
+            self._json(400, {"ok": False,
+                "msg": "需提供 a 与 b 两个版本 id（/api/history/diff?a=<id>&b=<id>）",
+                "msgKey": "history.srv_need_ab"})
+            return
+        try:
+            d = HIST.diff(aid, bid)
+        except Exception as e:
+            self._json(500, {"ok": False, **_m("history.diff_calc_fail", "diff 计算失败：{err}", err=str(e))})
+            return
+        if not d.get("ok"):
+            self._json(404 if d.get("which") else 400, d)
+            return
+        self._json(200, d)
+
+    def _get_config_routes(self, u):
+        if u.path == API_CONFIG:
             # 配置中心：返回持久化配置 + 预设元数据（模型开发商/控制台链接）
             # T05688：附带内置/生效更新源，供界面展示「留空时实际用哪个地址」
             cfg = load_config()
-            return self._json(200, {"ok": True, "config": cfg, "providers": PROVIDERS,
-                                    "update_source": _update_source_info()})
+            self._json(200, {"ok": True, "config": cfg, "providers": PROVIDERS,
+                             "update_source": _update_source_info()})
+            return True
         if u.path == "/api/config/models":
-            # 获取可用模型列表：优先用已存 key 调 /models；失败回退预设清单
-            cfg = load_config()
-            lst = PROVIDERS.get(cfg["provider"], {}).get("models", [])
-            api = cfg["llm"].get("api") or ""
-            key = cfg["llm"].get("key") or ""
-            try:
-                if api and key:
-                    url = chat_completions_url(api).replace(CHAT_SUFFIX, "/models")
-                    req = Request(url, method="GET", headers={"Authorization": AUTH_BEARER + key})
-                    with urlopen(req, timeout=15) as r:
-                        data = json.loads(r.read().decode("utf-8"))
-                    ids = [m.get("id") for m in data.get("data", []) if m.get("id")]
-                    if ids:
-                        lst = ids
-            except Exception:
-                pass  # 拉取失败时静默回退预设清单，避免连接测试/模型获取因网络而 500
-            return self._json(200, {"ok": True, "models": lst, "provider": cfg["provider"]})
+            self._json(200, self._available_models())
+            return True
         if u.path == "/api/app-info":
-            return self._json(200, {"ok": True, "version": APP_VERSION})
+            self._json(200, {"ok": True, "version": APP_VERSION})
+            return True
         if u.path == "/api/jobs/running":
             # T01835：桌面壳关闭窗口前查询运行中长任务（生成/补算、更新包下载、AI 识别）
-            return self._json(200, running_jobs())
+            self._json(200, running_jobs())
+            return True
         if u.path == "/api/update/check":
-            return self._json(200, check_update())
+            self._json(200, check_update())
+            return True
         if u.path == "/api/update/progress":
-            return self._json(200, {"ok": True, **_UPDATE_STATE, "file": UPDATE_FILE.exists()})
+            self._json(200, {"ok": True, **_UPDATE_STATE, "file": UPDATE_FILE.exists()})
+            return True
         if u.path == "/api/context":
             # 返回已配置的项目上下文目录与当前渲染摘要，供配置中心回显
             cfg = load_config()
-            return self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", ""),
-                                    "rendered": _load_project_context()})
+            self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", ""),
+                             "rendered": _load_project_context()})
+            return True
+        return False
+
+    @staticmethod
+    def _available_models():
+        """获取可用模型列表：优先用已存 key 调 /models；失败回退预设清单。"""
+        cfg = load_config()
+        lst = PROVIDERS.get(cfg["provider"], {}).get("models", [])
+        api = cfg["llm"].get("api") or ""
+        key = cfg["llm"].get("key") or ""
+        try:
+            if api and key:
+                url = chat_completions_url(api).replace(CHAT_SUFFIX, "/models")
+                req = Request(url, method="GET", headers={"Authorization": AUTH_BEARER + key})
+                with urlopen(req, timeout=15) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                ids = [m.get("id") for m in data.get("data", []) if m.get("id")]
+                if ids:
+                    lst = ids
+        except Exception:
+            pass  # 拉取失败时静默回退预设清单，避免连接测试/模型获取因网络而 500
+        return {"ok": True, "models": lst, "provider": cfg["provider"]}
+
+    def _get_file_routes(self, u):
+        if u.path.startswith("/static/"):
+            # 前端静态资源（引导脚本等）：仅允许 frontend 根下的 .js/.css，防目录穿越
+            self._serve_static(u)
+            return True
         if u.path == "/api/download":
             q = parse_qs(u.query)
             s = (q.get("s") or [""])[0]
@@ -1621,587 +1765,738 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
             else:
                 self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
-        elif u.path.startswith("/static/"):
-            # 前端静态资源（引导脚本等）：仅允许 frontend 根下的 .js/.css，防目录穿越
-            name = u.path[len("/static/"):]
-            fext = os.path.splitext(name)[1].lower()
-            if fext not in (".js", ".css") or "/" in name or "\\" in name or ".." in name:
-                return self._json(404, {"ok": False, **_m("srv.static_missing", "静态资源不存在")})
-            p = _RES / "frontend" / name
-            if not p.exists():
-                p = _APP_ROOT / "frontend" / name
-            if not p.exists():
-                return self._json(404, {"ok": False, **_m("srv.static_missing", "静态资源不存在")})
-            data = p.read_bytes()
-            self.send_response(200)
-            self._cors()
-            self.send_header("Content-Type",
-                             "application/javascript" if fext == ".js" else "text/css; charset=utf-8")
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            self.send_header("Pragma", "no-cache")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-        else:
-            self._json(404, {"ok": False})
+            return True
+        return False
+
+    def _serve_static(self, u):
+        name = u.path[len("/static/"):]
+        fext = os.path.splitext(name)[1].lower()
+        if fext not in (".js", ".css") or "/" in name or "\\" in name or ".." in name:
+            self._json(404, {"ok": False, **_m("srv.static_missing", "静态资源不存在")})
+            return
+        p = _RES / "frontend" / name
+        if not p.exists():
+            p = _APP_ROOT / "frontend" / name
+        if not p.exists():
+            self._json(404, {"ok": False, **_m("srv.static_missing", "静态资源不存在")})
+            return
+        data = p.read_bytes()
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type",
+                         "application/javascript" if fext == ".js" else "text/css; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        for route in (self._get_page_routes, self._get_export_routes, self._get_history_routes,
+                      self._get_config_routes, self._get_file_routes):
+            if route(u):
+                return
+        self._json(404, {"ok": False})
+
+    # ---- do_POST 路由表（python:S3776）----
+    # 原 do_POST 是 555 行单函数、认知复杂度 278：25 个端点的业务处理全挤在一条 if 链里。
+    # 改为「路径 → 处理器」查表，处理器只处理自身端点；异常兜底与原实现一致（统一 500），
+    # 未命中路径仍返回 404。分发顺序与原 if 链一致，行为不变。
+    POST_ROUTES = {
+        "/api/recognize": "_post_recognize",
+        API_CONFIG: "_post_config",
+        "/api/story/push": "_post_story_push",
+        "/api/templates/save": "_post_template_save",
+        "/api/data/import": "_post_data_import",
+        "/api/rates/save": "_post_rates_save",
+        "/api/rules/save": "_post_rules_save",
+        "/api/context/config": "_post_context_config",
+        "/api/update/config": "_post_update_config",
+        "/api/update/download": "_post_update_download",
+        "/api/update/install": "_post_update_install",
+        "/api/context/analyze": "_post_context_analyze",
+        "/api/pickdir": "_post_pickdir",
+        "/api/config/test": "_post_config_test",
+        "/api/generate": "_post_generate",
+        "/api/pert/project": "_post_pert_project",
+        "/api/pert/projects": "_post_pert_projects",
+        "/api/pert/list": "_post_pert_list",
+        "/api/pert/item": "_post_pert_item",
+        "/api/pert/delete": "_post_pert_delete",
+        "/api/pert/import": "_post_pert_import",
+        "/api/pert/import/confirm": "_post_pert_import_confirm",
+        "/api/pert/generate": "_post_pert_generate",
+        "/api/pert/savecfg": "_post_pert_savecfg",
+    }
+    HISTORY_DELETE_RE = re.compile(r"^/api/history/([0-9a-f]{32})$")
+    # 处理器入参形态：2=(path, raw)，1=(raw)，0=()；未列出的默认 1
+    POST_ARITY = {
+        "_post_recognize": 2, "_post_generate": 2, "_post_update_install": 0,
+        "_post_pickdir": 0, "_post_pert_projects": 0,
+    }
 
     def do_POST(self):
-        u = urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length) if length else b""
+        path = urlparse(self.path).path
         try:
-            if u.path == "/api/recognize":
-              # T01835：识别是同步长请求（LLM 启用时可达数十秒），用计数器让
-              # /api/jobs/running 能感知「AI 识别进行中」；with 保证异常/返回都递减。
-              with _recognize_active():
-                payload = json.loads(raw.decode("utf-8"))
-                try:
-                    V.check_recognize(payload)
-                except V.VErr as e:
-                    SLOG.warn("api", "validate_fail", path=u.path, field=e.field)
-                    body = {"ok": False, "msg": e.msg, "field": e.field}
-                    if getattr(e, "key", None): body["msgKey"] = e.key
-                    if getattr(e, "vargs", None): body["msgArgs"] = e.vargs
-                    return self._json(400, body)
-                name = payload.get("name", UPLOAD_FALLBACK_NAME)
-                b64 = payload.get("b64", "")
-                src = _upload_path(name)
-                src.write_bytes(base64.b64decode(b64))
-                params = payload.get("params", {}) or {}
-                # 大模型配置优先级：请求内传入 > 配置中心已保存值 > 默认(关闭)
-                saved = load_config()["llm"]
-                llm = {
-                    "enabled": bool(params.get("llm_enabled", saved.get("enabled", False))),
-                    "api": (params.get("llm_api") or saved.get("api") or "").strip(),
-                    "model": (params.get("llm_model") or saved.get("model") or "").strip(),
-                    "key": (params.get("llm_key") or saved.get("key") or "").strip(),
-                }
-                items, llm_meta = recognize_doc(src, llm if llm["enabled"] else None)
-                summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items])
-                # 前端在配置中心勾选后，识别请求不再携带 params，此时回退已保存配置；meta 里标记来源
-                source = "request" if ("llm_enabled" in params or params.get("enabled")) else "saved"
-                return self._json(200, {"ok": True, "items": items, "summary": summary,
-                                        "meta": {"params_received": params, "llm": llm_meta, "llm_source": source,
-                                                 "llm_enabled_effective": llm["enabled"],
-                                                 "rules": (RULES.version() if RULES else {"rules_version": 0})}})
-
-            if u.path == "/api/config":
-                # 保存配置中心（大模型）配置
-                payload = json.loads(raw.decode("utf-8"))
-                cfg = save_config(payload)
-                return self._json(200, {"ok": True, "config": cfg})
-
-            if u.path.startswith("/api/history/"):
-                # M1：删除历史记录（不删成品文件）
-                m_del = re.match(r"^/api/history/([0-9a-f]{32})$", u.path)
-                if m_del:
-                    if HIST is None:
-                        return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
-                    return self._json(200, {"ok": HIST.delete(m_del.group(1))})
-
-            if u.path == "/api/story/push":
-                # M9/FR-2.6：用户故事推送（GitHub Issues 适配器；token 用户自配；失败返回明确错误供重试）
-                pl = json.loads(raw.decode("utf-8"))
-                token, repo, stories = pl.get("token") or "", pl.get("repo") or "", pl.get("stories") or []
-                if not (token and repo and isinstance(stories, list) and stories):
-                    return self._json(400, {"ok": False, **_m("eco.srv_need_fields", "需要 token/repo/stories"), "field": "token|repo|stories"})
-                ok_n, errs = 0, []
-                for st in stories[:50]:
-                    try:
-                        rq = urllib.request.Request(
-                            f"https://api.github.com/repos/{repo}/issues",
-                            data=json.dumps({"title": st.get("title", "用户故事"),
-                                             "body": st.get("body", "")}).encode(),
-                            headers={"Content-Type": "application/json",
-                                     "Authorization": f"Bearer {token}",
-                                     "Accept": "application/vnd.github+json"}, method="POST")
-                        with urllib.request.urlopen(rq, timeout=20) as resp:
-                            ok_n += 1
-                    except Exception as e:
-                        errs.append(f"{st.get('title','?')}: {e}")
-                if errs and ok_n == 0:
-                    SLOG.warn("story", "push_fail", errs=errs[:3])
-                    return self._json(502, {"ok": False, **_m("eco.srv_push_fail", "推送失败：{detail}", detail="；".join(errs[:3])), "retry": True})
-                SLOG.info("story", "push", ok=ok_n, fail=len(errs))
-                return self._json(200, {"ok": True, "pushed": ok_n, "errors": errs})
-            if u.path == "/api/templates/save":
-                # M9/FR-2.8：上传新母版 + 口径说明（列映射由向导记录进 meta）
-                pl = json.loads(raw.decode("utf-8"))
-                name, b64, note, mapping = pl.get("name"), pl.get("b64"), pl.get("note", ""), pl.get("mapping", {})
-                if not name or not re.fullmatch(r"[\w一-鿿-]{1,40}", name):
-                    return self._json(400, {"ok": False, **_m("eco.srv_bad_tpl_name", "母版名称非法"), "field": "name"})
-                tdir = APP_DATA / DIR_TEMPLATES
-                os.makedirs(tdir, exist_ok=True)
-                (tdir / f"{name}.xlsx").write_bytes(base64.b64decode(b64))
-                (tdir / f"{name}.meta.json").write_text(
-                    json.dumps({"note": note, "mapping": mapping}, ensure_ascii=False, indent=1), encoding="utf-8")
-                SLOG.info("templates", "saved", name=name)
-                return self._json(200, {"ok": True})
-            if u.path == "/api/data/import":
-                # M8/FR-5.6：导入全部数据（校验 schema；导入前自动备份）
-                import tempfile
-                tmp = APP_DATA / "imports"
-                os.makedirs(tmp, exist_ok=True)
-                fp = tmp / f"import_{int(time.time())}.zip"
-                fp.write_bytes(raw)
-                try:
-                    names = _dk.import_zip(fp, APP_DATA)
-                except _dk.VImportErr as e:
-                    SLOG.warn("datakeeper", "data_import_fail", err=str(e))
-                    return self._json(400, {"ok": False, **_m("eco.srv_import_fail", "导入失败：{detail}", detail=str(e))})
-                try:
-                    if RULES is not None:
-                        RULES.reload()
-                    if RATES is not None:
-                        RATES.reload()
-                except Exception as _e:
-                    SLOG.warn("datakeeper", "reload_after_import_fail", err=str(_e))
-                SLOG.info("datakeeper", "data_import", files=len(names))
-                return self._json(200, {"ok": True, "files": names})
-            if u.path == "/api/rates/save":
-                # M6/FR-2.3：费率与基准整表保存（负数/超界 400）
-                if RATES is None:
-                    return self._json(503, {"ok": False, **_m("rates.srv_unavail", "费率版本表不可用")})
-                doc = json.loads(raw.decode("utf-8"))
-                try:
-                    v = RATES.save(doc)
-                except Exception as e:
-                    return self._json(400, {"ok": False, **_m("rates.invalid_data", "费率数据非法：{err}", err=str(e))})
-                return self._json(200, {"ok": True, "version": v})
-            if u.path == "/api/rules/save":
-                # M3/FR-2.9：整表保存（配置中心编辑 / 驳回流沉淀），坏正则返回 400
-                if RULES is None:
-                    return self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
-                payload = json.loads(raw.decode("utf-8"))
-                rules = payload.get("rules")
-                if not isinstance(rules, list):
-                    return self._json(400, {"ok": False, **_m("rules.srv_not_array", "rules 必须为数组")})
-                try:
-                    v = RULES.save(rules)
-                except Exception as e:
-                    return self._json(400, {"ok": False, **_m("rules.validate_fail", "规则校验失败：{err}", err=str(e))})
-                return self._json(200, {"ok": True, "version": v})
-
-            if u.path == "/api/context/config":
-                # 保存项目上下文目录配置
-                payload = json.loads(raw.decode("utf-8"))
-                cfg = save_config({"context_dir": payload.get("context_dir", "")})
-                return self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", "")})
-
-            if u.path == "/api/update/config":
-                # 保存更新源 URL 配置（空=内置 GitHub Releases，off=停用，其他=自定义）
-                payload = json.loads(raw.decode("utf-8"))
-                cfg = save_config({"update_url": payload.get("update_url", "")})
-                info = _update_source_info()
-                return self._json(200, {"ok": True, "update_url": cfg.get("update_url", ""),
-                                        "default_url": info["default_url"], "effective_url": info["url"]})
-
-            if u.path == "/api/update/download":
-                payload = json.loads(raw.decode("utf-8"))
-                return self._json(200, start_update_download(payload.get("url")))
-
-            if u.path == "/api/update/install":
-                return self._json(200, install_update())
-
-            if u.path == "/api/context/analyze":
-                # 手动触发扫描/重算项目上下文；入参可选覆盖目录（不落盘）
-                payload = json.loads(raw.decode("utf-8"))
-                target = (payload.get("context_dir") or "").strip() or None
-                text = _load_project_context(target, force=True)
-                if not text:
-                    return self._json(400, {"ok": False, **_m("config.srv_dir_unavail", "目录未配置或不可用")})
-                return self._json(200, {"ok": True, "rendered": text})
-
-            if u.path == "/api/pickdir":
-                # 弹出本机原生目录选择对话框，返回绝对路径供前端自动填入输入框。
-                # Windows 走 PowerShell + WinForms FolderBrowserDialog（exe 自包含必可用，
-                # 不依赖 tkinter —— 本机/打包环境可能缺 tkinter 纯 Python 包）；其他平台回退 tkinter。
-                picked = ""
-                try:
-                    if os.name == "nt":
-                        import subprocess
-                        ps = ("Add-Type -AssemblyName System.Windows.Forms; "
-                              "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
-                              "$f.Description = '选择项目上下文目录'; "
-                              "if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)"
-                              "{[Console]::Out.Write($f.SelectedPath)}")
-                        proc = subprocess.run(
-                            ["powershell", "-STA", "-NoProfile", "-NonInteractive", "-Command", ps],
-                            capture_output=True, text=True, timeout=300,
-                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-                        picked = (proc.stdout or "").strip()
-                    else:
-                        import tkinter as tk
-                        from tkinter import filedialog
-                        tk_root = tk.Tk()
-                        tk_root.withdraw()
-                        tk_root.attributes("-topmost", True)
-                        picked = filedialog.askdirectory(title="选择项目上下文目录") or ""
-                        tk_root.destroy()
-                except Exception as e:
-                    return self._json(500, {"ok": False, **_m("config.open_dir_fail", "打开目录选择失败：{err}", err=f"{type(e).__name__}: {e}")})
-                picked = picked.strip()
-                if not picked:
-                    return self._json(200, {"ok": False, "canceled": True, **_m("config.srv_dir_cancel", "未选择目录")})
-                return self._json(200, {"ok": True, "path": os.path.normpath(picked)})
-
-            if u.path == "/api/config/test":
-                # 连接测试：用请求内（未落盘）或已存配置对 chat/completions 发一条最小请求
-                payload = json.loads(raw.decode("utf-8"))
-                llm_in = payload.get("llm") or {}
-                saved = load_config()["llm"]
-                api = (llm_in.get("api") or saved.get("api") or "").strip()
-                model = (llm_in.get("model") or saved.get("model") or "").strip()
-                key = (llm_in.get("key") or saved.get("key") or "").strip()
-                if not (api and key):
-                    return self._json(400, {"ok": False, **_m("config.srv_need_api", "请先填写 API 地址与 Key")})
-                url = chat_completions_url(api)
-                body = json.dumps({
-                    "model": model or "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": "ping"}],
-                    "max_tokens": 1,
-                }, ensure_ascii=False).encode("utf-8")
-                t0 = time.time()
-                try:
-                    req = Request(url, data=body, method="POST", headers={
-                        "Content-Type": "application/json", "Authorization": AUTH_BEARER + key})
-                    with urlopen(req, timeout=20) as r:
-                        resp = json.loads(r.read().decode("utf-8"))
-                    dt = round(time.time() - t0, 2)
-                    choice = (resp.get("choices") or [{}])[0]
-                    snippet = (choice.get("message") or {}).get("content") or ""
-                    return self._json(200, {"ok": True, "elapsed_s": dt, "model": model,
-                                            "reply": snippet.strip()[:100]})
-                except HTTPError as e:
-                    return self._json(502, {"ok": False, **_m("config.srv_ai_http_error", "HTTP {code}：{detail}", code=e.code, detail=e.read().decode('utf-8', errors='ignore')[:200])})
-                except Exception as e:
-                    return self._json(502, {"ok": False, **_m("config.srv_ai_net_error", "网络错误：{err}", err=f"{type(e).__name__}: {e}")})
-
-            if u.path == "/api/generate":
-                payload = json.loads(raw.decode("utf-8"))
-                job = str(payload.get("job") or "")
-                _gen_progress_set(job, 5, "正在校验并整理候选清单…")
-                its = payload.get("items", [])
-                # 母版明细区已支持动态扩容（T00606）；此处仅保留防呆上限，拦截明显异常的超大批量
-                if len(its) > 2000:
-                    _gen_progress_set(job, 100, "生成失败", done=True,
-                                      error=f"确认功能点 {len(its)} 条超出合理范围（>2000）")
-                    return self._json(400, {"ok": False, **_m("gen.over_range", "确认功能点 {n} 条超出合理范围（>2000），请核对后再生成。",
-                        n=len(its))})
-                items = []
-                for i, it in enumerate(its, 1):
-                    r = dict(it); r["seq"] = i
-                    r.setdefault("m1", ""); r.setdefault("m2", ""); r.setdefault("m3", ""); r.setdefault("m4", "")
-                    r.setdefault("reuse", "中"); r.setdefault("modify", "新增")
-                    items.append(r)
-                method = payload.get("method", "估算功能点")
-                # T00866：生成文件名 = 需求标题 + "-工作量评估.xlsx"。需求标题取前端上传文档
-                # 文件名基名（title），无则回退时间戳。净化 Windows 非法字符，保留原意不截断。
-                req_title = (payload.get("title") or "").strip()
-                if req_title:
-                    # 剥离需求文档扩展名（前端已处理，这里兜底），再净化 Windows 非法字符
-                    req_title = re.sub(r"\.(docx|doc|pdf|xlsx|xls)\s*$", "", req_title, flags=re.I).strip()
-                    sid = re.sub(r'[\\/:*?"<>|]', "", req_title) + "-工作量评估.xlsx"
-                else:
-                    sid = f"output_{int(time.time())}.xlsx"
-                out = OUTDIR / sid
-                _gen_progress_set(job, 15, "正在生成成品表（填充母版明细）…")
-                recalc_info = {}      # T00931：由 run_from_json 回填公式缓存重算的调度结果
-                recalc_mode, recalc_timeout = _recalc_settings()   # T00962：配置中心 > 环境变量 > 默认
-                try:
-                    try:
-                        V.check_generate(payload)
-                    except V.VErr as e:
-                        SLOG.warn("api", "validate_fail", path=u.path, field=e.field)
-                        body = {"ok": False, "msg": e.msg, "field": e.field}
-                        if getattr(e, "key", None): body["msgKey"] = e.key
-                        if getattr(e, "vargs", None): body["msgArgs"] = e.vargs
-                        return self._json(400, body)
-                    _tpl = payload.get("template") or None
-                    if _tpl:
-                        _tp = Path(_tpl)
-                        _tpl = str(_tp) if _tp.exists() and str(_tp.resolve()).startswith(str(APP_DATA.resolve()) + os.sep + "templates") and _tp.suffix == ".xlsx" else None
-                    _gb_state = payload.get("gb_state") if isinstance(payload.get("gb_state"), dict) else None
-                    _brand = (payload.get("brand_color") or "").strip()
-                    _brand = _brand if re.fullmatch(r"#[0-9a-fA-F]{6}", _brand) else None   # FR-4.2：非法色值后端拒绝（回退母版默认）
-                    with _title_lock(str(out)):
-                        g.run_from_json(items, str(out), method=method,
-                                        brand_color=_brand, gb_state=_gb_state, template=_tpl,
-                                        on_progress=lambda p, s: _gen_progress_set(job, p, s),
-                                        recalc_info=recalc_info,
-                                        recalc_mode=recalc_mode, recalc_timeout=recalc_timeout,
-                                        on_recalc_state=lambda st: _gen_recalc_set(job, st))
-                    _gen_progress_set(job, 96, "正在汇总评估结果…")
-                    summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items], method=method)
-                except Exception as e:
-                    # 失败也落到进度表：前端据此把进度条转红并给出错误文案
-                    _gen_progress_set(job, 100, "生成失败", done=True, error=str(e))
-                    raise
-                recalc_mode = recalc_info.get("mode", "off")
-                _gen_progress_set(job, 100, "生成完成（公式缓存后台补算中）" if recalc_mode == "async" else "生成完成",
-                                  done=True)
-                # M1/FR-1.1：估算历史落库（失败仅记日志，不影响生成响应）
-                # T01497：engine.summary 只产出 ufp/us，历史列表的「功能点 / US 合计」
-                # 两列与 FR-FE05 diff 的 ΔUS 都读 summary.count / summary.us_total，
-                # 缺失会让这两处恒显「—」。此处按落库明细补齐两个派生字段（不改引擎口径）。
-                history_id = None
-                if HIST is not None:
-                    try:
-                        hist_items = (payload.get("hist_items") or items)
-                        hist_summary = dict(summary or {})
-                        hist_summary.setdefault("count", len(hist_items))
-                        if "us_total" not in hist_summary:
-                            # total_us 对非法 type/reuse/modify 会抛错，脏明细不应连带历史落库失败
-                            try:
-                                hist_summary["us_total"] = engine.total_us(hist_items, method)
-                            except Exception:
-                                hist_summary["us_total"] = summary.get("us") if isinstance(summary, dict) else None
-                        hist = HIST.insert(
-                            title=req_title or sid, source_name=payload.get("source_name") or None,
-                            method=method,
-                            params={"llm_enabled": payload.get("llm_enabled"),
-                                    "fee_version": payload.get("fee_version"),
-                                    "recalc_mode": recalc_mode},
-                            items=hist_items,
-                            summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)
-                        history_id = hist["id"]
-                    except Exception as e:
-                        print(f"[history] 落库失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
-                return self._json(200, {"ok": True, "sid": sid, "items": items, "summary": summary,
-                                        "recalc": recalc_mode, "history_id": history_id})
-
-            # ---------------- PERT 三点估算 ----------------
-            if u.path == "/api/pert/project":
-                payload = json.loads(raw.decode("utf-8"))
-                name = (payload.get("name") or "").strip()
-                if not name:
-                    return self._json(400, {"ok": False, **_m("pert.srv_name_empty", "项目名称不能为空")})
-                con = _pert_connect()
-                # 重名拦截：同名人天估算项目不应重复创建，避免前端选择歧义
-                dup = con.execute("SELECT id FROM projects WHERE name=? LIMIT 1", (name,)).fetchone()
-                if dup:
-                    con.close()
-                    return self._json(409, {"ok": False, **_m("pert.srv_name_dup", "项目名已存在"), "project_id": dup[0]})
-                cur = con.execute("INSERT INTO projects(name,estimator) VALUES(?,?)",
-                                  (name, (payload.get("estimator") or "").strip()))
-                pid = cur.lastrowid
-                con.commit(); con.close()
-                return self._json(200, {"ok": True, "project_id": pid})
-
-            if u.path == "/api/pert/projects":
-                # 列出所有项目（按创建时间倒序），供前端下拉选择
-                con = _pert_connect()
-                rows = con.execute(
-                    "SELECT id,name,estimator,created_at FROM projects ORDER BY id DESC").fetchall()
-                con.close()
-                return self._json(200, {"ok": True, "projects": [
-                    {"id": r[0], "name": r[1], "estimator": r[2], "created_at": r[3]} for r in rows]})
-
-            if u.path == "/api/pert/list":
-                payload = json.loads(raw.decode("utf-8"))
-                pid = payload.get("project_id")
-                con = _pert_connect()
-                p = con.execute("SELECT id,name,estimator FROM projects WHERE id=?", (pid,)).fetchone()
-                if not p:
-                    con.close()
-                    return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
-                items = con.execute(
-                    "SELECT id,phase,system,module,desc,optimistic,most_likely,pessimistic "
-                    "FROM pert_items WHERE project_id=? ORDER BY id", (pid,)).fetchall()
-                summary = pert.summarize(con, pid)
-                con.close()
-                return self._json(200, {
-                    "ok": True, "project": {"id": p[0], "name": p[1], "estimator": p[2]},
-                    "items": [{"id": i[0], "phase": i[1], "system": i[2], "module": i[3],
-                               "desc": i[4], "optimistic": i[5], "most_likely": i[6],
-                               "pessimistic": i[7]} for i in items],
-                    "summary": summary})
-
-            if u.path == "/api/pert/item":
-                payload = json.loads(raw.decode("utf-8"))
-                pid = payload.get("project_id")
-                it_id = payload.get("id")
-                # 三值非负且（全部填齐时）满足 乐观 ≤ 最可能 ≤ 悲观；允许留空逐步补填
-                def _num(v):
-                    if v is None or isinstance(v, str) and not v.strip():
-                        return None
-                    return float(v)
-                o, m, p = _num(payload.get("optimistic")), _num(payload.get("most_likely")), _num(payload.get("pessimistic"))
-                try:
-                    if (o is not None and o < 0) or (m is not None and m < 0) or (p is not None and p < 0):
-                        return self._json(400, {"ok": False, **_m("pert.srv_neg", "估算值不能为负")})
-                    if o is not None and m is not None and p is not None and not (o <= m <= p):
-                        return self._json(400, {"ok": False, **_m("pert.srv_order", "需满足 乐观 ≤ 最可能 ≤ 悲观")})
-                except (TypeError, ValueError):
-                    return self._json(400, {"ok": False, **_m("pert.srv_numeric", "乐观/最可能/悲观必须为数字")})
-                phase = payload.get("phase") or "开发"
-                if phase not in pert.PHASES:
-                    return self._json(400, {"ok": False, "msgKey": "pert.srv_phase_invalid", "msgArgs": {"phases": ','.join(pert.PHASES)},
-                            "msg": f"阶段须为: {','.join(pert.PHASES)}"})
-                desc = (payload.get("desc") or "").strip()
-                if not desc:
-                    return self._json(400, {"ok": False, **_m("pert.srv_desc_empty", "功能描述不能为空")})
-                fields = (pid, phase, payload.get("system", ""),
-                          payload.get("module", ""), desc, o, m, p)
-                con = _pert_connect()
-                if it_id:
-                    con.execute("UPDATE pert_items SET phase=?,system=?,module=?,desc=?,"
-                                "optimistic=?,most_likely=?,pessimistic=? WHERE id=?",
-                                fields[1:] + (it_id,))
-                    con.commit(); con.close()
-                    return self._json(200, {"ok": True, "id": it_id})
-                cur = con.execute("INSERT INTO pert_items(project_id,phase,system,module,desc,"
-                                  "optimistic,most_likely,pessimistic) VALUES(?,?,?,?,?,?,?,?)", fields)
-                new_id = cur.lastrowid
-                con.commit(); con.close()
-                return self._json(200, {"ok": True, "id": new_id})
-
-            if u.path == "/api/pert/delete":
-                payload = json.loads(raw.decode("utf-8"))
-                con = _pert_connect()
-                con.execute("DELETE FROM pert_items WHERE id=? AND project_id=?",
-                            (payload.get("id"), payload.get("project_id")))
-                con.commit(); con.close()
-                return self._json(200, {"ok": True})
-
-            if u.path == "/api/pert/import":
-                # 需求输入 → PERT 候选估算项：支持 docx/pdf/自由文本(text)。
-                # LLM 拆分+评估三值；docx 可回退本地识别(仅描述)，pdf/自由文本需大模型。
-                payload = json.loads(raw.decode("utf-8"))
-                pid = payload.get("project_id")
-                if not pid:
-                    return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
-                b64 = payload.get("b64")
-                text = (payload.get("text") or "").strip()
-                saved = load_config()["llm"]
-                # T00928：前端可携带配置中心「启用大模型辅助识别」开关的当前状态；
-                # 未携带（null/缺省）时回退已保存配置，保持原有行为不变。
-                llm_flag = payload.get("llm_enabled")
-                llm_on = bool(saved.get("enabled")) if llm_flag is None else bool(llm_flag)
-                llm_ready = bool(llm_on and saved.get("api") and saved.get("key"))
-                excerpt = None
-                src_path = None
-                fname = payload.get("name", UPLOAD_FALLBACK_NAME)
-                if text:
-                    excerpt = text  # 自由文本直取
-                elif b64:
-                    src_path = _upload_path(fname)
-                    src_path.write_bytes(base64.b64decode(b64))
-                else:
-                    return self._json(400, {"ok": False, **_m("pert.srv_need_input", "请提供需求文本或上传 Word/PDF")})
-                is_docx = bool(src_path) and os.path.splitext(str(src_path))[-1].lower() == ".docx"
-                source = "local"
-                candidates = []
-                if llm_ready:
-                    if excerpt is None:
-                        excerpt = _file_to_excerpt(src_path, max_chars=6000)
-                    try:
-                        candidates = _llm_pert_split(saved["api"], saved["model"], saved["key"], excerpt or "")
-                        source = "llm" if candidates else "local"
-                    except Exception as e:
-                        candidates = []
-                        print(f"[pert/import] LLM 拆分失败，回退本地: {type(e).__name__}: {e}")
-                # 仅 docx 可在无大模型时走本地识别；pdf/自由文本无大模型则无法拆分
-                if not candidates and is_docx:
-                    items, _ = recognize_doc(src_path, None)
-                    candidates = [{"desc": (it.get("desc") or it.get("count_item") or "").strip(),
-                                   "phase": "开发", "system": it.get("system", ""),
-                                   "optimistic": None, "most_likely": None, "pessimistic": None}
-                                  for it in items if (it.get("desc") or it.get("count_item") or "").strip()]
-                if not candidates:
-                    if llm_on and not (saved.get("api") and saved.get("key")):
-                        mkey, msg = ("work.srv_llm_not_configured",
-                         "配置中心已启用大模型辅助识别，但 API 地址 / Key 未填全，无法进行 AI 拆分；docx 已回退本地识别。")
-                    else:
-                        mkey, msg = ("work.srv_llm_no_cands",
-                                     "未能拆分出候选功能点。若为自由文本/PDF，请先在配置中心启用大模型；docx 已回退本地识别。")
-                    return self._json(400, {"ok": False, "msg": msg, "msgKey": mkey})
-                # T01573：由文档导入成功时，记住需求文档基名（去扩展名），供成品表命名
-                if src_path:
-                    _c = _pert_connect()
-                    pert.set_doc_name(_c, pid, os.path.splitext(os.path.basename(str(fname)))[0])
-                    _c.close()
-                return self._json(200, {"ok": True, "candidates": candidates, "source": source,
-                                        "llm_enabled_effective": llm_on})
-
-            if u.path == "/api/pert/import/confirm":
-                # 把前端勾选确认的候选批量写入估算项，三值可空由用户后续补。
-                # 启用大模型（replace=true）时先清空该项目既有明细，避免 AI 拆分与人工录入并存造成重复。
-                payload = json.loads(raw.decode("utf-8"))
-                pid = payload.get("project_id")
-                con = _pert_connect()
-                if not con.execute("SELECT 1 FROM projects WHERE id=?", (pid,)).fetchone():
-                    con.close()
-                    return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
-                if payload.get("replace"):
-                    con.execute("DELETE FROM pert_items WHERE project_id=?", (pid,))
-                added = 0; seen = set()
-                for it in payload.get("items", []) or []:
-                    desc = (it.get("desc") or "").strip()
-                    if not desc or desc in seen:
-                        continue
-                    seen.add(desc)
-                    if con.execute("SELECT 1 FROM pert_items WHERE project_id=? AND desc=?",
-                                   (pid, desc)).fetchone():
-                        continue
-                    phase = it.get("phase") or "开发"
-                    if phase not in pert.PHASES:
-                        phase = "开发"
-                    try:
-                        o, m, p = float(it.get("optimistic")), float(it.get("most_likely")), float(it.get("pessimistic"))
-                    except (TypeError, ValueError):
-                        o = m = p = None
-                    if not (o is not None and 0 <= o <= m <= p):
-                        o = m = p = None
-                    con.execute("INSERT INTO pert_items(project_id,phase,system,module,desc,optimistic,most_likely,pessimistic) "
-                                "VALUES(?,?,?,?,?,?,?,?)",
-                                (pid, phase, it.get("system", ""), it.get("module", ""), desc, o, m, p))
-                    added += 1
-                con.commit(); con.close()
-                return self._json(200, {"ok": True, "added": added})
-
-            if u.path == "/api/pert/generate":
-                payload = json.loads(raw.decode("utf-8"))
-                pid = payload.get("project_id")
-                con = _pert_connect()
-                name, estimator, rows = pert.rows_for_generate(con, pid)
-                if not rows:
-                    con.close()
-                    return self._json(400, {"ok": False, **_m("pert.srv_no_items", "无估算项，请先录入")})
-                # 生成前校验三值完整性：任一为空则 H 列公式会 #DIV/0!，先提示补全
-                missing = [r.get("desc") or "未命名项" for r in rows
-                           if r.get("optimistic") is None or r.get("most_likely") is None or r.get("pessimistic") is None]
-                if missing:
-                    con.close()
-                    shown = "、".join(missing[:3])
-                    return self._json(400, {"ok": False,
-                                            "msgKey": "pert.unfilled_triplets",
-                                            "msgArgs": {"n": len(missing), "shown": shown},
-                                            "msg": f"存在 {len(missing)} 项未填三值，请先补全：{shown}{'…' if len(missing) > 3 else ''}"})
-                # T01573：成品表文件名 = 需求文档基名（缺则项目名）+ "-PERT估算-V{自增版本}.xlsx"
-                _dn = con.execute("SELECT doc_name FROM projects WHERE id=?", (pid,)).fetchone()
-                base = (_dn[0] if _dn and _dn[0] else "") or name
-                base = re.sub(r"\.(docx|doc|pdf|xlsx|xls)\s*$", "", str(base).strip(), flags=re.I)
-                base_clean = re.sub(r'[\\/:*?"<>|]', "", base)      # 净化 Windows 非法字符（与 IFPUG 同口径）
-                ver_no = pert.next_gen_version(con, pid)            # 自增并落库：V1、V2…
-                sid = f"{base_clean}-PERT估算-V{ver_no}.xlsx"
-                out = OUTDIR / sid
-                pert.generate(name, rows, str(out),
-                              est_date=payload.get("est_date"), estimator=estimator,
-                              tpl=payload.get("tpl"))
-                summary = pert.summarize(con, pid)
-                con.close()
-                return self._json(200, {"ok": True, "sid": sid, "summary": summary})
-
-            if u.path == "/api/pert/savecfg":
-                payload = json.loads(raw.decode("utf-8"))
-                con = _pert_connect()
-                pert.save_cfg(con, payload.get("project_id"), payload.get("cfg", {}))
-                con.close()
-                return self._json(200, {"ok": True, "cfg": pert.load_cfg(sqlite3.connect(_PERT_DB), payload.get("project_id"))})
+            if self._dispatch_post(path, raw):
+                return
         except Exception as e:
-            return self._json(500, {"ok": False, **_m("srv.internal_error", "服务器内部错误：{detail}", detail=str(e))})
+            self._json(500, {"ok": False, **_m("srv.internal_error", "服务器内部错误：{detail}", detail=str(e))})
+            return
         self._json(404, {"ok": False})
+
+    def _dispatch_post(self, path, raw):
+        name = self.POST_ROUTES.get(path)
+        if name:
+            self._call_post(name, path, raw)
+            return True
+        if self.HISTORY_DELETE_RE.match(path):
+            self._post_history_delete(path)
+            return True
+        return False
+
+    def _call_post(self, name, path, raw):
+        """按处理器声明的最小入参形态调用（用不到的入参不出现在签名里）。"""
+        handler = getattr(self, name)
+        arity = self.POST_ARITY.get(name, 1)
+        if arity == 2:
+            handler(path, raw)
+        elif arity == 1:
+            handler(raw)
+        else:
+            handler()
+
+    # ---------------- 识别 / 配置 ----------------
+    def _post_recognize(self, path, raw):
+        # T01835：识别是同步长请求（LLM 启用时可达数十秒），用计数器让
+        # /api/jobs/running 能感知「AI 识别进行中」；with 保证异常/返回都递减。
+        with _recognize_active():
+            payload = json.loads(raw.decode("utf-8"))
+            try:
+                V.check_recognize(payload)
+            except V.VErr as e:
+                SLOG.warn("api", "validate_fail", path=path, field=e.field)
+                body = {"ok": False, "msg": e.msg, "field": e.field}
+                if getattr(e, "key", None): body["msgKey"] = e.key
+                if getattr(e, "vargs", None): body["msgArgs"] = e.vargs
+                return self._json(400, body)
+            name = payload.get("name", UPLOAD_FALLBACK_NAME)
+            b64 = payload.get("b64", "")
+            src = _upload_path(name)
+            src.write_bytes(base64.b64decode(b64))
+            params = payload.get("params", {}) or {}
+            # 大模型配置优先级：请求内传入 > 配置中心已保存值 > 默认(关闭)
+            saved = load_config()["llm"]
+            llm = {
+                "enabled": bool(params.get("llm_enabled", saved.get("enabled", False))),
+                "api": (params.get("llm_api") or saved.get("api") or "").strip(),
+                "model": (params.get("llm_model") or saved.get("model") or "").strip(),
+                "key": (params.get("llm_key") or saved.get("key") or "").strip(),
+            }
+            items, llm_meta = recognize_doc(src, llm if llm["enabled"] else None)
+            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items])
+            # 前端在配置中心勾选后，识别请求不再携带 params，此时回退已保存配置；meta 里标记来源
+            source = "request" if ("llm_enabled" in params or params.get("enabled")) else "saved"
+            return self._json(200, {"ok": True, "items": items, "summary": summary,
+                                    "meta": {"params_received": params, "llm": llm_meta, "llm_source": source,
+                                             "llm_enabled_effective": llm["enabled"],
+                                             "rules": (RULES.version() if RULES else {"rules_version": 0})}})
+
+    def _post_config(self, raw):
+        # 保存配置中心（大模型）配置
+        cfg = save_config(json.loads(raw.decode("utf-8")))
+        return self._json(200, {"ok": True, "config": cfg})
+
+    def _post_history_delete(self, path):
+        # M1：删除历史记录（不删成品文件）
+        if HIST is None:
+            return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+        return self._json(200, {"ok": HIST.delete(self.HISTORY_DELETE_RE.match(path).group(1))})
+
+    # ---------------- 生态（用户故事 / 母版 / 数据导入导出） ----------------
+    def _post_story_push(self, raw):
+        # M9/FR-2.6：用户故事推送（GitHub Issues 适配器；token 用户自配；失败返回明确错误供重试）
+        pl = json.loads(raw.decode("utf-8"))
+        token, repo, stories = pl.get("token") or "", pl.get("repo") or "", pl.get("stories") or []
+        if not (token and repo and isinstance(stories, list) and stories):
+            return self._json(400, {"ok": False, **_m("eco.srv_need_fields", "需要 token/repo/stories"), "field": "token|repo|stories"})
+        ok_n, errs = 0, []
+        for st in stories[:50]:
+            try:
+                rq = urllib.request.Request(
+                    f"https://api.github.com/repos/{repo}/issues",
+                    data=json.dumps({"title": st.get("title", "用户故事"),
+                                     "body": st.get("body", "")}).encode(),
+                    headers={"Content-Type": MIME_JSON,
+                             "Authorization": f"Bearer {token}",
+                             "Accept": "application/vnd.github+json"}, method="POST")
+                with urllib.request.urlopen(rq, timeout=20):
+                    ok_n += 1
+            except Exception as e:
+                errs.append(f"{st.get('title','?')}: {e}")
+        if errs and ok_n == 0:
+            SLOG.warn("story", "push_fail", errs=errs[:3])
+            return self._json(502, {"ok": False, **_m("eco.srv_push_fail", "推送失败：{detail}", detail="；".join(errs[:3])), "retry": True})
+        SLOG.info("story", "push", ok=ok_n, fail=len(errs))
+        return self._json(200, {"ok": True, "pushed": ok_n, "errors": errs})
+
+    def _post_template_save(self, raw):
+        # M9/FR-2.8：上传新母版 + 口径说明（列映射由向导记录进 meta）
+        pl = json.loads(raw.decode("utf-8"))
+        name, b64, note, mapping = pl.get("name"), pl.get("b64"), pl.get("note", ""), pl.get("mapping", {})
+        if not name or not re.fullmatch(r"[\w一-鿿-]{1,40}", name):
+            return self._json(400, {"ok": False, **_m("eco.srv_bad_tpl_name", "母版名称非法"), "field": "name"})
+        tdir = APP_DATA / DIR_TEMPLATES
+        os.makedirs(tdir, exist_ok=True)
+        (tdir / f"{name}.xlsx").write_bytes(base64.b64decode(b64))
+        (tdir / f"{name}.meta.json").write_text(
+            json.dumps({"note": note, "mapping": mapping}, ensure_ascii=False, indent=1), encoding="utf-8")
+        SLOG.info("templates", "saved", name=name)
+        return self._json(200, {"ok": True})
+
+    def _post_data_import(self, raw):
+        # M8/FR-5.6：导入全部数据（校验 schema；导入前自动备份）
+        tmp = APP_DATA / "imports"
+        os.makedirs(tmp, exist_ok=True)
+        fp = tmp / f"import_{int(time.time())}.zip"
+        fp.write_bytes(raw)
+        try:
+            names = _dk.import_zip(fp, APP_DATA)
+        except _dk.VImportErr as e:
+            SLOG.warn("datakeeper", "data_import_fail", err=str(e))
+            return self._json(400, {"ok": False, **_m("eco.srv_import_fail", "导入失败：{detail}", detail=str(e))})
+        self._reload_tables_after_import()
+        SLOG.info("datakeeper", "data_import", files=len(names))
+        return self._json(200, {"ok": True, "files": names})
+
+    @staticmethod
+    def _reload_tables_after_import():
+        """导入后刷新规则/费率表；单表失败只记日志，不影响导入结果。"""
+        try:
+            if RULES is not None:
+                RULES.reload()
+            if RATES is not None:
+                RATES.reload()
+        except Exception as _e:
+            SLOG.warn("datakeeper", "reload_after_import_fail", err=str(_e))
+
+    # ---------------- 费率 / 规则 / 配置项 ----------------
+    def _post_rates_save(self, raw):
+        # M6/FR-2.3：费率与基准整表保存（负数/超界 400）
+        if RATES is None:
+            return self._json(503, {"ok": False, **_m("rates.srv_unavail", "费率版本表不可用")})
+        try:
+            v = RATES.save(json.loads(raw.decode("utf-8")))
+        except Exception as e:
+            return self._json(400, {"ok": False, **_m("rates.invalid_data", "费率数据非法：{err}", err=str(e))})
+        return self._json(200, {"ok": True, "version": v})
+
+    def _post_rules_save(self, raw):
+        # M3/FR-2.9：整表保存（配置中心编辑 / 驳回流沉淀），坏正则返回 400
+        if RULES is None:
+            return self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
+        rules = json.loads(raw.decode("utf-8")).get("rules")
+        if not isinstance(rules, list):
+            return self._json(400, {"ok": False, **_m("rules.srv_not_array", "rules 必须为数组")})
+        try:
+            v = RULES.save(rules)
+        except Exception as e:
+            return self._json(400, {"ok": False, **_m("rules.validate_fail", "规则校验失败：{err}", err=str(e))})
+        return self._json(200, {"ok": True, "version": v})
+
+    def _post_context_config(self, raw):
+        # 保存项目上下文目录配置
+        cfg = save_config({"context_dir": json.loads(raw.decode("utf-8")).get("context_dir", "")})
+        return self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", "")})
+
+    def _post_update_config(self, raw):
+        # 保存更新源 URL 配置（空=内置 GitHub Releases，off=停用，其他=自定义）
+        cfg = save_config({"update_url": json.loads(raw.decode("utf-8")).get("update_url", "")})
+        info = _update_source_info()
+        return self._json(200, {"ok": True, "update_url": cfg.get("update_url", ""),
+                                "default_url": info["default_url"], "effective_url": info["url"]})
+
+    def _post_update_download(self, raw):
+        return self._json(200, start_update_download(json.loads(raw.decode("utf-8")).get("url")))
+
+    def _post_update_install(self):
+        return self._json(200, install_update())
+
+    def _post_context_analyze(self, raw):
+        # 手动触发扫描/重算项目上下文；入参可选覆盖目录（不落盘）
+        target = (json.loads(raw.decode("utf-8")).get("context_dir") or "").strip() or None
+        text = _load_project_context(target, force=True)
+        if not text:
+            return self._json(400, {"ok": False, **_m("config.srv_dir_unavail", "目录未配置或不可用")})
+        return self._json(200, {"ok": True, "rendered": text})
+
+    # ---------------- 本机目录选择 / 大模型连接测试 ----------------
+    def _post_pickdir(self):
+        # 弹出本机原生目录选择对话框，返回绝对路径供前端自动填入输入框。
+        # Windows 走 PowerShell + WinForms FolderBrowserDialog（exe 自包含必可用，
+        # 不依赖 tkinter —— 本机/打包环境可能缺 tkinter 纯 Python 包）；其他平台回退 tkinter。
+        try:
+            picked = self._pick_directory()
+        except Exception as e:
+            return self._json(500, {"ok": False, **_m("config.open_dir_fail", "打开目录选择失败：{err}", err=f"{type(e).__name__}: {e}")})
+        picked = picked.strip()
+        if not picked:
+            return self._json(200, {"ok": False, "canceled": True, **_m("config.srv_dir_cancel", "未选择目录")})
+        return self._json(200, {"ok": True, "path": os.path.normpath(picked)})
+
+    @staticmethod
+    def _pick_directory():
+        """调系统目录选择对话框，返回所选路径（取消时为空串）。"""
+        if os.name != "nt":
+            import tkinter as tk
+            from tkinter import filedialog
+            tk_root = tk.Tk()
+            try:
+                tk_root.withdraw()
+                tk_root.attributes("-topmost", True)
+                return filedialog.askdirectory(title="选择项目上下文目录") or ""
+            finally:
+                tk_root.destroy()
+        ps = ("Add-Type -AssemblyName System.Windows.Forms; "
+              "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
+              "$f.Description = '选择项目上下文目录'; "
+              "if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)"
+              "{[Console]::Out.Write($f.SelectedPath)}")
+        proc = subprocess.run(
+            ["powershell", "-STA", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, text=True, timeout=300,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return (proc.stdout or "").strip()
+
+    def _post_config_test(self, raw):
+        # 连接测试：用请求内（未落盘）或已存配置对 chat/completions 发一条最小请求
+        llm_in = json.loads(raw.decode("utf-8")).get("llm") or {}
+        saved = load_config()["llm"]
+        api = (llm_in.get("api") or saved.get("api") or "").strip()
+        model = (llm_in.get("model") or saved.get("model") or "").strip()
+        key = (llm_in.get("key") or saved.get("key") or "").strip()
+        if not (api and key):
+            return self._json(400, {"ok": False, **_m("config.srv_need_api", "请先填写 API 地址与 Key")})
+        url = chat_completions_url(api)
+        body = json.dumps({
+            "model": model or "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        }, ensure_ascii=False).encode("utf-8")
+        t0 = time.time()
+        try:
+            req = Request(url, data=body, method="POST", headers={
+                "Content-Type": MIME_JSON, "Authorization": AUTH_BEARER + key})
+            with urlopen(req, timeout=20) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+            dt = round(time.time() - t0, 2)
+            choice = (resp.get("choices") or [{}])[0]
+            snippet = (choice.get("message") or {}).get("content") or ""
+            return self._json(200, {"ok": True, "elapsed_s": dt, "model": model,
+                                    "reply": snippet.strip()[:100]})
+        except HTTPError as e:
+            return self._json(502, {"ok": False, **_m("config.srv_ai_http_error", "HTTP {code}：{detail}", code=e.code, detail=e.read().decode('utf-8', errors='ignore')[:200])})
+        except Exception as e:
+            return self._json(502, {"ok": False, **_m("config.srv_ai_net_error", "网络错误：{err}", err=f"{type(e).__name__}: {e}")})
+
+    # ---------------- 成品表生成（IFPUG） ----------------
+    def _post_generate(self, path, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        job = str(payload.get("job") or "")
+        _gen_progress_set(job, 5, "正在校验并整理候选清单…")
+        its = payload.get("items", [])
+        # 母版明细区已支持动态扩容（T00606）；此处仅保留防呆上限，拦截明显异常的超大批量
+        if len(its) > 2000:
+            _gen_progress_set(job, 100, "生成失败", done=True,
+                              error=f"确认功能点 {len(its)} 条超出合理范围（>2000）")
+            return self._json(400, {"ok": False, **_m("gen.over_range", "确认功能点 {n} 条超出合理范围（>2000），请核对后再生成。",
+                n=len(its))})
+        items = self._normalize_gen_items(its)
+        method = payload.get("method", "估算功能点")
+        # T00866：生成文件名 = 需求标题 + "-工作量评估.xlsx"。需求标题取前端上传文档
+        # 文件名基名（title），无则回退时间戳。净化 Windows 非法字符，保留原意不截断。
+        req_title, sid = self._gen_output_name(payload)
+        out = OUTDIR / sid
+        _gen_progress_set(job, 15, "正在生成成品表（填充母版明细）…")
+        recalc_info = {}      # T00931：由 run_from_json 回填公式缓存重算的调度结果
+        recalc_mode, recalc_timeout = _recalc_settings()   # T00962：配置中心 > 环境变量 > 默认
+        try:
+            try:
+                V.check_generate(payload)
+            except V.VErr as e:
+                SLOG.warn("api", "validate_fail", path=path, field=e.field)
+                body = {"ok": False, "msg": e.msg, "field": e.field}
+                if getattr(e, "key", None): body["msgKey"] = e.key
+                if getattr(e, "vargs", None): body["msgArgs"] = e.vargs
+                return self._json(400, body)
+            _tpl = self._resolve_template_arg(payload.get("template"))
+            _gb_state = payload.get("gb_state") if isinstance(payload.get("gb_state"), dict) else None
+            _brand = (payload.get("brand_color") or "").strip()
+            _brand = _brand if re.fullmatch(r"#[0-9a-fA-F]{6}", _brand) else None   # FR-4.2：非法色值后端拒绝（回退母版默认）
+            with _title_lock(str(out)):
+                g.run_from_json(items, str(out), method=method,
+                                brand_color=_brand, gb_state=_gb_state, template=_tpl,
+                                on_progress=lambda p, s: _gen_progress_set(job, p, s),
+                                recalc_info=recalc_info,
+                                recalc_mode=recalc_mode, recalc_timeout=recalc_timeout,
+                                on_recalc_state=lambda st: _gen_recalc_set(job, st))
+            _gen_progress_set(job, 96, "正在汇总评估结果…")
+            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items], method=method)
+        except Exception as e:
+            # 失败也落到进度表：前端据此把进度条转红并给出错误文案
+            _gen_progress_set(job, 100, "生成失败", done=True, error=str(e))
+            raise
+        recalc_mode = recalc_info.get("mode", "off")
+        _gen_progress_set(job, 100, "生成完成（公式缓存后台补算中）" if recalc_mode == "async" else "生成完成",
+                          done=True)
+        history_id = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode)
+        return self._json(200, {"ok": True, "sid": sid, "items": items, "summary": summary,
+                                "recalc": recalc_mode, "history_id": history_id})
+
+    @staticmethod
+    def _normalize_gen_items(its):
+        """补齐明细字段默认值并回填序号。"""
+        items = []
+        for i, it in enumerate(its, 1):
+            r = dict(it)
+            r["seq"] = i
+            r.setdefault("m1", ""); r.setdefault("m2", ""); r.setdefault("m3", ""); r.setdefault("m4", "")
+            r.setdefault("reuse", "中"); r.setdefault("modify", "新增")
+            items.append(r)
+        return items
+
+    @staticmethod
+    def _resolve_template_arg(tpl):
+        """自定义母版只接受 APP_DATA/templates 下的 .xlsx（防目录穿越），否则回退内置母版。"""
+        if not tpl:
+            return None
+        tp = Path(tpl)
+        in_tpl_dir = str(tp.resolve()).startswith(str(APP_DATA.resolve()) + os.sep + "templates")
+        return str(tp) if tp.exists() and in_tpl_dir and tp.suffix == ".xlsx" else None
+
+    @staticmethod
+    def _gen_output_name(payload):
+        """生成文件名（净化 Windows 非法字符），返回 (需求标题, sid)。"""
+        req_title = (payload.get("title") or "").strip()
+        if not req_title:
+            return "", f"output_{int(time.time())}.xlsx"
+        # 剥离需求文档扩展名（前端已处理，这里兜底），再净化 Windows 非法字符
+        req_title = re.sub(r"\.(docx|doc|pdf|xlsx|xls)\s*$", "", req_title, flags=re.I).strip()
+        return req_title, re.sub(r'[\\/:*?"<>|]', "", req_title) + "-工作量评估.xlsx"
+
+    @staticmethod
+    def _insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode):
+        """M1/FR-1.1：估算历史落库（失败仅记日志，不影响生成响应）。
+
+        T01497：engine.summary 只产出 ufp/us，历史列表的「功能点 / US 合计」
+        两列与 FR-FE05 diff 的 ΔUS 都读 summary.count / summary.us_total，
+        缺失会让这两处恒显「—」。此处按落库明细补齐两个派生字段（不改引擎口径）。
+        """
+        if HIST is None:
+            return None
+        try:
+            hist_items = (payload.get("hist_items") or items)
+            hist_summary = dict(summary or {})
+            hist_summary.setdefault("count", len(hist_items))
+            if "us_total" not in hist_summary:
+                # total_us 对非法 type/reuse/modify 会抛错，脏明细不应连带历史落库失败
+                try:
+                    hist_summary["us_total"] = engine.total_us(hist_items, method)
+                except Exception:
+                    hist_summary["us_total"] = summary.get("us") if isinstance(summary, dict) else None
+            hist = HIST.insert(
+                title=req_title or sid, source_name=payload.get("source_name") or None,
+                method=method,
+                params={"llm_enabled": payload.get("llm_enabled"),
+                        "fee_version": payload.get("fee_version"),
+                        "recalc_mode": recalc_mode},
+                items=hist_items,
+                summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)
+            return hist["id"]
+        except Exception as e:
+            print(f"[history] 落库失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
+            return None
+
+    # ---------------- PERT 三点估算 ----------------
+    def _post_pert_project(self, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        name = (payload.get("name") or "").strip()
+        if not name:
+            return self._json(400, {"ok": False, **_m("pert.srv_name_empty", "项目名称不能为空")})
+        con = _pert_connect()
+        try:
+            # 重名拦截：同名人天估算项目不应重复创建，避免前端选择歧义
+            dup = con.execute("SELECT id FROM projects WHERE name=? LIMIT 1", (name,)).fetchone()
+            if dup:
+                return self._json(409, {"ok": False, **_m("pert.srv_name_dup", "项目名已存在"), "project_id": dup[0]})
+            cur = con.execute("INSERT INTO projects(name,estimator) VALUES(?,?)",
+                              (name, (payload.get("estimator") or "").strip()))
+            con.commit()
+            return self._json(200, {"ok": True, "project_id": cur.lastrowid})
+        finally:
+            con.close()
+
+    def _post_pert_projects(self):
+        # 列出所有项目（按创建时间倒序），供前端下拉选择
+        con = _pert_connect()
+        try:
+            rows = con.execute(
+                "SELECT id,name,estimator,created_at FROM projects ORDER BY id DESC").fetchall()
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, "projects": [
+            {"id": r[0], "name": r[1], "estimator": r[2], "created_at": r[3]} for r in rows]})
+
+    def _post_pert_list(self, raw):
+        pid = json.loads(raw.decode("utf-8")).get("project_id")
+        con = _pert_connect()
+        try:
+            p = con.execute("SELECT id,name,estimator FROM projects WHERE id=?", (pid,)).fetchone()
+            if not p:
+                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+            items = con.execute(
+                "SELECT id,phase,system,module,desc,optimistic,most_likely,pessimistic "
+                "FROM pert_items WHERE project_id=? ORDER BY id", (pid,)).fetchall()
+            summary = pert.summarize(con, pid)
+        finally:
+            con.close()
+        return self._json(200, {
+            "ok": True, "project": {"id": p[0], "name": p[1], "estimator": p[2]},
+            "items": [{"id": i[0], "phase": i[1], "system": i[2], "module": i[3],
+                       "desc": i[4], "optimistic": i[5], "most_likely": i[6],
+                       "pessimistic": i[7]} for i in items],
+            "summary": summary})
+
+    @staticmethod
+    def _num_or_none(v):
+        """三值入参归一：空/缺省返回 None，其余转 float（非法值抛出交给调用方）。"""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return float(v)
+
+    def _post_pert_item(self, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        it_id = payload.get("id")
+        # 三值非负且（全部填齐时）满足 乐观 ≤ 最可能 ≤ 悲观；允许留空逐步补填
+        o, m, p = (self._num_or_none(payload.get("optimistic")),
+                   self._num_or_none(payload.get("most_likely")),
+                   self._num_or_none(payload.get("pessimistic")))
+        try:
+            if (o is not None and o < 0) or (m is not None and m < 0) or (p is not None and p < 0):
+                return self._json(400, {"ok": False, **_m("pert.srv_neg", "估算值不能为负")})
+            if o is not None and m is not None and p is not None and not (o <= m <= p):
+                return self._json(400, {"ok": False, **_m("pert.srv_order", "需满足 乐观 ≤ 最可能 ≤ 悲观")})
+        except (TypeError, ValueError):
+            return self._json(400, {"ok": False, **_m("pert.srv_numeric", "乐观/最可能/悲观必须为数字")})
+        phase = payload.get("phase") or "开发"
+        if phase not in pert.PHASES:
+            return self._json(400, {"ok": False, "msgKey": "pert.srv_phase_invalid", "msgArgs": {"phases": ','.join(pert.PHASES)},
+                    "msg": f"阶段须为: {','.join(pert.PHASES)}"})
+        desc = (payload.get("desc") or "").strip()
+        if not desc:
+            return self._json(400, {"ok": False, **_m("pert.srv_desc_empty", "功能描述不能为空")})
+        fields = (pid, phase, payload.get("system", ""),
+                  payload.get("module", ""), desc, o, m, p)
+        con = _pert_connect()
+        try:
+            if it_id:
+                con.execute("UPDATE pert_items SET phase=?,system=?,module=?,desc=?,"
+                            "optimistic=?,most_likely=?,pessimistic=? WHERE id=?",
+                            fields[1:] + (it_id,))
+                con.commit()
+                return self._json(200, {"ok": True, "id": it_id})
+            cur = con.execute("INSERT INTO pert_items(project_id,phase,system,module,desc,"
+                              "optimistic,most_likely,pessimistic) VALUES(?,?,?,?,?,?,?,?)", fields)
+            con.commit()
+            return self._json(200, {"ok": True, "id": cur.lastrowid})
+        finally:
+            con.close()
+
+    def _post_pert_delete(self, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        con = _pert_connect()
+        try:
+            con.execute("DELETE FROM pert_items WHERE id=? AND project_id=?",
+                        (payload.get("id"), payload.get("project_id")))
+            con.commit()
+        finally:
+            con.close()
+        return self._json(200, {"ok": True})
+
+    def _post_pert_import(self, raw):
+        # 需求输入 → PERT 候选估算项：支持 docx/pdf/自由文本(text)。
+        # LLM 拆分+评估三值；docx 可回退本地识别(仅描述)，pdf/自由文本需大模型。
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        if not pid:
+            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+        saved = load_config()["llm"]
+        # T00928：前端可携带配置中心「启用大模型辅助识别」开关的当前状态；
+        # 未携带（null/缺省）时回退已保存配置，保持原有行为不变。
+        llm_flag = payload.get("llm_enabled")
+        llm_on = bool(saved.get("enabled")) if llm_flag is None else bool(llm_flag)
+        llm_ready = bool(llm_on and saved.get("api") and saved.get("key"))
+        src_path, excerpt = self._pert_import_source(payload)
+        if src_path is None and excerpt is None:
+            return self._json(400, {"ok": False, **_m("pert.srv_need_input", "请提供需求文本或上传 Word/PDF")})
+        candidates, source = self._pert_import_candidates(saved, llm_ready, src_path, excerpt)
+        if not candidates:
+            mkey, msg = self._pert_import_empty_msg(llm_on, saved)
+            return self._json(400, {"ok": False, "msg": msg, "msgKey": mkey})
+        # T01573：由文档导入成功时，记住需求文档基名（去扩展名），供成品表命名
+        if src_path:
+            _c = _pert_connect()
+            try:
+                pert.set_doc_name(_c, pid, os.path.splitext(os.path.basename(str(payload.get("name", UPLOAD_FALLBACK_NAME))))[0])
+            finally:
+                _c.close()
+        return self._json(200, {"ok": True, "candidates": candidates, "source": source,
+                                "llm_enabled_effective": llm_on})
+
+    @staticmethod
+    def _pert_import_source(payload):
+        """落盘上传件或直取自由文本；两者皆无返回 (None, None)。"""
+        text = (payload.get("text") or "").strip()
+        if text:
+            return None, text  # 自由文本直取
+        b64 = payload.get("b64")
+        if not b64:
+            return None, None
+        src_path = _upload_path(payload.get("name", UPLOAD_FALLBACK_NAME))
+        src_path.write_bytes(base64.b64decode(b64))
+        return src_path, None
+
+    def _pert_import_candidates(self, saved, llm_ready, src_path, excerpt):
+        """返回 (候选列表, 来源标记)。大模型不可用/失败时回退 docx 本地识别。"""
+        candidates = []
+        source = "local"
+        if llm_ready:
+            if excerpt is None:
+                excerpt = _file_to_excerpt(src_path, max_chars=6000)
+            try:
+                candidates = _llm_pert_split(saved["api"], saved["model"], saved["key"], excerpt or "")
+                source = "llm" if candidates else "local"
+            except Exception as e:
+                candidates = []
+                print(f"[pert/import] LLM 拆分失败，回退本地: {type(e).__name__}: {e}")
+        # 仅 docx 可在无大模型时走本地识别；pdf/自由文本无大模型则无法拆分
+        is_docx = bool(src_path) and os.path.splitext(str(src_path))[-1].lower() == ".docx"
+        if not candidates and is_docx:
+            items, _ = recognize_doc(src_path, None)
+            candidates = [{"desc": (it.get("desc") or it.get("count_item") or "").strip(),
+                           "phase": "开发", "system": it.get("system", ""),
+                           "optimistic": None, "most_likely": None, "pessimistic": None}
+                          for it in items if (it.get("desc") or it.get("count_item") or "").strip()]
+        return candidates, source
+
+    @staticmethod
+    def _pert_import_empty_msg(llm_on, saved):
+        """无候选时的错误文案（区分「未配置」与「拆不出」）。"""
+        if llm_on and not (saved.get("api") and saved.get("key")):
+            return ("work.srv_llm_not_configured",
+                    "配置中心已启用大模型辅助识别，但 API 地址 / Key 未填全，无法进行 AI 拆分；docx 已回退本地识别。")
+        return ("work.srv_llm_no_cands",
+                "未能拆分出候选功能点。若为自由文本/PDF，请先在配置中心启用大模型；docx 已回退本地识别。")
+
+    def _post_pert_import_confirm(self, raw):
+        # 把前端勾选确认的候选批量写入估算项，三值可空由用户后续补。
+        # 启用大模型（replace=true）时先清空该项目既有明细，避免 AI 拆分与人工录入并存造成重复。
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        con = _pert_connect()
+        try:
+            if not con.execute("SELECT 1 FROM projects WHERE id=?", (pid,)).fetchone():
+                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+            if payload.get("replace"):
+                con.execute("DELETE FROM pert_items WHERE project_id=?", (pid,))
+            added = self._insert_pert_candidates(con, pid, payload.get("items", []) or [])
+            con.commit()
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, "added": added})
+
+    @staticmethod
+    def _insert_pert_candidates(con, pid, items):
+        """批量写入候选（去重；非法三值置空），返回写入条数。"""
+        added = 0
+        seen = set()
+        for it in items:
+            desc = (it.get("desc") or "").strip()
+            if not desc or desc in seen:
+                continue
+            seen.add(desc)
+            if con.execute("SELECT 1 FROM pert_items WHERE project_id=? AND desc=?",
+                           (pid, desc)).fetchone():
+                continue
+            phase = it.get("phase") or "开发"
+            if phase not in pert.PHASES:
+                phase = "开发"
+            try:
+                o, m, p = float(it.get("optimistic")), float(it.get("most_likely")), float(it.get("pessimistic"))
+            except (TypeError, ValueError):
+                o = m = p = None
+            if not (o is not None and 0 <= o <= m <= p):
+                o = m = p = None
+            con.execute("INSERT INTO pert_items(project_id,phase,system,module,desc,optimistic,most_likely,pessimistic) "
+                        "VALUES(?,?,?,?,?,?,?,?)",
+                        (pid, phase, it.get("system", ""), it.get("module", ""), desc, o, m, p))
+            added += 1
+        return added
+
+    def _post_pert_generate(self, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        con = _pert_connect()
+        try:
+            name, estimator, rows = pert.rows_for_generate(con, pid)
+            if not rows:
+                return self._json(400, {"ok": False, **_m("pert.srv_no_items", "无估算项，请先录入")})
+            missing = self._pert_missing_items(rows)
+            if missing:
+                shown = "、".join(missing[:3])
+                return self._json(400, {"ok": False,
+                                        "msgKey": "pert.unfilled_triplets",
+                                        "msgArgs": {"n": len(missing), "shown": shown},
+                                        "msg": f"存在 {len(missing)} 项未填三值，请先补全：{shown}{'…' if len(missing) > 3 else ''}"})
+            # T01573：成品表文件名 = 需求文档基名（缺则项目名）+ "-PERT估算-V{自增版本}.xlsx"
+            sid = self._pert_output_name(con, pid, name)
+            out = OUTDIR / sid
+            pert.generate(name, rows, str(out),
+                          est_date=payload.get("est_date"), estimator=estimator,
+                          tpl=payload.get("tpl"))
+            summary = pert.summarize(con, pid)
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, "sid": sid, "summary": summary})
+
+    @staticmethod
+    def _pert_missing_items(rows):
+        """生成前校验三值完整性：任一为空则 H 列公式会 #DIV/0!，先提示补全。"""
+        return [r.get("desc") or "未命名项" for r in rows
+                if r.get("optimistic") is None or r.get("most_likely") is None or r.get("pessimistic") is None]
+
+    @staticmethod
+    def _pert_output_name(con, pid, name):
+        """成品表文件名（净化非法字符 + 自增版本号）。"""
+        _dn = con.execute("SELECT doc_name FROM projects WHERE id=?", (pid,)).fetchone()
+        base = (_dn[0] if _dn and _dn[0] else "") or name
+        base = re.sub(r"\.(docx|doc|pdf|xlsx|xls)\s*$", "", str(base).strip(), flags=re.I)
+        base_clean = re.sub(r'[\\/:*?"<>|]', "", base)      # 净化 Windows 非法字符（与 IFPUG 同口径）
+        ver_no = pert.next_gen_version(con, pid)            # 自增并落库：V1、V2…
+        return f"{base_clean}-PERT估算-V{ver_no}.xlsx"
+
+    def _post_pert_savecfg(self, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        con = _pert_connect()
+        try:
+            pert.save_cfg(con, payload.get("project_id"), payload.get("cfg", {}))
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, "cfg": pert.load_cfg(sqlite3.connect(_PERT_DB), payload.get("project_id"))})
 
     def log_message(self, *a):
         pass  # 静默：BaseHTTPRequestHandler 每请求默认打一行日志，会刷屏

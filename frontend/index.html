@@ -1725,37 +1725,49 @@ async function bindConfig(){
     providers=res.providers||{};
     llmCfg=res.config||{llm:LLM_DEFAULTS,provider:"openai"};
     llmCfg.llm=llmCfg.llm||LLM_DEFAULTS;
-    // 渲染开发商下拉
-    const sel=$("#providerSel");
-    sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
-    sel.value=llmCfg.provider;
-    $("#llmSwitch").classList.toggle("on",!!llmCfg.llm.enabled);
-    $("#llmSwitch").setAttribute("aria-checked",llmCfg.llm.enabled?"true":"false");   // FR-UI05：程序化设值同步 aria-checked
-    $("#llmApi").value=llmCfg.llm.api||"";
-    $("#llmModel").value=llmCfg.llm.model||"";
-    $("#llmKey").value=llmCfg.llm.key||"";
-    renderModels(PROVIDERS_DEFAULT_MODELS(llmCfg.provider));
+    renderConfigFields();
     // 回显项目上下文目录配置与已渲染摘要
-    try{
-      const cr=await fetch(API+"/api/context",{method:"GET"});
-      const cj=await cr.json();
-      if($("#ctxDir"))$("#ctxDir").value=cj.context_dir||"";
-      if($("#ctxOut")){$("#ctxOut").textContent=cj.rendered||"";}
-    }catch(e){/* 上下文回显失败不阻塞配置页 */}
-    if($("#updUrl"))$("#updUrl").value=llmCfg.update_url||"";
-    // T05688：留空时在配置中心展示实际生效的内置 GitHub Releases 地址
-    if($("#updDefaultUrl"))$("#updDefaultUrl").textContent=(res.update_source&&res.update_source.default_url)||"";
-    // T00962：回显成品表公式缓存策略（后端缺省 async/120）
-    if($("#recalcMode")){
-      const rc=llmCfg.recalc||{},m=String(rc.mode||"async");
-      if([...$("#recalcMode").options].some(o=>o.value===m))$("#recalcMode").value=m;
-      $("#recalcTimeout").value=(rc.timeout!=null&&rc.timeout!=="")?rc.timeout:120;
-    }
+    await bindContextSection();
+    renderUpdateSection(res);
+    renderRecalcSection();
     window.lucide&&lucide.createIcons();
     // 断点续录：无草稿时以后端已保存值为快照基线；有未提交草稿则按域覆盖恢复
     if(!cfgHasDraft())cfgWriteSnapAll();
     cfgRestoreDraft();
   }catch(e){toast(tf("config.load_failed",{msg:e.message}));}
+}
+/** 渲染大模型配置字段：开发商下拉 + 启用开关 + API/模型/Key。 */
+function renderConfigFields(){
+  const sel=$("#providerSel");
+  sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  sel.value=llmCfg.provider;
+  $("#llmSwitch").classList.toggle("on",!!llmCfg.llm.enabled);
+  $("#llmSwitch").setAttribute("aria-checked",llmCfg.llm.enabled?"true":"false");   // FR-UI05：程序化设值同步 aria-checked
+  $("#llmApi").value=llmCfg.llm.api||"";
+  $("#llmModel").value=llmCfg.llm.model||"";
+  $("#llmKey").value=llmCfg.llm.key||"";
+  renderModels(PROVIDERS_DEFAULT_MODELS(llmCfg.provider));
+}
+/** 回显项目上下文目录与已渲染摘要（失败不阻塞配置页）。 */
+async function bindContextSection(){
+  try{
+    const cr=await fetch(API+"/api/context",{method:"GET"});
+    const cj=await cr.json();
+    if($("#ctxDir"))$("#ctxDir").value=cj.context_dir||"";
+    if($("#ctxOut")){$("#ctxOut").textContent=cj.rendered||"";}
+  }catch(e){/* 上下文回显失败不阻塞配置页 */}
+}
+/** 回显更新源输入框与内置默认地址（T05688：留空时也能看到实际生效的地址）。 */
+function renderUpdateSection(res){
+  if($("#updUrl"))$("#updUrl").value=llmCfg.update_url||"";
+  if($("#updDefaultUrl"))$("#updDefaultUrl").textContent=(res.update_source&&res.update_source.default_url)||"";
+}
+/** T00962：回显成品表公式缓存策略（后端缺省 async/120）。 */
+function renderRecalcSection(){
+  if(!$("#recalcMode"))return;
+  const rc=llmCfg.recalc||{},m=String(rc.mode||"async");
+  if([...$("#recalcMode").options].some(o=>o.value===m))$("#recalcMode").value=m;
+  $("#recalcTimeout").value=(rc.timeout!=null&&rc.timeout!=="")?rc.timeout:120;
 }
 /* ===== 配置中心断点续录与选项记忆恢复 =====
  * 草稿（wl_cfg_draft_v1）：表单变化防抖写入，白名单字段；

@@ -152,7 +152,7 @@ async function sampleOne(i) {
   const found = out.includes('DIALOG=found')
   const swallowed = out.includes('DIALOG_AFTER=yes') // 首按被吞（窗口 700ms 内没消失）
   const landed = out.includes('DIALOG_AFTER=no')     // 首按即接住
-  const settleMatch = out.match(/SETTLE_MS=(-?\d+)/)
+  const settleMatch = /SETTLE_MS=(-?\d+)/.exec(out)
   const settle = settleMatch ? Number(settleMatch[1]) : -1
   killTree(s.child.pid)
   try { s.ws.close() } catch { /* noop */ }

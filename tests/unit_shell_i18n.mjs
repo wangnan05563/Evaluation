@@ -43,8 +43,8 @@ check(`zh 表文案与 T03779 原硬编码逐字一致`,
   Object.entries(ZH_AS_BEFORE).filter(([k, v]) => STRINGS[ZH][k] !== v)
     .map(([k, v]) => `${k}≠${JSON.stringify(v)}(实际 ${JSON.stringify(STRINGS[ZH][k])})`).join(' | '))
 
-const zhKeys = Object.keys(STRINGS[ZH]).sort()
-const enKeys = Object.keys(STRINGS[EN]).sort()
+const zhKeys = Object.keys(STRINGS[ZH]).sort((a, b) => a.localeCompare(b))
+const enKeys = Object.keys(STRINGS[EN]).sort((a, b) => a.localeCompare(b))
 check('中英表键位完全对齐（无缺无多）', zhKeys.join() === enKeys.join(),
   `仅 zh: ${zhKeys.filter(k => !enKeys.includes(k))} 仅 en: ${enKeys.filter(k => !zhKeys.includes(k))}`)
 check('英文文案无残留中文',
@@ -80,17 +80,18 @@ check('缺键回落键名且不抛（关闭决策链不能因缺译文崩）',
 
 // 静态完整性：main.js 里每个 tr('key') 调用点都必须在表内——这是最容易漏的一类回归
 const mainSrc = fs.readFileSync(path.join(ROOT, 'dev-shell', 'main.js'), 'utf8')
-const used = [...mainSrc.matchAll(/\btr\(\s*'([\w]+)'/g)].map(m => m[1])
+const used = [...mainSrc.matchAll(/\btr\(\s*'(\w+)'/g)].map(m => m[1])
 check('main.js 存在 tr() 调用点', used.length >= 12, `发现 ${used.length} 处`)
 check('调用点覆盖到弹框/托盘/任务确认三处',
   ['close_title', 'close_minimize', 'close_exit', 'close_remember', 'tray_show', 'tray_quit', 'jobs_force']
     .every(k => used.includes(k)), used.join(','))
-const uncovered = [...new Set(used)].filter(k => !Object.prototype.hasOwnProperty.call(STRINGS[ZH], k))
+const uncovered = [...new Set(used)].filter(k => !Object.hasOwn(STRINGS[ZH], k))
 check('每个调用点都有中英译文', uncovered.length === 0, uncovered.join(','))
 // 反向：中文文案不得再以字面量出现在 main.js 的界面属性里（title/message/buttons 等）
 const leaked = /(?:title|message|detail|checkboxLabel):\s*'[^']*[\u3400-\u9fff]/.test(mainSrc)
 check('main.js 界面属性里不再残留中文字面量', !leaked, leaked ? '仍有 title/message 直接写中文' : '')
 
 const failed = res.filter(r => !r.ok)
-console.log(`\n==== 壳侧文案表单测 ==== ${failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`}`)
+const summary = failed.length ? `失败 ${failed.length}/${res.length}` : `全绿 ${res.length}/${res.length}`
+console.log(`\n==== 壳侧文案表单测 ==== ${summary}`)
 process.exit(failed.length ? 1 : 0)

@@ -99,7 +99,7 @@ function processCmdline(pid) {
       const m = out.match(/CommandLine=(.+)/)
       return m ? m[1].trim() : ''
     }
-    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim()
+    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ').trim()
   } catch { return null }
 }
 
@@ -130,30 +130,39 @@ function acquireLock() {
         console.error(`无法建立互斥锁（${e.code}）：${LOCK_PATH} —— 拿不到锁就不跑，避免量尺被并发污染`)
         process.exit(2)
       }
-      const holder = readLock()
-      if (holderAlive(holder)) {
-        console.error('另一个探针批次正在跑，本批拒绝启动（并发会让两边的轮次互相吃掉，T04539 实测）：')
-        console.error(`  持有者 pid=${holder.pid} 起始=${holder.startedAt}`)
-        console.error(`  命令行=${holder.cmd}`)
-        console.error(`  轮次=${holder.rounds} 通道=${holder.modes} 报告=${holder.out}`)
-        console.error(`  锁文件=${LOCK_PATH}`)
-        console.error('  确认要明知故犯，加 --allowConcurrent 1（报告会把本批标注为不可信）。')
-        process.exit(2)
-      }
-      // 内容还不完整 = 对方刚 'wx' 建好文件、正在写：这几毫秒里不能当成失效锁抢走
-      if (!holder) {
-        let age = Infinity
-        try { age = Date.now() - fs.statSync(LOCK_PATH).mtimeMs } catch { /* 已被别的等待者清掉 */ }
-        if (age < 5000) {
-          console.error(`锁文件刚被创建（${Math.round(age)}ms 前）但内容不完整，另一个实例正在启动，本批拒绝启动：${LOCK_PATH}`)
-          process.exit(2)
-        }
-      }
-      console.error(`发现失效锁（pid=${holder ? holder.pid : '?'} 已退出或已被别的进程复用），清理后重试：${LOCK_PATH}`)
-      try { fs.unlinkSync(LOCK_PATH) } catch { /* 已被别的等待者清掉 */ }
+      handleLockConflict()
     }
   }
   console.error(`锁竞争两次仍失败，放弃启动：${LOCK_PATH}`)
+  process.exit(2)
+}
+
+/** 锁已存在时的处置：活持有者/刚创建未写完 → 拒绝；否则清失效锁重试。 */
+function handleLockConflict() {
+  const holder = readLock()
+  if (holderAlive(holder)) dieOnLiveHolder(holder)
+  dieIfFreshIncomplete(holder)
+  console.error(`发现失效锁（pid=${holder ? holder.pid : '?'} 已退出或已被别的进程复用），清理后重试：${LOCK_PATH}`)
+  try { fs.unlinkSync(LOCK_PATH) } catch { /* 已被别的等待者清掉 */ }
+}
+
+function dieOnLiveHolder(holder) {
+  console.error('另一个探针批次正在跑，本批拒绝启动（并发会让两边的轮次互相吃掉，T04539 实测）：')
+  console.error(`  持有者 pid=${holder.pid} 起始=${holder.startedAt}`)
+  console.error(`  命令行=${holder.cmd}`)
+  console.error(`  轮次=${holder.rounds} 通道=${holder.modes} 报告=${holder.out}`)
+  console.error(`  锁文件=${LOCK_PATH}`)
+  console.error('  确认要明知故犯，加 --allowConcurrent 1（报告会把本批标注为不可信）。')
+  process.exit(2)
+}
+
+function dieIfFreshIncomplete(holder) {
+  // 内容还不完整 = 对方刚 'wx' 建好文件、正在写：这几毫秒里不能当成失效锁抢走
+  if (holder) return
+  let age = Infinity
+  try { age = Date.now() - fs.statSync(LOCK_PATH).mtimeMs } catch { /* 已被别的等待者清掉 */ }
+  if (age >= 5000) return
+  console.error(`锁文件刚被创建（${Math.round(age)}ms 前）但内容不完整，另一个实例正在启动，本批拒绝启动：${LOCK_PATH}`)
   process.exit(2)
 }
 
@@ -289,136 +298,170 @@ async function runMode(mode, port) {
   const name = MODE_NAMES[mode] || `mode${mode}`
   say(`\n=== 通道 ${mode} ${name} —— ${ROUNDS} 轮 ===`)
   const modeResult = { mode, name, instances: [], error: '' }
-  let inst = await openInstance(mode, 1, port)
+  const inst = await openInstance(mode, 1, port)
   if (inst.error) { say(`  启动失败：${inst.error}`); modeResult.error = inst.error; return modeResult }
   inst.stats.startRound = 1
-  let stats = inst.stats
-  // T04540：一轮下来本进程没落新 shown = 这台实例已经不产数据了，连续这么多轮就换实例。
-  // 判据用 shown 行数而不是「驱动 not_found」：挂着旧弹框时驱动照样 found（找到的是上一轮那个），
-  // 两种形状都会把整批轮次废掉，而 shown=0 是它们共同的因。
-  let deadStreak = 0
-  let modeNoClick = 0
-  const guardDead = async r => {
-    const pid = inst.pid
-    if (stats.shownThisRound > 0) { deadStreak = 0; return true }
-    stats.dead++
-    deadStreak++
-    const parked = parkedDialogs(pid)
-    if (parked > 0) {
-      say(`      本进程有 ${parked} 个弹框停在 await（决策链没走完，__closeBusy 按住后续轮次），先清场`)
-      clearParkedDialog(pid)
-      await waitWindowHidden(pid, 8)
-      if (parkedDialogs(pid) === 0 && deadStreak < RELAUNCH_AFTER) return true
-    }
-    if (deadStreak < RELAUNCH_AFTER || r === ROUNDS) return true
-    say(`  连续 ${deadStreak} 轮本进程不再弹新框，判这台实例已废 —— 重启实例接管剩余轮次`)
-    const next = await openInstance(mode, inst.seq + 1, port + (inst.seq * 10))
-    if (next.error) { say(`  重启失败：${next.error}；停止本通道`); await closeInstance(inst); return false }
-    const oldPid = inst.pid
-    modeResult.instances.push(stats)
-    await closeInstance(inst)
-    inst = next
-    next.stats.startRound = r + 1
-    next.stats.relaunched = true
-    say(`  已换实例 ${next.seq}（pid ${oldPid} → ${next.pid}），从第 ${r + 1} 轮接着跑`)
-    deadStreak = 0
-    return true
-  }
+  const ctx = { mode, name, port, modeResult, inst, stats: inst.stats, deadStreak: 0, modeNoClick: 0 }
 
   for (let r = 1; r <= ROUNDS; r++) {
-    const pid = inst.pid
-    stats = inst.stats
-    stats.shownThisRound = 0
-    if (inst.child.exitCode !== null) { say(`  第 ${r} 轮：应用进程已退出，停止本通道`); break }
-    const before = readStr(SHELL_LOG)
-    // 关闭请求走「只对主窗句柄 PostMessage(WM_CLOSE)」，不走 requestClose(taskkill)：
-    // 本通道每轮都点「最小化到托盘」，主窗 hide() 之后不带 /F 的 taskkill 是静默空操作
-    // （它只给可见顶层窗发 WM_CLOSE）——实测 exp3：主窗隐藏后连续两次 taskkill，
-    // [close-dialog] shown 一直停在 1、2（不增），换 PostMessage(主窗, WM_CLOSE) 则 1→2、2→3 每轮都弹。
-    // 判据不变：仍只看本进程自己的 shown 行，PostMessage 的返回值一律不采信。
-    const closeReq = postCloseToMainWindow(pid)
-    if (closeReq.posted === 0) say(`  第 ${r} 轮：该 pid 名下没有 Chrome_WidgetWin_1 主窗，WM_CLOSE 无处可投（进程可能已退）`)
-    // 一次调用做完「等弹框出现 + 按第 TRAY_BUTTON 个按钮」：驱动内部定位到对话框后立刻按，
-    // 等价于 S17/装包烟测里的真实打法，不给「等一等再按」留余地（T04475 已证延时防不住）。
-    const clickRaw = driveDialog(pid, { button: TRAY_BUTTON, mode, waitMs: 20000, graceMs: GRACE_MS })
-    const click = parseOut(clickRaw.out)
-    const shownNew = ownCount(readStr(SHELL_LOG), '[close-dialog] shown', pid) - ownCount(before, '[close-dialog] shown', pid)
-    stats.shownThisRound = shownNew
-    if (!click.found) {
-      // not_found 有两种形状：弹框压根没弹出来（shown 也没落），或弹出来又被别的东西收掉了。
-      // 用本进程自己的 shown 行分开，别把驱动的手忙脚乱算成产品行为。
-      stats.noDialog++
-      say(`  第 ${r} 轮：驱动没找到对话框（${click.notFound ? 'not_found' : '超时'}）；本进程 shown=${shownNew} —— 不计入吞按率`)
-      if (shownNew > 0) stats.shown += shownNew
-      // 补一次「清场」：not_found 也可能是模态框还挂着、只是这一轮驱动没找着它。
-      // 挂着不清会导致之后每一轮的 WM_CLOSE 都被模态吞掉（实测通道 2 第 2~5 轮全废），
-      // 所以这里按投递判据再试两次把可能存在的弹框收掉，收掉的动作不计入任何通道结论。
-      clearParkedDialog(pid)
-      await waitWindowHidden(pid, 8)
-      if (!await guardDead(r)) break
-      continue
-    }
-    if (!stats.uiainfo && click.uia) stats.uiainfo = click.uia
-    if (shownNew > 0) stats.shown += shownNew
-    // 「这一按被吞」和「这一按压根没发出去」是两件事：后者（UIA 拿不到 pattern）不能算进吞按率，
-    // 否则会把「通道不可用」读成「通道 100% 不可靠」。发不出点击的轮次单列 noClick。
-    if (!click.issued) {
-      stats.noClick++
-      modeNoClick++
-      const landed0 = await waitOwnLine(before, '[close] action=', pid)
-      say(`  第 ${r} 轮：${click.channel} 发不出点击（INVOKE=${click.invoke}）；不计入吞按率；主进程收到决策=${landed0 ? '是' : '否'}`)
-      say(`      RAW: ${clickRaw.out.replace(/\n/g, ' ⏎ ')}`)
-      // 用现行可用的 BM_CLICK 把弹框关掉，保证下一轮从干净状态开始（不计入本通道结论）
-      clearParkedDialog(pid)
-      await waitWindowHidden(pid)
-      if (modeNoClick >= NO_CLICK_STOP) {
-        say(`  通道 ${name}：累计 ${modeNoClick} 轮发不出点击，按 --noClickStop=${NO_CLICK_STOP} 提前收轮`)
-        break
-      }
-      if (!await guardDead(r)) break
-      continue
-    }
-    stats.rounds++
-    let note = ''
-    if (click.delivered && click.settle !== null) stats.settles.push(click.settle)
-    if (!click.delivered) {
-      stats.dropped++
-      // 吞了就当场补按，把弹框关掉好开下一轮；最多补两次，还不掉就记「救不回」
-      let fix = null
-      for (let k = 0; k < 2; k++) {
-        fix = parseOut(driveDialog(pid, { button: TRAY_BUTTON, mode }).out)
-        if (fix.delivered || fix.notFound) break
-      }
-      if (fix && (fix.delivered || fix.notFound)) stats.rescued++
-      else stats.unrecoverable++
-      note = ` → 补按${fix ? `${fix.delivered ? '接住' : fix.notFound ? '（弹框已消失）' : '仍没关掉'}${fix.settle !== null ? ` ${fix.settle}ms` : ''}` : '未跑'}`
-    }
-    // 产品侧凭据：本进程有没有落 [close] action 行（决策真的被执行）
-    const landed = await waitOwnLine(before, '[close] action=', pid)
-    if (landed) stats.resolved++
-    say(`  第 ${r} 轮：首按${click.delivered ? '接住' : '被吞'}（${click.channel} INVOKE=${click.invoke}` +
-      `${click.settle !== null ? ` ${click.settle}ms` : ''}）；shown=${shownNew > 0 ? '有' : '无'} 主进程收到决策=${landed ? '是' : '否'}${note}`)
-    // 原始输出逐轮留档：吞按这种概率现象，只有原始 token 能被事后复核
-    say(`      RAW: ${clickRaw.out.replace(/\n/g, ' ⏎ ')}`)
-    await waitWindowHidden(pid)
-    if (!await guardDead(r)) break
+    if (!await runRound(ctx, r)) break
   }
 
-  await closeInstance(inst)
+  await closeInstance(ctx.inst)
   // 重启时旧实例的账已经推进去了，循环刚换完实例就收轮的话这里不能再推一遍（否则同一份数据算两次）
-  if (!modeResult.instances.includes(stats)) modeResult.instances.push(stats)
+  if (!modeResult.instances.includes(ctx.stats)) modeResult.instances.push(ctx.stats)
+  reportModeSummary(modeResult, name)
+  return modeResult
+}
+
+/** 单轮：发关闭请求 → 驱动点按 → 按结果归类（返回 false 表示本通道收轮）。 */
+async function runRound(ctx, r) {
+  const stats = ctx.inst.stats
+  ctx.stats = stats
+  const pid = ctx.inst.pid
+  stats.shownThisRound = 0
+  if (ctx.inst.child.exitCode !== null) { say(`  第 ${r} 轮：应用进程已退出，停止本通道`); return false }
+  const before = readStr(SHELL_LOG)
+  // 关闭请求走「只对主窗句柄 PostMessage(WM_CLOSE)」，不走 requestClose(taskkill)：
+  // 本通道每轮都点「最小化到托盘」，主窗 hide() 之后不带 /F 的 taskkill 是静默空操作
+  // （它只给可见顶层窗发 WM_CLOSE）——实测 exp3：主窗隐藏后连续两次 taskkill，
+  // [close-dialog] shown 一直停在 1、2（不增），换 PostMessage(主窗, WM_CLOSE) 则 1→2、2→3 每轮都弹。
+  // 判据不变：仍只看本进程自己的 shown 行，PostMessage 的返回值一律不采信。
+  const closeReq = postCloseToMainWindow(pid)
+  if (closeReq.posted === 0) say(`  第 ${r} 轮：该 pid 名下没有 Chrome_WidgetWin_1 主窗，WM_CLOSE 无处可投（进程可能已退）`)
+  // 一次调用做完「等弹框出现 + 按第 TRAY_BUTTON 个按钮」：驱动内部定位到对话框后立刻按，
+  // 等价于 S17/装包烟测里的真实打法，不给「等一等再按」留余地（T04475 已证延时防不住）。
+  const clickRaw = driveDialog(pid, { button: TRAY_BUTTON, mode: ctx.mode, waitMs: 20000, graceMs: GRACE_MS })
+  const click = parseOut(clickRaw.out)
+  const shownNew = ownCount(readStr(SHELL_LOG), '[close-dialog] shown', pid) - ownCount(before, '[close-dialog] shown', pid)
+  stats.shownThisRound = shownNew
+  if (!click.found) return onDialogNotFound(ctx, r, click, shownNew)
+  if (!stats.uiainfo && click.uia) stats.uiainfo = click.uia
+  if (shownNew > 0) stats.shown += shownNew
+  if (!click.issued) return onClickNotIssued(ctx, r, click, clickRaw, before)
+  await onClickIssued(ctx, r, click, clickRaw, shownNew, before)
+  await waitWindowHidden(pid)
+  return guardDead(ctx, r)
+}
+
+/** 驱动没找到对话框：不算吞按，补一次清场后继续。 */
+async function onDialogNotFound(ctx, r, click, shownNew) {
+  const stats = ctx.inst.stats
+  const pid = ctx.inst.pid
+  // not_found 有两种形状：弹框压根没弹出来（shown 也没落），或弹出来又被别的东西收掉了。
+  // 用本进程自己的 shown 行分开，别把驱动的手忙脚乱算成产品行为。
+  stats.noDialog++
+  say(`  第 ${r} 轮：驱动没找到对话框（${click.notFound ? 'not_found' : '超时'}）；本进程 shown=${shownNew} —— 不计入吞按率`)
+  if (shownNew > 0) stats.shown += shownNew
+  // 补一次「清场」：not_found 也可能是模态框还挂着、只是这一轮驱动没找着它。
+  // 挂着不清会导致之后每一轮的 WM_CLOSE 都被模态吞掉（实测通道 2 第 2~5 轮全废），
+  // 所以这里按投递判据再试两次把可能存在的弹框收掉，收掉的动作不计入任何通道结论。
+  clearParkedDialog(pid)
+  await waitWindowHidden(pid, 8)
+  return guardDead(ctx, r)
+}
+
+/** 这一按压根没发出去（UIA 拿不到 pattern）：单列 noClick，不计入吞按率。 */
+async function onClickNotIssued(ctx, r, click, clickRaw, before) {
+  const stats = ctx.inst.stats
+  const pid = ctx.inst.pid
+  stats.noClick++
+  ctx.modeNoClick++
+  const landed0 = await waitOwnLine(before, '[close] action=', pid)
+  say(`  第 ${r} 轮：${click.channel} 发不出点击（INVOKE=${click.invoke}）；不计入吞按率；主进程收到决策=${landed0 ? '是' : '否'}`)
+  say(`      RAW: ${clickRaw.out.replaceAll('\n', ' ⏎ ')}`)
+  // 用现行可用的 BM_CLICK 把弹框关掉，保证下一轮从干净状态开始（不计入本通道结论）
+  clearParkedDialog(pid)
+  await waitWindowHidden(pid)
+  if (ctx.modeNoClick >= NO_CLICK_STOP) {
+    say(`  通道 ${ctx.name}：累计 ${ctx.modeNoClick} 轮发不出点击，按 --noClickStop=${NO_CLICK_STOP} 提前收轮`)
+    return false
+  }
+  return guardDead(ctx, r)
+}
+
+/** 点击已发出：统计接住/被吞，被吞则当场补按。 */
+async function onClickIssued(ctx, r, click, clickRaw, shownNew, before) {
+  const stats = ctx.inst.stats
+  const pid = ctx.inst.pid
+  stats.rounds++
+  let note = ''
+  if (click.delivered && click.settle !== null) stats.settles.push(click.settle)
+  if (!click.delivered) {
+    stats.dropped++
+    const fix = rescueClick(pid, ctx.mode)
+    if (fix && (fix.delivered || fix.notFound)) stats.rescued++
+    else stats.unrecoverable++
+    note = ` → 补按${rescueNote(fix)}`
+  }
+  // 产品侧凭据：本进程有没有落 [close] action 行（决策真的被执行）
+  const landed = await waitOwnLine(before, '[close] action=', pid)
+  if (landed) stats.resolved++
+  const settleText = click.settle !== null ? ` ${click.settle}ms` : ''
+  say(`  第 ${r} 轮：首按${click.delivered ? '接住' : '被吞'}（${click.channel} INVOKE=${click.invoke}` +
+    `${settleText}）；shown=${shownNew > 0 ? '有' : '无'} 主进程收到决策=${landed ? '是' : '否'}${note}`)
+  // 原始输出逐轮留档：吞按这种概率现象，只有原始 token 能被事后复核
+  say(`      RAW: ${clickRaw.out.replaceAll('\n', ' ⏎ ')}`)
+}
+
+/** 吞了就当场补按，把弹框关掉好开下一轮；最多补两次，还不掉就记「救不回」。 */
+function rescueClick(pid, mode) {
+  let fix = null
+  for (let k = 0; k < 2; k++) {
+    fix = parseOut(driveDialog(pid, { button: TRAY_BUTTON, mode }).out)
+    if (fix.delivered || fix.notFound) break
+  }
+  return fix
+}
+
+/** T04540：连续多轮不产数据就判实例已废并重启接管。返回 false 表示收轮。 */
+async function guardDead(ctx, r) {
+  const stats = ctx.inst.stats
+  if (stats.shownThisRound > 0) { ctx.deadStreak = 0; return true }
+  stats.dead++
+  ctx.deadStreak++
+  const parked = parkedDialogs(ctx.inst.pid)
+  if (parked > 0) {
+    say(`      本进程有 ${parked} 个弹框停在 await（决策链没走完，__closeBusy 按住后续轮次），先清场`)
+    clearParkedDialog(ctx.inst.pid)
+    await waitWindowHidden(ctx.inst.pid, 8)
+    if (parkedDialogs(ctx.inst.pid) === 0 && ctx.deadStreak < RELAUNCH_AFTER) return true
+  }
+  if (ctx.deadStreak < RELAUNCH_AFTER || r === ROUNDS) return true
+  return relaunchInstance(ctx, r)
+}
+
+/** 换一台实例接管剩余轮次（旧实例的统计先入账）。 */
+async function relaunchInstance(ctx, r) {
+  say(`  连续 ${ctx.deadStreak} 轮本进程不再弹新框，判这台实例已废 —— 重启实例接管剩余轮次`)
+  const next = await openInstance(ctx.mode, ctx.inst.seq + 1, ctx.port + (ctx.inst.seq * 10))
+  if (next.error) { say(`  重启失败：${next.error}；停止本通道`); await closeInstance(ctx.inst); return false }
+  const oldPid = ctx.inst.pid
+  ctx.modeResult.instances.push(ctx.inst.stats)
+  await closeInstance(ctx.inst)
+  ctx.inst = next
+  next.stats.startRound = r + 1
+  next.stats.relaunched = true
+  say(`  已换实例 ${next.seq}（pid ${oldPid} → ${next.pid}），从第 ${r + 1} 轮接着跑`)
+  ctx.deadStreak = 0
+  return true
+}
+
+/** 分实例小结（不合并吞按率：重启前后混算会把「换了个进程」藏掉）。 */
+function reportModeSummary(modeResult, name) {
   const median = a => { const v = [...a].sort((x, y) => x - y); return v.length ? v[Math.floor((v.length - 1) / 2)] : null }
-  // T04540：一台实例一个数。重启前后混在同一个吞按率里，就等于把「换了个进程」这件事藏掉了。
   for (const st of modeResult.instances) {
+    const settleSummary = st.settles.length
+      ? `；接住耗时 min/中位/max = ${Math.min(...st.settles)}/${median(st.settles)}/${Math.max(...st.settles)}ms`
+      : ''
     say(`  小结 ${name} 实例${st.seq}（pid=${st.pid}${st.relaunched ? '，中途重启接管' : ''}，第 ${st.startRound} 轮起）：` +
       `${pct(st.dropped, st.rounds)} 首按被吞，` +
       `其中补按救回 ${st.rescued} 次、救不回 ${st.unrecoverable} 次；` +
       `发不出点击 ${st.noClick} 轮、弹框未出现 ${st.noDialog} 轮、无新弹框 ${st.dead} 轮；主进程收到决策 ${st.resolved}/${st.rounds}` +
       `（shown ${st.shown} 次）` +
-      `${st.settles.length ? `；接住耗时 min/中位/max = ${Math.min(...st.settles)}/${median(st.settles)}/${Math.max(...st.settles)}ms` : ''}`)
+      `${settleSummary}`)
     if (st.uiainfo) say(`  UIA 侧自证：${st.uiainfo}`)
   }
-  return modeResult
 }
 
 const results = []
