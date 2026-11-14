@@ -121,7 +121,7 @@ GUARD_EXIT=0
 | S15 | UI 配置中心「窗口行为」卡片 | 全绿 |
 | S16 | UI 配置中心降级态 | 全绿 |
 | S17 | Electron 关闭行为实机烟测 | 全绿 |
-| S18 | 免安装产物冒烟 | 全绿（实机场景按设计跳过：本次构建产物为安装包，未生成 `release/win-unpacked`） |
+| S18 | 免安装产物冒烟 | 首轮 29/31（2 项仅超时门失败）；补建 `release/win-unpacked` 后两次实跑仍未全绿，原因为主机高并发（详见 7.2） |
 | S19 | 内置 GitHub 更新源单测 | 全绿 |
 
 排障记录（保留以备复核）：首次跑测时并行安装了 PyInstaller，导致 S8「API 实例未就绪」与 S12 两条动态语言断言假红（Python 站点包重写期间实例启动/字典加载超时）；安装结束后**无并发干扰重跑，19/19 全绿**，两次日志均保留。
@@ -139,6 +139,8 @@ GUARD_EXIT=0
 | 安装包（NSIS） | `release\WorkloadEstimate-0.1.20261114-1-setup.exe` | 121,708,457 B | SHA256 `341D5CE6824F3A871F1E306FCE4DC5BE75ACA068665888586DDDDAE8CB39185F` |
 | 后端可执行 | `release\exe\工作量评估工具.exe` | 43,811,903 B | PyInstaller 单文件 |
 | 源码/脚本包 | `release\workload-estimate.zip` | 983,850 B | 85 个文件 |
+
+补充（为 S18 实机冒烟）：另执行 `npm run dist:dir`（`DIST_EXIT=0`），产出 `release\win-unpacked`：宿主 exe 180,835,328 B、`resources\we-eval\工作量评估工具.exe` 43,811,903 B、`resources\app.asar` 27,755 B、`resources\we-icon.ico` 22,873 B。
 
 ## 6. 产物索引
 
@@ -158,11 +160,19 @@ GUARD_EXIT=0
 
 **构建**
 - `docs/test-reports/build-20261114-184552.log`
-- `release\WorkloadEstimate-0.1.20261114-1-setup.exe`、`release\exe\工作量评估工具.exe`、`release\workload-estimate.zip`
+- `docs/test-reports/dist-dir-20261114-211452.log`（`DIST_EXIT=0`，产出 `release\win-unpacked`）
+- `release\WorkloadEstimate-0.1.20261114-1-setup.exe`、`release\exe\工作量评估工具.exe`、`release\workload-estimate.zip`、`release\win-unpacked\`
+
+**S18 实机冒烟**
+- `docs/test-reports/s18-prod-smoke-20261114-211550.log`（首轮 29/31，2 项超时门）
+- `docs/test-reports/s18-prod-smoke-20261114-212747.log`（次轮 `S18_EXIT=3`，看门狗）
 
 ## 7. 边界与遗留
 
 1. **SCM blame 缺失**：扫描日志中的 `Missing blame information ...` 属未提交工作树导致的 warn-only（技能定义不阻塞），不影响问题判定。
-2. **S18 实机场景跳过**：构建脚本输出安装包与单文件 exe，不生成 `release/win-unpacked`，故 S18 的实机场景按设计跳过；如需覆盖，可额外执行 `npm run dist:dir` 后重跑 S18。
-3. **未提交**：本次改动共 26 个文件（`+2062 / -1514`），仍未提交 git（HEAD `4fbcb85`），可随时 `git diff` 复核或回滚。
+2. **S18 免安装产物冒烟未达全绿（环境受限）**：补建 `release\win-unpacked` 后单独跑 `node tests\prod_smoke.mjs` 两次：
+   - 第 1 次（`s18-prod-smoke-20261114-211550.log`）：31 项中 **29 通过、2 失败、1 WARN**。失败为 `P-A2 本轮退出耗时在预算内`（18,455ms，超 15,000ms 宽松上限，`LOAD_NODE=44`）与 `P-C 记住=最小化后窗口隐藏`（9,000ms 内窗口仍可见，`LOAD_NODE=49`）；`P-B` 为并发宽松判定 WARN（14,042ms ≤ 15,000ms）。弹框按钮/文案/复选框、托盘图标取自打包 `we-icon.ico`、关闭决策日志、偏好落盘等**功能类断言全部 PASS**。
+   - 第 2 次（`s18-prod-smoke-20261114-212747.log`）：`S18_EXIT=3`；`P-A2 未能建立「已记住」状态` 连带 P-A3 四条 SKIP，`P-B` 报「CDP 页面未就绪」，`P-C` 84,326ms 才隐藏并触发 `[bk] WATCHDOG`。
+   - 归因：两次都跑在本机常驻 43–49 个 `node.exe`（用户侧 MCP/WorkBuddy/MorningBrief/vite 等，非本次任务残留；已核查 9461–9465 无监听、无残留产物实例）的高并发桌面；空载同产物退出实测 1,224–2,825ms，超时来自 CPU/IO 争用而非产物缺陷。**未通过调高时限门来凑绿**；如需权威结论，建议在空闲桌面重跑 S18。
+3. **已提交**：改动已提交为 `ad1bb55`（`T01501 chore(quality): SonarQube 全量治理清零（78→0）并验证测试与生产构建`，38 文件 `+4403 / −1514`），提交时工作树干净；`release/`、`logs/`、`docs/test-reports/*.log` 按 `.gitignore` 排除，**未 push**。
 4. **构建会清理 `release/`**：`scripts\构建打包.bat` 默认重建 release 目录，旧版本安装包（`WorkloadEstimate-0.1.20261112-1-setup.exe` 等）已按脚本设计被清理。
