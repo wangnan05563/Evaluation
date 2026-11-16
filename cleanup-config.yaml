@@ -14,7 +14,8 @@ workspace:
   # 显式扫描根：绝不对仓库根递归（node_modules 4408 文件会让全仓遍历超时）
   scan_roots:
     - "logs"
-    - "build"
+    - "release"        # 可重建产物根（exe/build/tmp/logs/shots）
+    - "build"          # 仅剩手写 installer.nsh，扫描用于确认无新产物回流
     - "data"
     - "scripts"
     - ".scannerwork"
@@ -55,13 +56,14 @@ preserve_roots:
   - "tests/"
   - "tools/"
   - "tpl/"
-  - "release/"       # 发布物目录，仅清理其中的空子目录
+  - "build/"         # 仅剩手写 installer.nsh（不可重建，禁止清理）
+  - "release/"       # 可重建产物根：交付物与缓存同处，整体清空由 scripts\清理发布目录.bat 负责
 
 preserve_paths:
   dirs: []
   files:
-    - "build/installer.nsh"      # 手写 NSIS 脚本，被 package.json:electron-builder 引用
-    - "build/lucide-*.min.js"    # 第三方库临时副本，暂不判定
+    - "build/installer.nsh"           # 手写 NSIS 脚本，被 package.json:electron-builder 引用
+    - "release/tmp/lucide-*.min.js"   # 第三方库孤立副本，已从 build/ 迁出，待人工判定去留
   mirror_to_gitignore: true
 
 semantic_divergence:
@@ -97,35 +99,36 @@ script_exclude_dirs:
 garbage_patterns:
   # PyInstaller / electron-builder 输出（可从源码与 spec 重建）
   build_outputs:
-    - "build/electron_dist/"
-    - "build/工作量评估工具/"
+    - "release/build/工作量评估工具/"
   # 浏览器临时 profile（截图脚本每次新建的 Chromium 用户目录）
   debug_profiles:
-    - "build/_chartchrome*/"
-    - "build/_probe_chrome/"
-    - "build/_probechrome/"
-    - "build/_shotchrome/"
+    - "release/tmp/_chartchrome*/"
+    - "release/tmp/_probe_chrome/"
+    - "release/tmp/_probechrome/"
+    - "release/tmp/_shotchrome/"
   # 测试隔离数据副本（活跃存储在 data/，此处均为一次性副本）
   debug_data:
-    - "build/_chartdata*/"
-    - "build/_probedata/"
-    - "build/_shotdata/"
-    - "build/_run*_data/"
+    - "release/tmp/_chartdata*/"
+    - "release/tmp/_probedata/"
+    - "release/tmp/_shotdata/"
+    - "release/tmp/_run*_data/"
   # 下划线前缀的探针脚本、日志、截图
   debug_artifacts:
-    - "build/_*"
+    - "release/tmp/_*"
   debug_shots:
-    - "build/shots/"
-    - "build/_probe_shots*/"
-    - "build/_verify/"
+    - "release/shots/"
+    - "release/shots/_probe_shots*/"
+    - "release/tmp/_verify/"
   build_logs:
-    - "build/pyinstaller.log"
-    - "build/build_served.html"
+    - "release/logs/pyinstaller.log"
+    - "release/logs/build_installer.log"
+    - "release/tmp/build_served.html"
   # 运行时调试目录（整体被忽略，258 个 *_result.md 单独走隔离）
   runtime_debug:
     - "logs/"
   tool_caches:
-    - ".scannerwork/"
+    - "release/.scannerwork/"
+    - ".scannerwork/"          # 历史位置（配置 sonar.working.directory 之前的默认落点）
   screenshot_tmp:
     - ".screenshots/.tmp/"
   test_outputs:
@@ -234,7 +237,7 @@ diagnostics:
   reference_scan:
     enabled: true
     extensions: [".py", ".js", ".mjs", ".json", ".md", ".ps1", ".bat", ".spec"]
-    exclude_dirs: ["node_modules/", ".git/", ".cleanup-quarantine/", "build/", "logs/"]
+    exclude_dirs: ["node_modules/", ".git/", ".cleanup-quarantine/", "build/", "release/", "logs/"]
     exclude_self_output: true
     case_sensitive: false
   encoding_check:
@@ -382,8 +385,7 @@ verification:
     - "工作量评估工具.spec"
     - "cleanup-config.yaml"
   optional_generated_checks:
-    - "build/electron_dist/"
-    - "build/工作量评估工具/"
+    - "release/build/工作量评估工具/"
   on_failure:
     - "检查 cleanup-logs/cleanup-*.log 中的 hash 记录"
     - "从隔离区恢复：python .cleanup-quarantine/<stamp>/restore.py"

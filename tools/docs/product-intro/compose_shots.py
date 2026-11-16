@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """把抓到的界面截图整理成文档图版：裁掉无关区域、拼多图、加细边框、统一宽度。
-输入 build/shots/*.png（采集底图，仅本地产物），输出 docs/assets/product-intro/*.png（入库图版）。
+输入 release/shots/*.png（采集底图，仅本地产物），输出 docs/assets/product-intro/*.png（入库图版）。
 成品宽度即文档里的展示宽度（220 dpi 折算），文档侧按同一宽度插入。
 用法：python tools/docs/product-intro/compose_shots.py
 """
@@ -9,7 +9,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-SHOTS = os.path.join(ROOT, "build", "shots")
+SHOTS = os.path.join(ROOT, "release", "shots")
 OUT = os.path.join(ROOT, "docs", "assets", "product-intro")
 os.makedirs(OUT, exist_ok=True)
 

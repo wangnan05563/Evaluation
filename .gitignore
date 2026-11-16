@@ -9,14 +9,24 @@ __pycache__/
 .ruff_cache/
 
 # ─── 构建产物与发布物 ────────────────────────────────────────────────
-# build/ 是 PyInstaller 的 workpath 与 electron-builder 输出，整体可重建；
-# 但 build/installer.nsh 是手写的 NSIS 安装脚本（被 package.json 的 electron-builder
-# 配置引用），此前被目录级 build/ 规则一并吞掉。改为 build/* + 取反放行该文件。
+# 可重建产物统一落 release/（构建入口 scripts\构建打包.bat 每轮先清空 release 再重建）：
+#   release/exe/          PyInstaller sidecar 成品（electron-builder extraResources 引用）
+#   release/build/        PyInstaller workpath（.toc/.pkg/PYZ 等中间缓存）
+#   release/tmp/          测试/文档采集的一次性数据、浏览器 profile 与孤立副本
+#   release/logs/         构建日志（pyinstaller.log / build_installer.log）
+#   release/shots/        产品介绍文档的界面底图（tools/docs/product-intro 采集）
+#   release/win-unpacked/ 免安装产物；release/*-setup.exe 为 NSIS 安装包
+# 回收空间 = 删掉整个 release/（scripts\清理发布目录.bat 先停占用再重建空目录）。
+release/
+# build/ 只留**手写**、不可重建的构建定义：installer.nsh 被 package.json 的
+# electron-builder nsis.include 引用。目录级 build/ 规则曾把该文件一并吞掉（干净克隆
+# 打不出安装包），故用 build/* + 取反精确放行；新产物不要再写进 build/。
 build/*
 !build/installer.nsh
+# 历史遗留产物目录：旧脚本（build_desktop_installer.ps1）曾把 sidecar 输出到 dist/。
+# 新链路已统一 release/exe/；规则保留，防止旧分支或旧脚本产物回流污染 git status。
 dist/
 out/
-release/
 # publish.ps1 在缺少 release-notes-<版本>.md 时于仓库根生成的临时说明（构建产物，非文档）。
 release-notes-*.auto.md
 # 图标预览图由 `python scripts/make_icon.py` 每次重出（真源是 we_icon.ico），不入库。

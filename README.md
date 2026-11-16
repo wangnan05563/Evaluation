@@ -183,17 +183,32 @@ rem 一条命令跑完全流程（0 清空 release -> 1 停占用 -> 2 依赖校
 rem -> 4 源码 zip -> 5 sidecar exe -> 6 桌面安装包）
 scripts\构建打包.bat
 
-rem 只清空发布目录（产物均可重建，可随时清理）
+rem 清空整个 release/（sidecar、安装包、PyInstaller 缓存、构建日志全部可重建）
 scripts\清理发布目录.bat
 
 rem 保留现有产物、跳过清理再构建
 set SKIP_CLEAN=1 && scripts\构建打包.bat
 ```
 
-产物固定落在 `release/`：`workload-estimate.zip`、`exe\工作量评估工具.exe`、`WorkloadEstimate-<版本>-setup.exe`。
-electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到系统临时目录 `%TEMP%\we-eb-out`，
-构建完成后只把 `setup.exe` 移回 `release` —— 避免 asar 落进工作区后被 IDE/索引进程独占打开，
-导致 `release` 整个目录删不掉、改不了名。
+一切可重建产物都落在 `release/`，**删掉它就能回收全部构建空间**（`scripts\清理发布目录.bat` 会先停占用再重建空目录）：
+
+| 路径 | 内容 | 重建方式 |
+|---|---|---|
+| `release\workload-estimate.zip` | 源码/脚本分发包 | 构建每轮重打 |
+| `release\exe\工作量评估工具.exe` | PyInstaller sidecar 成品 | `构建打包.bat` 第 5 步 |
+| `release\build\工作量评估工具\` | PyInstaller workpath（`.toc/.pkg/PYZ` 中间缓存，占空间大头） | PyInstaller 自动重建 |
+| `release\logs\` | `pyinstaller.log` / `build_installer.log` | 构建时重写 |
+| `release\tmp\` | 测试/文档采集的一次性数据、浏览器 profile、孤立副本 | 用到时重建 |
+| `release\WorkloadEstimate-<版本>-setup.exe` | NSIS 安装包 | `构建打包.bat` 第 6 步 |
+| `release\win-unpacked\` | 免安装产物（S18 冒烟目标） | `npm run dist:dir` |
+
+`build\` 里只留**手写**的 `installer.nsh`（electron-builder 的 `nsis.include` 引用它，不可重建），
+新产物不要再写进 `build\`。electron-builder 的中间产物（`win-unpacked\resources\app.asar`）输出到
+系统临时目录 `%TEMP%\we-eb-out`，构建完成后只把 `setup.exe` 移回 `release` —— 避免 asar 落进工作区后
+被 IDE/索引进程独占打开，导致 `release` 整个目录删不掉、改不了名。
+
+运行态日志与数据（`logs\`、`data\`）和依赖目录（`node_modules\`）**不在** `release\` 里：
+清空 `release` 不能连用户数据和已装依赖一起删，依赖随时可用 `npm ci` 重建。
 
 前端源码在 `frontend/src/`（`index.src.html` + `js/*` + `css/*`），由 `python scripts/build_frontend.py`
 打包成单文件 `frontend/index.html`；改完 `src` 必须重新构建，否则运行的仍是旧产物（`index.html` 入库，构建后一并提交）。
@@ -274,7 +289,8 @@ powershell -File scripts\publish.ps1 -SkipBuild
 ├── scripts\publish.config.json # 发布配置（零硬编码）
 ├── scripts\publish-release.py  # 通用 GitHub Release 发布器（零依赖）
 ├── scripts\verify.ps1          # 脚本编码/语法静态校验
-└── release/                   # 构建产物（zip、sidecar exe、安装包），可随时清理
+├── build\installer.nsh         # 手写 NSIS 片段（build/ 里唯一的源码，不可重建）
+└── release/                    # 可重建产物根（zip、sidecar exe、安装包、PyInstaller 缓存、构建日志），删掉即回收空间
 ```
 
 ## 测试

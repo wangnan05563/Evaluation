@@ -3,7 +3,7 @@
 
 结构：封面 → 一、产品简介 → 二、核心功能模块 → 三、应用场景 → 四、行动号召 → 附：计算口径速查。
 配图：直接取入库图版 docs/assets/product-intro/*.png（新克隆即可重生成）。
-      图版由 compose_shots.py 从 build/shots 底图裁拼，底图由 shots.mjs /
+      图版由 compose_shots.py 从 release/shots 底图裁拼，底图由 shots.mjs /
       electron_shot.mjs / xlsx_shot.py 采集（Windows + Chrome/Electron/Excel 环境）。
       联系方式一栏已填真实联系人（王南 / 107038953@qq.com）；群二维码待用户提供后补充。
 

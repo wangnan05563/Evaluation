@@ -6,13 +6,13 @@
 .DESCRIPTION
   流程：
     1. 停止占用（引擎 exe + 端口 8000）
-    2. PyInstaller 打包后端 exe -> dist/exe/工作量评估工具.exe
+    2. PyInstaller 打包后端 exe -> release/exe/工作量评估工具.exe
     3. npm install 桌面壳依赖（dev-shell 的 electron；根目录的 electron-builder，缺失时才装）
     4. electron-builder --win nsis -> release/WorkloadEstimate-<version>-setup.exe（输出目录与参考项目一致）
     5. 校验安装包产物并输出路径
 
 .PARAMETER SkipExe
-  跳过 PyInstaller（复用已有 dist/exe/工作量评估工具.exe）。
+  跳过 PyInstaller（复用已有 release/exe/工作量评估工具.exe）。
 .PARAMETER SkipInstall
   跳过 npm install（复用已有 node_modules）。
 #>
@@ -71,11 +71,11 @@ function Write-Step($msg) { Write-Host "`n== $msg ==" -ForegroundColor Cyan }
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
 $ExeName   = '工作量评估工具.exe'
-$ExeOut    = Join-Paths $Root 'dist' 'exe'
+$ExeOut    = Join-Paths $Root 'release' 'exe'
 $SidecarExe= Join-Path $ExeOut $ExeName
 $SpecFile  = Join-Path $Root '工作量评估工具.spec'
 $DistElectron = Join-Path $Root 'release'
-$LogDir    = Join-Path $Root 'logs'
+$LogDir    = Join-Paths $Root 'release' 'logs'
 $BuildLog  = Join-Path $LogDir 'build_installer.log'
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }
@@ -90,7 +90,7 @@ Invoke-Native { & powershell -NoProfile -Command "Get-NetTCPConnection -LocalPor
 # 这里按可执行文件路径兜底清杀。
 try {
   Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-    Where-Object { $_.ExecutablePath -and $_.ExecutablePath -like '*dist_electron*' } |
+    Where-Object { $_.ExecutablePath -and $_.ExecutablePath -like '*release\win-unpacked*' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 } catch {}
 Write-Host "  [OK] 已清理"
@@ -120,9 +120,9 @@ if (-not $SkipExe) {
   if (-not (Test-Path $SpecFile)) { throw "缺少 spec 文件：$SpecFile" }
   if (-not (Test-Path $ExeOut)) { New-Item -ItemType Directory -Force -Path $ExeOut | Out-Null }
   if ($Py -eq 'py -3') {
-    $rc = Invoke-Native { & py -3 -m PyInstaller $SpecFile --distpath $ExeOut --workpath (Join-Path $Root 'build') --noconfirm }
+    $rc = Invoke-Native { & py -3 -m PyInstaller $SpecFile --distpath $ExeOut --workpath (Join-Paths $Root 'release' 'build') --noconfirm }
   } else {
-    $rc = Invoke-Native { & $Py -m PyInstaller $SpecFile --distpath $ExeOut --workpath (Join-Path $Root 'build') --noconfirm }
+    $rc = Invoke-Native { & $Py -m PyInstaller $SpecFile --distpath $ExeOut --workpath (Join-Paths $Root 'release' 'build') --noconfirm }
   }
   if ($rc -ne 0) { throw "PyInstaller 打包失败（详见 $BuildLog）" }
   if (-not (Test-Path $SidecarExe)) { throw "exe 未生成：$SidecarExe" }
@@ -213,7 +213,7 @@ if ($rc -ne 0) {
 Write-Step "[5/5] 校验安装包产物"
 $setup = Get-ChildItem $DistElectron -Filter '*-setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $setup) {
-  throw "未找到安装包（dist_electron 下无 *-setup.exe）。请检查 $BuildLog"
+  throw "未找到安装包（release 下无 *-setup.exe）。请检查 $BuildLog"
 }
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green

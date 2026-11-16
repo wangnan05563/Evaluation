@@ -10,7 +10,7 @@ import win32com.client
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 DOCX = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "工作量评估助手-产品介绍.docx")
-OUT = os.path.join(ROOT, "build", "shots", "doc_preview")
+OUT = os.path.join(ROOT, "release", "shots", "doc_preview")
 DPI = 110
 
 os.makedirs(OUT, exist_ok=True)

@@ -8,7 +8,7 @@
     python tools/docs/product-intro/build.py --out /tmp/x.docx   # 输出到别处（不动入库件）
     python tools/docs/product-intro/build.py --preview           # 生成后导出逐页 PNG 目检
     python tools/docs/product-intro/build.py --capture           # 重采底图（Windows+Chrome+Electron+Excel）
-    python tools/docs/product-intro/build.py --compose           # 用 build/shots 底图重拼图版
+    python tools/docs/product-intro/build.py --compose           # 用 release/shots 底图重拼图版
     python tools/docs/product-intro/build.py --capture --compose # 采集+拼图+生成，全链路
 
 依赖：python-docx（必需）；--preview 另需 pymupdf + Word；--capture 另需 node、Chrome、
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ASSETS = os.path.join(ROOT, "docs", "assets", "product-intro")
 DOCX = os.path.join(ROOT, "docs", "工作量评估助手-产品介绍.docx")
-RAW_SHOTS = os.path.join(ROOT, "build", "shots")
+RAW_SHOTS = os.path.join(ROOT, "release", "shots")
 PY = sys.executable
 
 
@@ -42,7 +42,7 @@ def capture():
         raise SystemExit("--capture 需要 node（未在 PATH 中找到）")
     run("capture-ui", [node, os.path.join(HERE, "shots.mjs")])
     run("capture-desktop", [node, os.path.join(HERE, "electron_shot.mjs")])
-    xlsx = os.path.join(ROOT, "build", "_shot_v1.xlsx")
+    xlsx = os.path.join(ROOT, "release", "tmp", "_shot_v1.xlsx")
     if not os.path.exists(xlsx):
         raise SystemExit("缺少 %s（由 capture-ui 生成），无法导出成品 xlsx 截图" % xlsx)
     run("capture-xlsx", [PY, os.path.join(HERE, "xlsx_shot.py"), xlsx])
@@ -57,9 +57,9 @@ def compose():
 def main():
     ap = argparse.ArgumentParser(description="生成产品介绍 docx（默认只用仓库内图版）")
     ap.add_argument("--out", help="输出 docx 路径，默认 docs/工作量评估助手-产品介绍.docx")
-    ap.add_argument("--capture", action="store_true", help="重新采集底图到 build/shots")
-    ap.add_argument("--compose", action="store_true", help="从 build/shots 底图重拼图版")
-    ap.add_argument("--preview", action="store_true", help="生成后导出逐页 PNG 到 build/shots/doc_preview")
+    ap.add_argument("--capture", action="store_true", help="重新采集底图到 release/shots")
+    ap.add_argument("--compose", action="store_true", help="从 release/shots 底图重拼图版")
+    ap.add_argument("--preview", action="store_true", help="生成后导出逐页 PNG 到 release/shots/doc_preview")
     ap.add_argument("--skip-docx", action="store_true", help="只跑采集/拼图，不生成 docx")
     args = ap.parse_args()
 

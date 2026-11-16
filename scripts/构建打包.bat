@@ -100,13 +100,14 @@ if errorlevel 1 (
         pause
         exit /b 1
     )
-    if not exist "build" mkdir "build"
+    if not exist "%ZIP_DIR%\build" mkdir "%ZIP_DIR%\build"
+    if not exist "%ZIP_DIR%\logs" mkdir "%ZIP_DIR%\logs"
     REM 不再 >nul 2>&1：失败时输出是唯一排查线索，必须留痕
-    "%PY_EXE%" -m PyInstaller "工作量评估工具.spec" --distpath "%ZIP_DIR%\exe" --workpath "build" --noconfirm > "build\pyinstaller.log" 2>&1
+    "%PY_EXE%" -m PyInstaller "工作量评估工具.spec" --distpath "%ZIP_DIR%\exe" --workpath "%ZIP_DIR%\build" --noconfirm > "%ZIP_DIR%\logs\pyinstaller.log" 2>&1
     if errorlevel 1 (
-        echo   [ERROR] exe 打包失败，详见 build\pyinstaller.log
+        echo   [ERROR] exe 打包失败，详见 %ZIP_DIR%\logs\pyinstaller.log
         echo   ------ PyInstaller 输出末尾 20 行 ------
-        powershell -NoProfile -Command "Get-Content -Encoding UTF8 'build\pyinstaller.log' -Tail 20"
+        powershell -NoProfile -Command "Get-Content -Encoding UTF8 '%ZIP_DIR%\logs\pyinstaller.log' -Tail 20"
         echo   ------------------------------------------
         pause
         exit /b 1
@@ -194,7 +195,7 @@ echo ========================================
 echo   构建打包完成
 echo ========================================
 echo   源码压缩包 : %ZIP_PATH%
-echo   注: release 下仅保留最终产物，可用 scripts\清理发布目录.bat 随时清空
+echo   注: release 下为全部可重建产物（exe/安装包/PyInstaller 缓存/日志），可用 scripts\清理发布目录.bat 随时清空
 if "!EXE_EXISTS!"=="1" echo   可执行版exe  : %ZIP_DIR%\exe\工作量评估工具.exe
 if "!SETUP_BUILT!"=="1" echo   桌面安装包  : !SETUP_DST!
 echo.

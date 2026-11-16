@@ -147,12 +147,12 @@ function killTreePid(pid) {
 
 // ---------- sidecar 定位 ----------
 // 生产态：resources/we-eval/工作量评估工具.exe（electron-builder extraResources）
-// 开发态：dist/exe/工作量评估工具.exe（PyInstaller 产物）；无 exe 回退 python scripts/server.py
+// 开发态：release/exe/工作量评估工具.exe（PyInstaller 产物）；无 exe 回退 python scripts/server.py
 function findSidecar() {
   const exeName = APP_NAME + '.exe'
   const candidates = [
     path.join(ROOT, 'we-eval', exeName),
-    path.join(ROOT, 'dist', 'exe', exeName)
+    path.join(ROOT, 'release', 'exe', exeName)
   ]
   for (const c of candidates) {
     if (fs.existsSync(c)) return { kind: 'exe', path: c }

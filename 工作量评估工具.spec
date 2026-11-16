@@ -5,8 +5,8 @@ import os
 ROOT = os.path.abspath(SPECPATH)
 ICON = os.path.join(ROOT, "assets", "we_icon.ico")
 # PyInstaller spec：将本地服务打包为单文件 exe（自包含 python + 依赖 + 前端 + 母版）。
-# 用法：pyinstaller 工作量评估工具.spec --distpath dist\exe --workpath build --noconfirm
-# 产物：dist\exe\工作量评估工具.exe（双击即启动引擎并自动打开浏览器）
+# 用法：pyinstaller 工作量评估工具.spec --distpath release\exe --workpath release\build --noconfirm
+# 产物：release\exe\工作量评估工具.exe（双击即启动引擎并自动打开浏览器）
 a = Analysis(
     [os.path.join(ROOT, 'scripts', 'server.py')],
     pathex=[os.path.join(ROOT, 'scripts')],

@@ -122,7 +122,7 @@ if (-not $SkipBuild) {
         Fail ("构建超时（>${timeoutMs}ms），可能被 pause 卡住或 electron-builder 过慢；可用 -SkipBuild 仅发布已有包")
     }
     if ($proc.ExitCode -ne 0) {
-        Fail ("构建失败，exit code=" + $proc.ExitCode + "（详见 构建打包.bat 的输出与 build\pyinstaller.log）")
+        Fail ("构建失败，exit code=" + $proc.ExitCode + "（详见 构建打包.bat 的输出与 release\logs\pyinstaller.log）")
     }
     Write-Host "  构建完成"
     # 构建内 bump_version.py 已把日期序号 +1，发布必须以构建后的版本为准；
@@ -150,7 +150,7 @@ if (-not (Test-Path $Unpacked)) {
     if ($SkipBuild) {
         Write-Warning ("免安装产物不存在（" + $Unpacked + "），-SkipBuild 场景跳过冒烟；正式构建发布请勿跳过这一步")
     } else {
-        Fail ("构建未产出免安装目录: " + $Unpacked + "（electron-builder 只出了 setup.exe？查 logs\build_installer.log）")
+        Fail ("构建未产出免安装目录: " + $Unpacked + "（electron-builder 只出了 setup.exe？查 release\logs\build_installer.log）")
     }
 } else {
     # 冒烟脚本默认取 release\win-unpacked，这里仍以配置为准注入，避免两处各写一遍路径

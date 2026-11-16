@@ -18,7 +18,7 @@ python tools/docs/product-intro/build.py
 python tools/docs/product-intro/build.py
 
 # 生成到别处，不动入库件
-python tools/docs/product-intro/build.py --out build/_verify/intro.docx
+python tools/docs/product-intro/build.py --out release/tmp/_verify/intro.docx
 
 # 生成后导出逐页 PNG 目检（需 Word + pymupdf）
 python tools/docs/product-intro/build.py --preview
@@ -33,7 +33,7 @@ python tools/docs/product-intro/build.py --capture --compose
 |---|---|
 | `build.py` | 入口：编排下面各步，`--capture / --compose / --preview` 按需开启 |
 | `gen_docx.py` | 正文/样式/图注/分页，按图注插入 `docs/assets/product-intro/*.png` |
-| `compose_shots.py` | `build/shots/*.png` 底图 → 文档图版（细边框、①②③ 徽标、标注条、统一宽度） |
+| `compose_shots.py` | `release/shots/*.png` 底图 → 文档图版（细边框、①②③ 徽标、标注条、统一宽度） |
 | `shots.mjs` | headless Chrome + CDP 驱动真实前端，采集 12 张界面底图（隔离实例、随机口令目录） |
 | `electron_shot.mjs` | 开发态 Electron 真窗口截图（含标题栏），Windows PrintWindow |
 | `win_shot.py` | `electron_shot.mjs` 调用的窗口抓取（DPI 感知 + PW_RENDERFULLCONTENT） |
@@ -42,7 +42,7 @@ python tools/docs/product-intro/build.py --capture --compose
 
 ## 约定
 
-- 采集全程走**隔离实例**（`WE_DATA` 指 `build/_shotdata`），不读本机配置与真实估算数据。
-- 底图 `build/shots/` 与中间件 `_shot_v1.xlsx` 都是本地产物，不入库；入库的只有 `docs/assets/product-intro/` 下的 12 张图版。
+- 采集全程走**隔离实例**（`WE_DATA` 指 `release/tmp/_shotdata`），不读本机配置与真实估算数据。
+- 底图 `release/shots/` 与中间件 `release/tmp/_shot_v1.xlsx` 都是本地产物，不入库；入库的只有 `docs/assets/product-intro/` 下的 12 张图版。
 - 大模型配置页刻意保持 Key 为空占位，不得为截图填真实密钥。
 - 改完文案或图版后重跑 `build.py`，并翻页核对（`--preview`）；页数应与入库版一致（当前 11 页）。

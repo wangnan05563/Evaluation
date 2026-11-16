@@ -1,5 +1,5 @@
 /** 产品介绍文档配图：驱动真实 UI（隔离实例 + 无头 Chrome/CDP）逐页抓图。
- *  产物落 build/shots/*.png（采集底图，不入库），供 compose_shots.py 拼成文档图版。
+ *  产物落 release/shots/*.png（采集底图，不入库），供 compose_shots.py 拼成文档图版。
  *  用法：node tools/docs/product-intro/shots.mjs
  */
 import { spawn, spawnSync } from 'node:child_process';
@@ -11,9 +11,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const PY = process.env.PYTHON || 'python';
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const API_PORT = 8032, CDP_PORT = 9334, API = `http://127.0.0.1:${API_PORT}`, CDP = `http://127.0.0.1:${CDP_PORT}`;
-const SHOTS = path.join(ROOT, 'build', 'shots');
-const DATA = path.join(ROOT, 'build', '_shotdata');
-const PROFILE = path.join(ROOT, 'build', '_shotchrome');
+const SHOTS = path.join(ROOT, 'release', 'shots');
+const DATA = path.join(ROOT, 'release', 'tmp', '_shotdata');
+const PROFILE = path.join(ROOT, 'release', 'tmp', '_shotchrome');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const killTree = pid => { try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* noop */ } };
 
@@ -50,7 +50,7 @@ console.log(`识别候选 ${items.length} 条`);
 const hist1 = items.map(it => ({ ...it, ok: true, cx: '中', reuse: it.reuse || '中', modify: it.modify || '新增' }));
 const g1 = await post('/api/generate', { items, method: '估算功能点', title: '综合服务平台需求说明书V0.1', job: 'shotg1', hist_items: hist1, source_name: '综合服务平台需求说明书V0.1.docx' });
 if (!g1.ok) throw new Error('生成 v1 失败: ' + JSON.stringify(g1).slice(0, 300));
-fs.copyFileSync(path.join(DATA, 'generated', g1.sid), path.join(SHOTS, '..', '_shot_v1.xlsx'));
+fs.copyFileSync(path.join(DATA, 'generated', g1.sid), path.join(ROOT, 'release', 'tmp', '_shot_v1.xlsx'));
 
 const hist2 = hist1.map(x => ({ ...x }));
 hist2[0].cx = '低';

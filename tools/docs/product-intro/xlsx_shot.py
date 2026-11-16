@@ -3,7 +3,7 @@
 本机未装打印机，ExportAsFixedFormat 不可用，故走 CopyPicture + Chart.Export。
 两个坑：Chart.Export 按图表对象的磅尺寸出图，故先把对象放大 SCALE 倍再让粘贴的
 矢量图铺满；跨工作表连续截图时第二个 sheet 的剪贴板会失效，故每张图带重试与清理。
-不写死外部输入：xlsx 路径由调用方传入（默认 build/_shot_v1.xlsx，由 shots.mjs 生成）。
+不写死外部输入：xlsx 路径由调用方传入（默认 release/tmp/_shot_v1.xlsx，由 shots.mjs 生成）。
 用法：python tools/docs/product-intro/xlsx_shot.py [成品.xlsx]
 """
 import os
@@ -13,8 +13,8 @@ import time
 import win32com.client
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-XLSX = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "build", "_shot_v1.xlsx"))
-OUT = os.path.join(ROOT, "build", "shots")
+XLSX = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "release", "tmp", "_shot_v1.xlsx"))
+OUT = os.path.join(ROOT, "release", "shots")
 SCALE = 4            # 导出倍率：成图像素 ≈ 区域磅宽 × 96/72 × SCALE
 # 规模估算：1-3 行汇总块 + 5 行表头 + 6-14 行明细；其余行是预格式化的空白行，不入镜
 TARGETS = ((2, "规模估算", "A1:N14"), (3, "费用估算", "A1:J32"))

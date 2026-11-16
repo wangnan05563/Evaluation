@@ -1,7 +1,7 @@
 @echo off
 chcp 936 >nul 2>&1
 REM 清理 release 发布目录：结束占用 -> 删除 release -> 重建空目录
-REM release 下所有内容均由 构建打包.bat 重新生成，可随时清理
+REM release 下均为可重建产物（exe/安装包/PyInstaller 缓存/日志/采集临时件），可随时清理
 REM 用法: scripts\清理发布目录.bat [-NoPause]
 cd /d "%~dp0.."
 setlocal enabledelayedexpansion

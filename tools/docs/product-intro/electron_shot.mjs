@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const EXE = path.join(ROOT, 'dev-shell', 'node_modules', 'electron', 'dist', 'electron.exe');
 const CDP_PORT = 9444;
-const OUT = path.join(ROOT, 'build', 'shots', '10_desktop.png');
+const OUT = path.join(ROOT, 'release', 'shots', '10_desktop.png');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const killTree = pid => { try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* noop */ } };
 
