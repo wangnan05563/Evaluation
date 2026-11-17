@@ -125,6 +125,14 @@ def static_checks():
         ("WE_PROD_WATCHDOG_MS=180000", "构建脚本限制发布门冒烟 watchdog"),
     ]:
         check(label, token in builder)
+    # T05688 后续：cmd 按括号配块，块内 echo 文本含裸括号会把下一行 set 挤出块
+    # 无条件执行（曾致冒烟通过后仍误判 BUILD_FAILED）。子过程内必须保持无括号。
+    sub_start = builder.index(":run_smoke")
+    sub = builder[sub_start:builder.index("goto :eof", sub_start)]
+    paren_echoes = [l for l in sub.splitlines()
+                    if l.strip().lower().startswith("echo") and ("(" in l or ")" in l)]
+    check("冒烟子过程 echo 文本无裸括号", not paren_echoes, repr(paren_echoes[:1]))
+    check("WARN 文案已改为无括号形式", "prod smoke failed, exit=!SMOKE_RC! - see" in builder)
     try:
         cfg = json.loads(CFG.read_text(encoding="utf-8"))
         ok = all(k in cfg for k in ("runtime", "env", "version", "build", "publish"))

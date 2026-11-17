@@ -219,14 +219,15 @@ pause >nul
 exit /b 0
 
 REM ---------------------------------------------------------------- 发布链冒烟子过程
-REM 独立子过程而非复合 if 块：块内重定向 + 延迟展开在 cmd /c + stdin 关闭下会让 bat 静默 exit 255。
+REM 独立子过程而非复合 if 块：块内重定向 + 延迟展开在 cmd /c + stdin 关闭下会让 bat 静默 exit 255；
+REM 且块内 echo 文本不得含裸括号（cmd 按括号配块，echo (see ...) 会把下一行 set 挤出块无条件执行）。
 :run_smoke
 if not exist "%EB_TMP%\win-unpacked" (
     echo   [WARN] win-unpacked missing in temp output, prod smoke cannot run
     if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
     goto :eof
 )
-echo   [INFO] unpacked-product smoke (temp output, not released)...
+echo   [INFO] unpacked-product smoke - temp output, not released - ...
 set "WE_PROD_DIR=%EB_TMP%\win-unpacked"
 REM 发布门 watchdog 从产物脚本的 15 分钟压到 3 分钟，避免流水线长时间挂起
 set "WE_PROD_WATCHDOG_MS=180000"
@@ -234,7 +235,7 @@ set "WE_PROD_WATCHDOG_MS=180000"
 set "SMOKE_RC=!ERRORLEVEL!"
 (echo !SMOKE_RC!)> "%ZIP_DIR%\logs\prod_smoke.exit"
 if not "!SMOKE_RC!"=="0" (
-    echo   [WARN] prod smoke failed, exit=!SMOKE_RC! (see release\logs\prod_smoke.log)
+    echo   [WARN] prod smoke failed, exit=!SMOKE_RC! - see release\logs\prod_smoke.log
     if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
 ) else (
     echo   [OK] prod smoke passed
