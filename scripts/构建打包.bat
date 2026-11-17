@@ -165,12 +165,16 @@ rem ÉÏÒ»ÂÖ²ÐÁô±»Õ¼ÓÃÊ±»á EBUSY: unlink app.asar£¬¹ÊÏÈ°Ñ¾É win-unpacked ÕûÌåÒÆ¿ªÔ
 rem ÖÐ¼ä²úÎï£¨win-unpacked\resources\app.asar£©»á±» IDE / Ë÷Òý½ø³Ì¶ÀÕ¼´ò¿ª£¬
 rem Ò»µ©Âä½ø release ¾Í»áµ¼ÖÂÕû¸ö release Ä¿Â¼É¾²»µô¡¢¸Ä²»ÁËÃû¡£
 rem Òò´ËÊä³öµ½ÏµÍ³ÁÙÊ±Ä¿Â¼£¬¹¹½¨³É¹¦ºóÖ»°Ñ setup.exe ÒÆ»Ø release¡£
+REM ¾ÉÃ°ÑÌ±ê¼Ç¿ÉÄÜÀ´×ÔÉÏÒ»´Î¹¹½¨£¨SKIP_CLEAN=1 Ê± release ²»Çå¿Õ£©£¬ÏÈÉ¾±ÜÃâÎó¶Á
+if exist "%ZIP_DIR%\logs\prod_smoke.exit" del /q "%ZIP_DIR%\logs\prod_smoke.exit" >nul 2>&1
+if exist "%ZIP_DIR%\logs\prod_smoke.log" del /q "%ZIP_DIR%\logs\prod_smoke.log" >nul 2>&1
 set "EB_TMP=%TEMP%\we-eb-out"
 if exist "%EB_TMP%" rd /s /q "%EB_TMP%" >nul 2>&1
 if not exist "%EB_TMP%" mkdir "%EB_TMP%"
 "!NODE_EXE!" node_modules\electron-builder\cli.js --win nsis -c.directories.output=%EB_TMP%
 if errorlevel 1 (
-    echo   [WARN] electron-builder failed, see output above
+    echo   [ERROR] electron-builder failed, see output above
+    if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
     goto :done_summary
 )
 set "SETUP_BUILT=0"
@@ -185,9 +189,21 @@ if defined SETUP_DST (
     set "SETUP_BUILT=1"
 ) else (
     echo   [WARN] installer not generated, see electron-builder output above
+    if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
 )
+REM ·¢²¼Á´×¨ÓÃ£ºwin-unpacked Ö»´æÔÚÓÚÁÙÊ±Êä³ö£¨ÀúÊ·ÐÞ¸´¡ª¡ª²»Âä release£¬±ÜÃâ app.asar
+REM ±» IDE/Ë÷Òý¶ÀÕ¼µ¼ÖÂ release Ä¿Â¼É¾²»µô£©¡£±ØÐëÔÚÇåÀíÁÙÊ±Ä¿Â¼Ö®Ç°¾ÍµØÃ°ÑÌ£¬
+REM ½á¹ûÐ´ release\logs\prod_smoke.exit£¨ÍË³öÂë£©Óë prod_smoke.log£¬¹© publish.ps1 ¶ÁÈ¡¡£
+if "%WE_PROD_SMOKE%"=="1" if not defined BUILD_FAILED call :run_smoke
 if exist "%EB_TMP%" rd /s /q "%EB_TMP%" >nul 2>&1
 :done_summary
+
+REM ·¢²¼Ä£Ê½£ºelectron-builder / Ã°ÑÌÊ§°Ü±ØÐëÈÃ·¢²¼½Å±¾¸ÐÖª£¨ÊÖ¶¯¹¹½¨Î¬³ÖÔ­ÐÐÎª£©
+if defined BUILD_FAILED (
+    echo   [FAIL] ·¢²¼Ä£Ê½¹¹½¨Ê§°Ü£¨electron-builder »òÃâ°²×°Ã°ÑÌ£©£¬ÖÐ¶Ï·¢²¼
+    if not "%1"=="-NoPause" pause >nul
+    exit /b 1
+)
 
 REM Íê³É
 echo.
@@ -201,3 +217,27 @@ if "!SETUP_BUILT!"=="1" echo   ×ÀÃæ°²×°°ü  : !SETUP_DST!
 echo.
 pause >nul
 exit /b 0
+
+REM ---------------------------------------------------------------- ·¢²¼Á´Ã°ÑÌ×Ó¹ý³Ì
+REM ¶ÀÁ¢×Ó¹ý³Ì¶ø·Ç¸´ºÏ if ¿é£º¿éÄÚÖØ¶¨Ïò + ÑÓ³ÙÕ¹¿ªÔÚ cmd /c + stdin ¹Ø±ÕÏÂ»áÈÃ bat ¾²Ä¬ exit 255¡£
+:run_smoke
+if not exist "%EB_TMP%\win-unpacked" (
+    echo   [WARN] win-unpacked missing in temp output, prod smoke cannot run
+    if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
+    goto :eof
+)
+echo   [INFO] unpacked-product smoke (temp output, not released)...
+set "WE_PROD_DIR=%EB_TMP%\win-unpacked"
+REM ·¢²¼ÃÅ watchdog ´Ó²úÎï½Å±¾µÄ 15 ·ÖÖÓÑ¹µ½ 3 ·ÖÖÓ£¬±ÜÃâÁ÷Ë®Ïß³¤Ê±¼ä¹ÒÆð
+set "WE_PROD_WATCHDOG_MS=180000"
+"!NODE_EXE!" tests\prod_smoke.mjs > "%ZIP_DIR%\logs\prod_smoke.log" 2>&1
+set "SMOKE_RC=!ERRORLEVEL!"
+(echo !SMOKE_RC!)> "%ZIP_DIR%\logs\prod_smoke.exit"
+if not "!SMOKE_RC!"=="0" (
+    echo   [WARN] prod smoke failed, exit=!SMOKE_RC! (see release\logs\prod_smoke.log)
+    if "%WE_PUBLISH%"=="1" set "BUILD_FAILED=1"
+) else (
+    echo   [OK] prod smoke passed
+)
+set "WE_PROD_DIR="
+goto :eof

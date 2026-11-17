@@ -2,6 +2,7 @@
   "encoding": { "chcp_codepage": 65001 },
   "runtime": {
     "python_candidates": ["python", "python3", "py"],
+    "python_required_modules": ["openpyxl", "docx"],
     "node_candidates": [
       "node",
       "%ProgramFiles%\\nodejs\\node.exe",

@@ -225,10 +225,10 @@ set SKIP_CLEAN=1 && scripts\构建打包.bat
 
 `scripts\一键发布.bat` → `scripts\publish.ps1` 跑完 6 步后调 `scripts\publish-release.py` 上传，**全部配置零硬编码**，统一来自 `scripts\publish.config.json`：
 
-1. 前置检查：Python / Node / git 是否就位，并注入 CN 镜像（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`）提升 electron 下载成功率
+1. 前置检查：`一键发布.bat` 与 `publish.ps1` 两层把关，把「构建半小时后才发现缺凭据/缺文件」挡在构建之前（清单见下方表格）；随后注入 CN 镜像（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`）提升 electron 下载成功率
 2. 读取版本号：取 `package.json` 的 `version`（形如 `0.1.YYYYMMDD-NNN`），`tag = tag_prefix + version`（`tag_prefix` 当前为空）
 3. 构建：调 `构建打包.bat` 出包（PyInstaller sidecar + electron-builder NSIS）；构建内 `bump_version.py` 会把日期序号 +1，**发布以构建后的版本为准**
-4. 免安装产物冒烟：`release\win-unpacked` 跑 `tests\prod_smoke.mjs`，**非 0 即阻断上传**（装包态的三条前提只在成品里成立，回归套件覆盖不到）
+4. 免安装产物冒烟：**发布模式下** `构建打包.bat` 在 electron-builder 临时输出目录（清理前）就地跑 `tests\prod_smoke.mjs`，把退出码写 `release\logs\prod_smoke.exit`、详情写 `prod_smoke.log`；`publish.ps1` 读取该结果，**非 0 即阻断上传**。这样无需把 `win-unpacked` 落进 `release`（历史修复：中间产物 `app.asar` 被索引进程独占会让 release 删不掉）。手工构建出 `release\win-unpacked` 时仍可直接对它冒烟；`-SkipBuild` 且两者皆无时只告警跳过。构建期冒烟 watchdog 限 3 分钟，发布模式下 electron-builder 失败会返回非 0（不会「构建完成」后才发现没出包）。
 5. 定位安装包：按 `publish.setup_glob`（`release\WorkloadEstimate-*-setup.exe`）取最新一份
 6. 准备说明并发布：说明命中 `publish.notes_glob`（`release-notes-<版本>.md`）即用；缺失时从 `git log --no-merges` 取最近 `auto_notes_git_log_count`（默认 20）条自动生成 `release-notes-<版本>.auto.md`；随后以 `GH_REPO` / `GH_TAG` / `GH_DRY_RUN` 调 `publish-release.py <setup> <notes> <显示名>` 创建 Release 并上传资产
 
@@ -236,18 +236,39 @@ set SKIP_CLEAN=1 && scripts\构建打包.bat
 rem 一键构建并发布（需先在 .env 配置 GH_TOKEN，详见 scripts\.env.example）
 scripts\一键发布.bat
 
-rem 只打印将要执行的发布动作、不真正发布
-set GH_DRY_RUN=1 && scripts\一键发布.bat
+rem 只打印将要执行的发布动作、不真正发布（构建与冒烟仍会执行，仅跳过上传）
+set "GH_DRY_RUN=1" && scripts\一键发布.bat
 
 rem 仅发布已存在的 release/WorkloadEstimate-*-setup.exe（CI 重发 / 跳过构建）
 powershell -File scripts\publish.ps1 -SkipBuild
+
+rem 只跑前置检查自检：不构建、不冒烟、不上传（发布前体检 / CI 门禁）
+scripts\一键发布.bat -PreflightOnly
+
+rem 无人值守：不弹结束 pause；命令行参数原样透传给 publish.ps1
+set "NO_PAUSE=1" && scripts\一键发布.bat -SkipBuild -DryRun
 ```
+
+**前置检查清单**（对齐 AirMirror `一键发布.bat`，全部发生在构建之前；硬失败即不出包、不上传 Release）：
+
+| 层 | 检查项 | 口径 |
+|---|---|---|
+| bat | 从仓库根 `.env` 载入 `GH_TOKEN` / `GITHUB_TOKEN`（环境优先、剥引号、绝不回显，`GITHUB_TOKEN` 映射为 `GH_TOKEN`） | 缺失仅 WARN，交 ps1 判定 |
+| bat | `git` / `PowerShell` 可用、`gh` CLI 可选提示、发布链 4 个必需文件（`publish.ps1` / `publish.config.json` / `publish-release.py` / `package.json`） | 硬失败 |
+| bat | `-DryRun` / `GH_DRY_RUN=1` 演练识别、退出码横幅、`NO_PAUSE` 控制结束 pause | — |
+| ps1 | Python / Node / git、`publish.config.json` 必需字段、构建/冒烟/发布器脚本齐全 | 硬失败 |
+| ps1 | Python 构建依赖（`runtime.python_required_modules`，默认 `openpyxl`/`docx`）在构建前探测 | 硬失败：避免构建到一半才报缺依赖 |
+| ps1 | GitHub 凭据：env/.env 的 `GH_TOKEN` 或 `git credential.helper`（只读 `git config`，不回显 token） | 非演练硬失败；演练仅告警 |
+| ps1 | `origin` 与 `publish.repo` 一致性、脏工作树、非 main/master 分支 | 仅告警：构建内 `bump_version.py` 会改两个 `package.json`，干净工作树不能当硬门槛 |
+| ps1 | 本地已有同名 tag | 仅提示：`publish-release.py` 按幂等规则复用 Release，不阻断重发 |
+
+`-PreflightOnly` 只跑上表就退出；`-DryRun` 仍会构建与冒烟，只是不上传（要连构建一起跳过请叠加 `-SkipBuild`）。`S20` 离线回归用临时沙箱 + stub 发布器覆盖以上分支，不触碰真实 GitHub。
 
 - 仓库坐标 `GH_REPO`（默认 `wangnan05563/Evaluation`）与镜像源、构建入口、版本/安装包 glob 全部走 `scripts\publish.config.json`，不硬编码。
 - Token 仅从本地 `.env`（`GH_TOKEN=...`，已被 `.gitignore` 忽略）或 git 凭据库（`git credential fill` 的 github.com 密码）读取，绝不入库；格式见 `scripts\.env.example`（fine-grained 或 classic PAT，需 `repo` 权限）。
 - 版本号取 `package.json` 的 `version` 作为 Release 标签（`tag_prefix` 默认空）。
 - `publish-release.py` 幂等：Release 已存在则按 tag 复用，资产已存在则跳过上传；网络抖动自动重试。
-- 环境变量（均可选，缺省自动推断）：`GH_REPO`（仓库坐标）、`GH_TAG`（标签）、`GH_TOKEN`（token）、`GH_TARGET`（目标分支/commit，默认当前分支）、`GH_DRAFT`（草稿）、`GH_PRERELEASE`（预发布）、`GH_API_BASE`（企业版/镜像 API 域名，默认 `https://api.github.com`）、`GH_DRY_RUN`（演练）。
+- 环境变量（均可选，缺省自动推断）：`GH_REPO`（仓库坐标）、`GH_TAG`（标签）、`GH_TOKEN`（token）、`GITHUB_TOKEN`（通用别名，自动映射为 `GH_TOKEN`）、`GH_TARGET`（目标分支/commit，默认当前分支）、`GH_DRAFT`（草稿）、`GH_PRERELEASE`（预发布）、`GH_API_BASE`（企业版/镜像 API 域名，默认 `https://api.github.com`）、`GH_DRY_RUN`（演练）、`NO_PAUSE`（无人值守，跳过结束 pause）。
 - 完成后控制台打印 Release 地址：`https://github.com/wangnan05563/Evaluation/releases/tag/<version>`。
 - 编码规范：`.bat` 纯 ASCII + `chcp 65001`，`.ps1` 全部 UTF-8 BOM；`scripts\verify.ps1` 可做字节级静态校验。
 
@@ -374,7 +395,7 @@ Get-ChildItem $env:TEMP -Directory -Filter 'we_*' | Remove-Item -Recurse -Force 
 - **内网/离线构建拉不到 electron**：镜像源集中在 `scripts/publish.config.json` 的 `env` 段（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`），不在脚本里硬编码；前端本身无 CDN 依赖。
 - **界面切成英文后导出的表还是中文**：这是设计边界，交付物（成品 xlsx / PERT 表 / 用户故事）恒为中文，理由与影响面见 `docs/设计-多语言边界-交付物恒为中文.md`。
 - **整跑时 S4/S6 偶发 FAIL、单跑却全绿**：无头 Chrome + CDP 在连续跑 UI 套件时会资源竞争（2026-10-29 实测：整跑 10/12 → `--only=S4` 13/13、`--only=S6` 17/17 → 再整跑 12/12）。先复跑确认，**连续两次同项失败才按回归处理**。
-- **双击 `scripts\一键发布.bat` 说没有 GH_TOKEN**：`.env` 要放在**仓库根**（脚本会先切到仓库根再加载），字段格式见 `scripts/.env.example`。
+- **双击 `scripts\一键发布.bat` 说没有 GH_TOKEN**：`.env` 要放在**仓库根**（脚本会先切到仓库根再加载），字段格式见 `scripts/.env.example`；可先跑 `scripts\一键发布.bat -PreflightOnly` 自检凭据与工具是否就位。
 
 ## 贡献指南
 

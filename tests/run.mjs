@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /** M4/FR-5.2 编排器：npm test 一条命令跑核心链路自动化测试。
  *  用法：npm test [-- --only=S1,S3] [-- --with-flaky]
- *  套件：S1/S2/S10/S19 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
- *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测 · S18 免安装产物冒烟，19 套全部默认纳入。
+ *  套件：S1/S2/S10/S19/S20 单测(python) · S3 API 冒烟(隔离实例) · S4/S5/S6/S7/S8/S9/S11/S12 UI 冒烟(CDP+无头 Chrome)
+ *       · S13/S14 桌面壳单测(node) · S15/S16 UI 冒烟(壳配置面/降级态) · S17 Electron 实机烟测 · S18 免安装产物冒烟，20 套全部默认纳入。
  *  T05688：内置 GitHub Releases 更新源默认启用，隔离实例统一用 WE_UPDATE_URL=off 关掉外网自动检测
  *  （否则 S12 的「检查更新」断言会被 10s 网络超时拖成假红）；要验在线链路显式传 WE_TEST_UPDATE_URL。
  *  S18 只在「已构建 release/win-unpacked」时才真判，产物没构建就整套 SKIP（原因逐条打印）；
@@ -186,6 +186,11 @@ const suites = [
   // T05688：内置更新源默认启用后，必须有离线用例守住「默认地址/覆盖/停用/Release 解析」
   { id: 'S19', title: '内置 GitHub 更新源单测（T05688）', kind: 'py',
     script: 'tests/unit_update_source.py', timeoutMs: 180000 },
+  // 一键发布前置检查（对齐 AirMirror 一键发布.bat）：静态守卫 + 临时沙箱并行实跑 bat/ps1，
+  // 发布器换 stub 隔断真实 GitHub。4 个 -PreflightOnly 分支 + 1 条完整 DryRun 链路；
+  // 沙箱里每个外部进程都有秒级固定开销，故给足预算（实测并行约 4min）。
+  { id: 'S20', title: '一键发布前置检查离线回归', kind: 'py',
+    script: 'tests/unit_publish_precheck.py', timeoutMs: 900000 },
 ];
 
 let server = null, chrome = null;
