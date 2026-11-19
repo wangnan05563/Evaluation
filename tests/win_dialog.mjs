@@ -282,6 +282,16 @@ else {
   if ($dlgHwnd -eq [IntPtr]::Zero) { Write-Output 'DIALOG=not_found'; exit 2 }
   $foundVia = 'win32'
 }
+# Win32 兜底拿到句柄后，UIA 可能只是晚一拍才认得出这个 HWND（T04505：同一轮批次里首轮
+# RootElement 枚举看不到刚建好的 #32770）。这里用 FromHandle 再补一次，拿到后文案/复选框
+# 仍走真实 UIA 取证，不从兜底路径伪造「取不到就跳过」。最多等 1s，避免拖慢正常路径。
+if ($null -eq $dlg -and $dlgHwnd -ne [IntPtr]::Zero) {
+  for ($i = 0; $i -lt 5; $i++) {
+    try { $dlg = [System.Windows.Automation.AutomationElement]::FromHandle($dlgHwnd) } catch { $dlg = $null }
+    if ($null -ne $dlg) { $foundVia = 'win32+uia'; break }
+    Start-Sleep -Milliseconds 200
+  }
+}
 Write-Output ('DIALOG_VIA=' + $foundVia)
 # 按钮按「屏幕位置从左到右」编号，不按 EnumChildWindows 的返回顺序：那个顺序是 z-order，
 # 补按一次就可能翻转（T04475 实测：E 第一次按被吞、补按按同一序号点到了另一个按钮，

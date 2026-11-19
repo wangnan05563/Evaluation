@@ -96,28 +96,86 @@ const reapOwnedExcel = () => {
 };
 
 function startServer(dataDir, port = API_PORT) {
+  const token = ++serverToken;
+  serverLog = '';
+  serverExit = null;
+  serverError = null;
   const p = spawn(PY, ['-u', 'scripts/server.py', String(port), '--serve-frontend'],
     { cwd: ROOT, env: { ...process.env, WE_DATA: dataDir, WE_EXCEL_LEDGER: LEDGER,
       // T05688：测试实例不访问外网；S19 自己起隔离实例验证内置源的在线/离线行为
       WE_UPDATE_URL: process.env.WE_TEST_UPDATE_URL || 'off' }, stdio: ['ignore', 'pipe', 'pipe'] });
-  p.stdout.resume(); p.stderr.resume();
+  const grab = d => {
+    if (serverToken !== token) return;   // 上一组被 kill 的实例可能在新实例启动后才吐最后几行，别污染本轮日志
+    serverLog += d.toString();
+    if (serverLog.length > 8000) serverLog = serverLog.slice(-8000);
+  };
+  p.stdout.on('data', grab); p.stderr.on('data', grab);
+  // spawn 本身失败（EAGAIN/ENOENT 等）不会走 exit，只会发 error；不接住就会表现成
+  // 「serverExit=null、serverLog 为空、等 30s 后 API 实例未就绪」。整机跑多个构建时实测出现过。
+  p.once('error', e => { if (serverToken === token) serverError = e; });
+  // 退出事件必须按「实例代次」归属，不能按 `server === p`：startServer() 返回前 `server`
+  // 仍指向上一组，旧实例的 exit 恰在这时到达会把返回值写成新实例的 serverExit，下一组
+  // waitHealth 第一轮就直接判死（2026-11-19：S5~S9/S12 间歇整组「API 实例未就绪」）。
+  p.once('exit', code => { if (serverToken === token) serverExit = code; });
   return p;
 }
 const stopServer = async () => {
   if (!server) return;
   if (!(await settleLedger())) log('# 台账里有 Dispatch 迟迟未落地，本次不再等（可能有实例认领不到）');
   killTree(server.pid); server = null;
-  await sleep(300);
+  // 端口释放要等实：上一组刚 kill 时 Windows 上偶发仍在 LISTEN（S12 曾因此整组报
+  // 「API 实例未就绪」）。这里等到端口能重新 bind 再返回，下一组 startServer 才不会 EADDRINUSE。
+  if (!(await waitPortFree(API_PORT, 8000))) {
+    log(`# 端口 ${API_PORT} 在 8s 内未释放；下一组启动可能失败`);
+  }
   reapOwnedExcel();
-  await sleep(800);
 };
-async function waitHealth(timeoutMs = 30000) {
+async function waitPortFree(port, timeoutMs = 8000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
-    try { const r = await fetch(`${API}/health`); if (r.ok) return true; } catch { /* 未就绪 */ }
+    if (await portFree(port)) return true;
+    await sleep(300);
+  }
+  return false;
+}
+async function waitHealth(timeoutMs = 120000) {
+  // 120s 不是性能门：实测整机被别的构建压满时，`import server`（docx/openpyxl/datakeeper）
+  // 单次就要 51.72s（2026-11-19 16:32 探针），30s 会让 UI 组整组假失败。正常机器 < 1s。
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (serverExit !== null || serverError !== null) return false;
+    try {
+      const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(1500) });
+      if (r.ok) return true;
+    } catch { /* 未就绪 */ }
     await sleep(500);
   }
   return false;
+}
+const serverFailureDetail = () => {
+  const tail = serverLog.split(/\r?\n/).filter(Boolean).slice(-4).join(' | ');
+  const why = serverError ? `spawn ${serverError.code || ''} ${serverError.message || serverError}` :
+    (serverExit !== null ? `server 退出码 ${serverExit}` : '');
+  return `${why}${tail ? `${why ? '；' : ''}${tail}` : ''}`;
+};
+/** 起测试实例并等到 /health；失败时把 server 自己的 stderr / spawn error 带进异常，避免只报
+ *  一句「API 实例未就绪」而看不到真正的 EADDRINUSE/导入错误。
+ *  整机并发构建时实测 Windows 偶发进程创建失败（EAGAIN），故失败后清场重试一次。 */
+async function startTestServer(dataDir) {
+  let last = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await sleep(1500);
+    if (!(await waitPortFree(API_PORT, 8000))) {
+      last = `端口 ${API_PORT} 被占用，无法启动测试实例`;
+      continue;
+    }
+    server = startServer(dataDir);
+    if (await waitHealth()) return;
+    last = serverFailureDetail();
+    if (server && server.pid) killTree(server.pid);
+    server = null;
+  }
+  throw new Error(`API 实例未就绪${last ? `：${last}` : ''}`);
 }
 async function startChrome(dataDir) {
   const p = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${CDP_PORT}`,
@@ -193,7 +251,7 @@ const suites = [
     script: 'tests/unit_publish_precheck.py', timeoutMs: 900000 },
 ];
 
-let server = null, chrome = null;
+let server = null, chrome = null, serverLog = '', serverExit = null, serverError = null, serverToken = 0;
 async function cleanup() {
   await stopServer();
   if (chrome) { killTree(chrome.pid); chrome = null; }
@@ -240,8 +298,7 @@ process.on('SIGTERM', async () => { await cleanup(); process.exit(130) })
       } else if (s.kind === 'api') {
         const dataDir = path.join(TMP, s.id.toLowerCase(), 'data');
         fs.mkdirSync(dataDir, { recursive: true });
-        server = startServer(dataDir);
-        if (!(await waitHealth())) throw new Error('API 实例未就绪');
+        await startTestServer(dataDir);
         ({ code } = await runSuite(PY, [s.script, String(API_PORT)], {}, s.timeoutMs));
         await stopServer();
       } else if (s.kind === 'node' || s.kind === 'shell') {
@@ -251,8 +308,7 @@ process.on('SIGTERM', async () => { await cleanup(); process.exit(130) })
         if (!chrome) chrome = await startChrome(path.join(TMP, 'chrome'));
         const dataDir = path.join(TMP, s.id.toLowerCase(), 'data');
         fs.mkdirSync(dataDir, { recursive: true });
-        server = startServer(dataDir);
-        if (!(await waitHealth())) throw new Error('API 实例未就绪');
+        await startTestServer(dataDir);
         ({ code } = await runSuite(process.execPath, [s.script], { WE_DATA: dataDir, ...s.env }, s.timeoutMs));
         await stopServer();
       }

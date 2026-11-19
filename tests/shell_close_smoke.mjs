@@ -47,8 +47,10 @@ const SHELL_LOG = path.join(ROOT, 'logs', 'shell.log')
 const res = []
 // 退出耗时预算：本机波动很大——空闲时 0.4~0.7s（T03779 实测 401/648ms），多个会话并发挤满时
 // 用 probe 对照复测：HEAD 原码 22.2s、本单改动版 15.3s，说明与本单无关，是环境负载。
-// 因此默认给到 45s；仍可用 WE_SHELL_EXIT_WAIT 收紧，用来量真实退出耗时。
-const EXIT_WAIT = Number(process.env.WE_SHELL_EXIT_WAIT || 45000)
+// 本套件验证的是「关窗后会不会退出」，不是性能门；整机被测试进程压满时 Electron 的进程退出
+// 实测可超过 45s（S17 整套回归 B 分支超时，单独复跑 10.9s 通过）。默认给到 90s，
+// 仍可用 WE_SHELL_EXIT_WAIT 收紧；性能预算由 tests/prod_smoke.mjs 单独断言。
+const EXIT_WAIT = Number(process.env.WE_SHELL_EXIT_WAIT || 90000)
 const check = (n, ok, d = '') => {
   res.push({ n, ok: !!ok })
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`)
