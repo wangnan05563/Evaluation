@@ -375,6 +375,37 @@ function applyPertSummary(s){
   $("#pAdj").textContent="+"+(s.adjust_sum*100).toFixed(0)+"%";
   $("#pActual").textContent=s.actual_person_month;
   pertSummary=s;
+  renderPertPhases(s);
+}
+/* 结果页阶段分布：后端 summary.phases 已按六阶段汇总，展示出来才能解释总人天来自哪里；
+   表格同时给出条目数、预期人天与占比，便于生成前发现阶段投入失衡。 */
+function renderPertPhases(s){
+  const box=$("#pertPhaseBox");if(!box)return;
+  const ps=(s&&Array.isArray(s.phases))?s.phases:[];
+  if(!ps.length){box.innerHTML='<div class="cfg-note">'+t("pert.phase.empty")+'</div>';return;}
+  const totalDays=ps.reduce((a,p)=>a+(Number(p.days)||0),0);
+  const totalCount=ps.reduce((a,p)=>a+(Number(p.count)||0),0);
+  const zeroCount=ps.filter(p=>(Number(p.count)||0)===0).length;
+  const rows=ps.map(p=>{
+    const pct=Math.max(0,Math.min(100,Number(p.pct)||0));
+    return `<tr>
+      <td><span class="cat" style="background:var(--brand-soft);color:var(--brand-ink)">${pertPhaseLabel(p.phase||'开发')}</span></td>
+      <td class="num">${(Number(p.days)||0).toFixed(2)}</td>
+      <td class="num">${Number(p.count)||0}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;min-width:120px">
+        <div style="height:6px;flex:1;background:var(--brand-soft);border-radius:3px"><i style="display:block;height:6px;width:${pct}%;background:var(--brand);border-radius:3px"></i></div>
+        <span class="num" style="width:44px;text-align:right">${pct.toFixed(1)}%</span>
+      </div></td>
+    </tr>`;
+  }).join("");
+  box.innerHTML=`<div class="card-title" style="margin-bottom:8px"><i aria-hidden="true" data-lucide="layers"></i><span>${t("pert.phase.title")}</span></div>
+    <div style="overflow:auto"><table id="pertPhaseTable">
+      <thead><tr><th>${t("pert.th.phase")}</th><th class="num">${t("pert.phase.days")}</th><th class="num">${t("pert.phase.items")}</th><th>${t("pert.phase.pct")}</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td><b>${t("pert.phase.total")}</b></td><td class="num"><b>${totalDays.toFixed(2)}</b></td><td class="num"><b>${totalCount}</b></td><td><b>100.0%</b></td></tr></tfoot>
+    </table></div>
+    ${zeroCount?`<p class="cfg-note" style="margin:8px 0 0">${tf("pert.phase.zero_note",{n:zeroCount})}</p>`:""}`;
+  window.lucide&&lucide.createIcons();
 }
 async function pertGen(){
   if(!pertPid){toast(t("pert.need_project"));return;}
@@ -479,12 +510,24 @@ function pertRenderCands(){
       <td>${inp(c,'optimistic')}</td><td>${inp(c,'most_likely')}</td><td>${inp(c,'pessimistic')}</td>
     </tr>`).join("");
   box.style.display="block";
+  pertCandSyncAll();
   window.lucide&&lucide.createIcons();
 }
-function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c)c.checked=v;}
+/* 候选全选框与逐行勾选双向同步：批量按钮/单行变更后重算母框状态，
+   避免出现「所有行已勾选但表头全选框仍未勾」的误导态。 */
+function pertCandSyncAll(){
+  const all=$("#pertCandAll");
+  if(!all)return;
+  const boxes=[...document.querySelectorAll("#pertCandTbody input[data-cb]")];
+  const n=boxes.filter(x=>x.checked).length;
+  all.checked=!!boxes.length&&n===boxes.length;
+  all.indeterminate=n>0&&n<boxes.length;
+}
+function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c)c.checked=v;pertCandSyncAll();}
 function pertCandAll(v){
   pertCands.forEach(c=>c.checked=!!v);
   document.querySelectorAll("#pertCandTbody input[data-cb]").forEach(el=>el.checked=!!v);
+  pertCandSyncAll();
 }
 function pertCandClear(){
   pertCands=[];$("#pertCandBox").style.display="none";
@@ -509,7 +552,8 @@ async function pertCandConfirm(){
   });
   const r=await pertPost("/api/pert/import/confirm",{project_id:pertPid,items,replace});
   if(!r.ok){toast(r.msg?lm(r):t("pert.import_fail"));return;}
-  toast(replace?tf("pert.import.replaced",{n:r.added}):tf("pert.import.added",{n:r.added}));
+  const allFull=items.every(i=>i.optimistic!=null&&i.most_likely!=null&&i.pessimistic!=null);
+  toast(replace?tf("pert.import.replaced",{n:r.added}):tf(allFull?"pert.import.added_full":"pert.import.added",{n:r.added}));
   pertCandClear();
   await pertRefresh();
 }

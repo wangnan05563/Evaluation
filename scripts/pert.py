@@ -333,13 +333,17 @@ def _fill_pert_sheet(ws, project_name, est_date, estimator):
         ws["D2"] = est_date
     if estimator:
         ws["H2"] = estimator
-    # 清空模板自带的示例数据（D/E/F/G），H/I 公式列保留由 Excel 重算
+    # 清空模板自带的示例数据（D/E/F/G），H/I 公式列保留由 Excel 重算。
+    # 空白行的 H 公式会在 Excel 打开时按 COUNTA=0 触发 #DIV/0!，由 _write_pert_rows
+    # 对未使用行显式置 0；这里只清数据区。
     for r in range(DEV_START, DEV_END + 1):
         for c in (4, 5, 6, 7):
             ws.cell(r, c).value = None
     for r in PHASE_ROW.values():
         for c in (5, 6, 7):
             ws.cell(r, c).value = None
+    # 估算比例分母：H40 = 最理想总人月（H35）。母版 H40 留空会让 I 列全部显示空白。
+    ws["H40"] = "=H35"
 
 
 def _pert_desc(r):
@@ -352,27 +356,67 @@ def _pert_desc(r):
     return desc
 
 
+def _num(v):
+    """三值在生成前已校验齐全；缺失值按 0 处理，保证空白行公式不产生错误。"""
+    return v if isinstance(v, (int, float)) else 0
+
+
+DEV_ROWS = DEV_END - DEV_START + 1
+
+
 def _write_pert_rows(ws, rows):
-    """开发明细按行号依次写 R8 起；非开发阶段（或开发明细溢出）写各自阶段行。"""
-    dev_idx = DEV_START
+    """开发明细按行号依次写 R8 起；非开发阶段按阶段汇总写对应阶段行。
+
+    非开发阶段在母版中只有一行，同一阶段多个条目必须对 O/M/P 求和后再写，
+    否则后写项会覆盖前项、成品总人天少于页面汇总。PERT 预期是 O/M/P 的线性
+    组合，因此“先汇总三值再套公式”与“逐项预期后求和”结果一致。
+    开发明细超过 23 行时，溢出项合并进第 23 行（R30），不再回落到 R8 覆盖首项。
+    """
+    dev_items = [r for r in rows if (r.get("phase") or "开发") == "开发"]
+    phase_items = {}
     for r in rows:
         ph = r.get("phase") or "开发"
-        if ph != "开发" or dev_idx > DEV_END:
-            row = PHASE_ROW.get(ph)
-            if row:
-                ws.cell(row, 5).value = r.get("most_likely")
-                ws.cell(row, 6).value = r.get("optimistic")
-                ws.cell(row, 7).value = r.get("pessimistic")
-            continue
-        # B/C 列为模板合并分区（MergedCell 只读），仅写入 D 描述与 E/F/G 三值；
-        # 系统/小模块语义纳入 desc 前缀，避免破坏合并结构。
+        if ph != "开发":
+            phase_items.setdefault(ph, []).append(r)
+
+    # 开发明细：前 23 项各占一行；超出部分合并进末行，保证合计不丢项。
+    for i, r in enumerate(dev_items):
+        row = DEV_START + min(i, DEV_ROWS - 1)
         desc = _pert_desc(r)
+        if i >= DEV_ROWS:
+            old = ws.cell(row, 4).value or ""
+            ws.cell(row, 4).value = f"{old}（合并 {i - DEV_ROWS + 2} 项）" if old else desc
+            for c, key in ((5, "most_likely"), (6, "optimistic"), (7, "pessimistic")):
+                ws.cell(row, c).value = _num(ws.cell(row, c).value) + _num(r.get(key))
+            continue
         if desc:
-            ws.cell(dev_idx, 4).value = desc
-        ws.cell(dev_idx, 5).value = r.get("most_likely")
-        ws.cell(dev_idx, 6).value = r.get("optimistic")
-        ws.cell(dev_idx, 7).value = r.get("pessimistic")
-        dev_idx += 1
+            ws.cell(row, 4).value = desc
+        ws.cell(row, 5).value = r.get("most_likely")
+        ws.cell(row, 6).value = r.get("optimistic")
+        ws.cell(row, 7).value = r.get("pessimistic")
+
+    # 未使用的开发明细行：H 公式置 0，避免空白行 COUNTA=0 导致 H31 小计报错。
+    for row in range(DEV_START + len(dev_items), DEV_END + 1):
+        ws.cell(row, 8).value = 0
+    # 开发阶段无条目时，I8 的比例公式也置空，避免显示 0% 占位。
+    if not dev_items:
+        ws.cell(8, 9).value = ""
+
+    for ph, arr in phase_items.items():
+        row = PHASE_ROW.get(ph)
+        if not row:
+            continue
+        ws.cell(row, 5).value = sum(_num(x.get("most_likely")) for x in arr)
+        ws.cell(row, 6).value = sum(_num(x.get("optimistic")) for x in arr)
+        ws.cell(row, 7).value = sum(_num(x.get("pessimistic")) for x in arr)
+
+    # 空阶段行：H 置 0、I 置空；保留模板格式与行结构，H35 汇总不会出现错误值。
+    for ph, row in PHASE_ROW.items():
+        if ph == "开发" or ph in phase_items:
+            continue
+        ws.cell(row, 8).value = 0
+        ws.cell(row, 9).value = ""
+
 
 
 def rows_for_generate(con, pid):
