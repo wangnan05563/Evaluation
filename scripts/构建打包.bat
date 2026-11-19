@@ -76,7 +76,7 @@ REM [4/5] 打 zip 发布包
 echo [4/6] 打包发布包...
 if not exist "%ZIP_DIR%" mkdir "%ZIP_DIR%"
 if exist "%ZIP_PATH%" del "%ZIP_PATH%" >nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'scripts','frontend' -DestinationPath '%ZIP_PATH%' -Force"
+"%PY_EXE%" scripts\package_zip.py "%ZIP_PATH%" scripts frontend
 if errorlevel 1 (
     echo   [ERROR] 打包失败
     pause

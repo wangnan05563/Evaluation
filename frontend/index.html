@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>工作量评估助手</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%232563EB'/%3E%3Cpath%20d='M12%2044%20L26%2020%20L36%2036%20L52%2022'%20stroke='%23fff'%20stroke-width='5'%20fill='none'/%3E%3C/svg%3E">
 <!-- T01481：移除 fonts.googleapis.com 外链。
      本地桌面/内网部署时该请求不可达，会阻塞首屏渲染至超时（实测 ~5.5s，
      document.readyState 一直卡在 loading，UI 自动化测试因此超时失败）。
@@ -241,9 +242,14 @@ tr.rowr.done{opacity:.7}
 .desc{max-width:420px;line-height:1.55;font-weight:500;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;cursor:zoom-in}
 .desc.exp{display:block;-webkit-line-clamp:none;cursor:zoom-out}
 .desc:not(.exp){overflow-wrap:anywhere}
+/* 判定依据按钮与描述同排：原实现用 <br> 把按钮挤到下一行，每行多出一条只有箭头的空行。 */
+.descline{display:flex;align-items:flex-start;gap:6px}
+.descline .desc{flex:1;min-width:0}
+.descline .toggle{flex:none;margin-top:1px}
 /* 复核表列宽再分配：自动布局下描述列（信息密度最高）仅分得 ~105px，
    3 行钳制后可见内容过少。给描述列 30% 权重（≥240px），从次要窄列让出空间。 */
 #v-review thead th:nth-child(2){width:30%;min-width:240px}
+#v-review thead th:last-child{width:84px;min-width:84px}
 .cat{display:inline-block;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px}
 .c-ILF{background:var(--cat-ilf-bg);color:var(--cat-ilf-ink)}.c-EIF{background:var(--cat-eif-bg);color:var(--cat-eif-ink)}
 .c-EI{background:var(--cat-ei-bg);color:var(--cat-ei-ink)}.c-EO{background:var(--cat-eo-bg);color:var(--cat-eo-ink)}.c-EQ{background:var(--cat-eq-bg);color:var(--cat-eq-ink)}
@@ -252,7 +258,7 @@ tr.rowr.done{opacity:.7}
 .basis{font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:7px 9px;border-radius:8px;line-height:1.55;margin-top:6px;display:none}
 tr.rowr.showb .basis{display:block}
 .toggle{border:0;background:var(--line-2);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:500;cursor:pointer}
-.stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px}
+.stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;white-space:nowrap}
 .stat .lic{width:15px;height:15px}
 .st-ok{color:var(--ok)}.st-md{color:var(--warn)}
 .dockbar{position:sticky;bottom:14px;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:var(--shadow-lg);flex-wrap:wrap}
@@ -501,7 +507,7 @@ tr.rowr.showb .basis{display:block}
       </aside>
       <div class="glass pad">
         <div class="toolbar">
-          <div class="search"><i aria-hidden="true" data-lucide="search"></i><input id="q" data-i18n-ph="review.search.ph" placeholder="搜索功能项描述 / 计数项名称…"></div>
+          <div class="search"><i aria-hidden="true" data-lucide="search"></i><input id="q" data-i18n-ph="review.search.ph" placeholder="搜索描述或计数项…"></div>
           <select id="fSys" onchange="render()" data-i18n="title=review.filter.sys_title" title="按模块筛选"><option value="" data-i18n="review.filter.sys">全部模块</option></select>
           <select id="fType" onchange="render()" data-i18n="title=review.filter.type_title" title="按类型筛选"><option value="" data-i18n="review.filter.type">全部类型</option><option>EI</option><option>EO</option><option>EQ</option><option>ILF</option><option>EIF</option></select>
           <select id="fReuse" onchange="render()" data-i18n="title=review.filter.reuse_title" title="按重用度筛选"><option value="" data-i18n="review.filter.reuse">全部重用度</option><option>高</option><option>中</option><option>低</option></select>
@@ -572,7 +578,7 @@ tr.rowr.showb .basis{display:block}
     <div class="chart-grid" id="chartGrid">
       <div class="glass pad"><div class="card-title"><i aria-hidden="true" data-lucide="pie-chart"></i><span data-i18n="result.chart.type">功能点类型分布</span></div><div class="chart" id="c1"></div></div>
       <div class="glass pad"><div class="card-title"><i aria-hidden="true" data-lucide="bar-chart-3"></i><span data-i18n="result.chart.reuse">重用度分布</span></div><div class="chart" id="c2"></div></div>
-      <div class="glass pad"><div class="card-title"><i aria-hidden="true" data-lucide="bar-chart-big"></i><span data-i18n="result.chart.module">一级模块工作量占比（US）</span></div><div class="chart" id="c3"></div></div>
+      <div class="glass pad"><div class="card-title"><i aria-hidden="true" data-lucide="bar-chart-big"></i><span data-i18n="result.chart.module">分系统工作量占比（US）</span></div><div class="chart" id="c3"></div></div>
       <div class="glass pad"><div class="card-title"><i aria-hidden="true" data-lucide="trending-up"></i><span data-i18n="result.chart.pert">工作量三值区间（人天）</span></div><div class="chart" id="c4"></div></div>
     </div>
     <button class="btn btn-ghost fold-btn" id="foldDetail" aria-expanded="true" aria-controls="rGridSec" onclick="foldToggle('detail')" data-i18n="title=result.fold.detail_title" title="折叠/展开明细区"><i aria-hidden="true" data-lucide="chevron-down" style="width:15px;height:15px"></i><span data-i18n="result.fold.detail">明细</span></button>
@@ -1235,19 +1241,19 @@ const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").re
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
-function us(it){return +(ufp(it)*REUSE[it.reuse]*MODIFY[it.modify]).toFixed(2);}
+function us(it){return ufp(it)*REUSE[it.reuse]*MODIFY[it.modify];}
 function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
 function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
 function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
 function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
-tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
+tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
 function refreshTotals(){
   const okT=items.filter(x=>x.ok),tU=items.reduce((a,x)=>a+ufp(x),0),tS=items.reduce((a,x)=>a+us(x),0).toFixed(2);
   $("#okCnt").textContent=okT.length;$("#leftCnt").textContent=items.length-okT.length;
-  $("#treeUfp").textContent=tU;$("#dockUfp").textContent=tU;$("#dockUs").textContent=tS;$("#listCnt").textContent=tf("review.count",{n:items.length});
-  $("#goRes").disabled=okT.length!==items.length;
+  // listCnt 由 render() 按当前筛选结果写入；这里不再覆盖，否则筛选/搜索后计数恒为总数。
+  $("#treeUfp").textContent=tU;$("#dockUfp").textContent=tU;$("#dockUs").textContent=tS;$("#goRes").disabled=okT.length!==items.length;
 }
 function buildTree(){
   const sys={};items.forEach(x=>sys[x.system]=(sys[x.system]||0)+1);
@@ -1316,10 +1322,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
 function rowHTML(it){
   return `<tr class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}">
       <td><input type="checkbox" class="ck" ${it.ok?'checked':''}></td>
-      <td><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><br><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button><div class="basis">${it.basis||''}</div></td>
+      <td><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></td>
       <td><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></td>
       <td><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></td>
-      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it)}</td>
+      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it).toFixed(2)}</td>
       <td><span class="rowst">${badge(it)}</span></td>
     </tr>`;}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选同步（滚动路径专用，建树开销不随窗口变化）
@@ -1372,7 +1378,7 @@ document.addEventListener("keydown",e=>{
 });
 function toggleBasis(seq){
   const tr=document.querySelector(`tr[data-seq="${seq}"]`);
-  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");const btn=tr.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
 function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(tr)tr.classList.add("showb");});
@@ -2416,6 +2422,7 @@ $("#goRes").addEventListener("click",async ()=>{
     // 服务端 msg 经 lm() 映射；缺 msg 时用字典兜底（不直写中文，防英文态漏中文）
     if(!res.ok)throw new Error(res.msg?lm(res):t("gen.fail"));
     gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
+    if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
     await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
@@ -2457,6 +2464,10 @@ function refreshCharts(){
   let sysArr=Object.entries(sys).map(([k,v])=>({name:k,us:+v.toFixed(2)})).sort((a,b)=>b.us-a.us);
   if(sysArr.length>15){const rest=+sysArr.slice(14).reduce((s,x)=>s+x.us,0).toFixed(2);
     sysArr=sysArr.slice(0,14);sysArr.push({name:t("result.chart_other"),us:rest});}
+  // T05692：系统名常含「XX新一代票据业务系统」等长中文名，原 grid.left=90 会把
+  // 左侧文字裁掉，只剩结尾几个字。按最长名称预留标签宽度，并用 truncate 兜底。
+  const sysNames=sysArr.map(x=>x.name);
+  const c3Left=Math.min(240,Math.max(90,Math.max(0,...sysNames.map(n=>String(n).length))*12+20));
   const th=chartTheme();
   // T03695：ECharts 5.6 的系列标签默认 fill=#333 + 2px 白描边（为浅色背景提可读性）。
   // 深色/高对比主题下深色字芯被白边包住，看起来像两份数值叠印；这里把字色与描边
@@ -2475,8 +2486,8 @@ function refreshCharts(){
     c2:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:44,right:16,top:20,bottom:24},
         xAxis:axis({type:"category",data:Object.keys(byReuse).map(k=>t("common.lv."+LV[k]))}),yAxis:axis({type:"value",minInterval:1}),
         series:[{type:"bar",barWidth:"45%",data:Object.values(byReuse),itemStyle:{color:th.brand}}]},
-    c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:90,right:30,top:10,bottom:24},
-        xAxis:axis({type:"value"}),yAxis:axis({type:"category",inverse:true,data:sysArr.map(x=>x.name)}),
+    c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:c3Left,right:30,top:10,bottom:24},
+        xAxis:axis({type:"value"}),yAxis:axis({type:"category",inverse:true,data:sysNames,axisLabel:{color:th.muted,width:c3Left-14,overflow:"truncate"}}),
         series:[{type:"bar",barWidth:"55%",data:sysArr.map(x=>x.us),itemStyle:{color:th.brand},
                  label:lbl({show:true,position:"right",formatter:"{c} US"})}]},
     c4:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:60,right:30,top:24,bottom:24},
@@ -2579,7 +2590,14 @@ function foldToggle(k){
 function rAnchor(id){  // 锚点跳转：国标造价页签外的分区先切回汇总页签
   if(id==="kpisSec"||id==="rGridSec"||id==="dlSec") gbTab("sum");
   const st = foldGet();
-  if((id==="rGridSec"&&st.detail)||(id==="dlSec"&&st.export)){st[id==="rGridSec"?"detail":"export"]=false;foldSet(st);foldApply();}
+  // 明细区首次进入默认折叠；dlSec 又嵌在明细区内，点「导出」必须同时展开父区和导出区，
+  // 否则 scrollIntoView 找不到可见目标，用户会以为导出按钮失效。
+  if(id==="rGridSec" || id==="dlSec"){
+    const changed = st.detail!==false || (id==="dlSec" && st.export!==false);
+    st.detail=false;
+    if(id==="dlSec") st.export=false;
+    if(changed){foldSet(st);foldApply();}
+  }
   const el = document.getElementById(id);
   if(!el)return;
   window.__anchorLock = Date.now() + 1200;   // 平滑滚动期间锁定高亮，避免途经分区闪切
@@ -2683,7 +2701,22 @@ function fastToGb(){  // FE01→FE02 串联：快算结果带入国标造价
 /* FR-2.2/2.7：国标造价页签 */
 function gbTab(which){
   const vr=document.querySelector("#v-result");
-  [...vr.children].forEach(el=>{if(!el.classList.contains("r-tabs")&&el.id!=="gbCard")el.style.display=which==="sum"?"":"none";});
+  [...vr.children].forEach(el=>{
+    if(el.classList.contains("r-tabs")||el.id==="gbCard")return;
+    // T05693：原实现对所有子节点统一 display=""，会把默认折叠的 rGridSec 展开、
+    // 把 display:none 的 storyBox 恢复成可见（空白用户故事面板）。这两块要按自身状态恢复。
+    if(el.id==="rGridSec"){
+      if(which==="gb")el.style.display="none";
+      else if(typeof foldApply==="function")foldApply();
+      else el.style.display="";
+      return;
+    }
+    if(el.id==="storyBox"){
+      el.style.display=(which==="sum"&&el.dataset.ready==="1")?"block":"none";
+      return;
+    }
+    el.style.display=which==="sum"?"":"none";
+  });
   document.getElementById("gbCard").style.display=which==="gb"?"block":"none";
   document.getElementById("tabSum").style.fontWeight=which==="sum"?"700":"500";
   document.getElementById("tabGb").style.fontWeight=which==="gb"?"700":"500";
@@ -3433,9 +3466,20 @@ function storyGen(){
   }));
   window.__stories=stories;
   const box=document.getElementById("storyBox");
+  box.dataset.ready="1";
   box.style.display="block";
   box.querySelector("textarea").value=stories.map(s=>`### ${s.title}\n${s.body}\n`).join("\n");
   window.lucide&&lucide.createIcons();
+}
+/* T05693：新一轮生成时清空旧用户故事，避免把上一份估算的故事带进新结果。 */
+function storyReset(){
+  const box=document.getElementById("storyBox");
+  if(!box)return;
+  box.style.display="none";
+  delete box.dataset.ready;
+  const ta=box.querySelector("textarea");
+  if(ta)ta.value="";
+  window.__stories=[];
 }
 function storyDl(kind){
   const txt=document.querySelector("#storyBox textarea").value;

@@ -24,7 +24,14 @@ function foldToggle(k){
 function rAnchor(id){  // 锚点跳转：国标造价页签外的分区先切回汇总页签
   if(id==="kpisSec"||id==="rGridSec"||id==="dlSec") gbTab("sum");
   const st = foldGet();
-  if((id==="rGridSec"&&st.detail)||(id==="dlSec"&&st.export)){st[id==="rGridSec"?"detail":"export"]=false;foldSet(st);foldApply();}
+  // 明细区首次进入默认折叠；dlSec 又嵌在明细区内，点「导出」必须同时展开父区和导出区，
+  // 否则 scrollIntoView 找不到可见目标，用户会以为导出按钮失效。
+  if(id==="rGridSec" || id==="dlSec"){
+    const changed = st.detail!==false || (id==="dlSec" && st.export!==false);
+    st.detail=false;
+    if(id==="dlSec") st.export=false;
+    if(changed){foldSet(st);foldApply();}
+  }
   const el = document.getElementById(id);
   if(!el)return;
   window.__anchorLock = Date.now() + 1200;   // 平滑滚动期间锁定高亮，避免途经分区闪切

@@ -19,9 +19,20 @@ function storyGen(){
   }));
   window.__stories=stories;
   const box=document.getElementById("storyBox");
+  box.dataset.ready="1";
   box.style.display="block";
   box.querySelector("textarea").value=stories.map(s=>`### ${s.title}\n${s.body}\n`).join("\n");
   window.lucide&&lucide.createIcons();
+}
+/* T05693：新一轮生成时清空旧用户故事，避免把上一份估算的故事带进新结果。 */
+function storyReset(){
+  const box=document.getElementById("storyBox");
+  if(!box)return;
+  box.style.display="none";
+  delete box.dataset.ready;
+  const ta=box.querySelector("textarea");
+  if(ta)ta.value="";
+  window.__stories=[];
 }
 function storyDl(kind){
   const txt=document.querySelector("#storyBox textarea").value;

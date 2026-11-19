@@ -161,7 +161,13 @@ def arrange_systems(items):
 
 
 def rewrite_fee_systems(wb, sys_ranges):
-    """按系统行区间重写《费用估算》系统列名称与分区 SUM（支持前 3 个系统）。"""
+    """按系统行区间重写《费用估算》系统列名称与分区 SUM（支持前 3 个系统）。
+
+    T05690：母版里 E/F/G 三列带有样例项目的「自主开发工作量」输入（2.2/3.08/0）。
+    单系统项目若直接复制母版，F 列会保留 3.08 并算出负外包工作量/负费用。这里统一把
+    未使用系统列清空并隐藏，自主开发工作量默认归零（成品表由技术经理按实际补填），
+    避免样例数据污染新项目。
+    """
     fee = wb["费用估算"]
     cols = ["E", "F", "G"]
     if len(sys_ranges) > 3:
@@ -170,6 +176,18 @@ def rewrite_fee_systems(wb, sys_ranges):
         L = cols[idx]
         fee[f"{L}2"] = sys                          # 系统名称
         fee[f"{L}3"] = f"=SUM(规模估算!$M{r0}:$M{r1})"  # 分区汇总
+    # 自主开发工作量是母版样例输入，界面未采集，统一归零，避免带出 2.2/3.08 样例值
+    for L in cols:
+        fee[f"{L}22"] = 0
+    # 未使用的系统列：清掉名称/汇总，隐藏列，避免 0 值、负值干扰阅读
+    for idx in range(len(sys_ranges), 3):
+        L = cols[idx]
+        fee[f"{L}2"] = None
+        fee[f"{L}3"] = None
+        fee[f"{L}22"] = 0
+        fee.column_dimensions[L].hidden = True
+    # 母版说明仍是另一家银行的样例，成品表改为通用口径
+    fee["H26"] = "人月基准单价，不包含直接非人力成本（按项目实际填写）"
     fee["D3"] = "=SUM(E3:G3)"
     return fee
 
@@ -295,7 +313,9 @@ def _run_async_recalc(out, tmp, on_progress, timeout, state):
         st0 = out.stat().st_mtime_ns                   # M6：记录重算起点，写回前校验防止覆盖更新的产物
         shutil.copy2(out, tmp)                         # 只动副本，主产物始终可下载
         if not _try_excel_recalc(tmp, on_progress=on_progress, timeout=timeout):
-            tmp.unlink(missing_ok=True)
+            # 超时/无 Excel 时 Excel COM 可能仍在收尾并持有副本句柄，立即 unlink 会抛
+            # PermissionError 并被外层误报为「补算失败」。保留副本交给 sweep 清理，
+            # 对用户如实报「已跳过」（成品表 fullCalcOnLoad，打开时仍会自算）。
             _recalc_note_fail()          # T01481（P1-2）：计入熔断计数
             state("skipped")
             return
@@ -833,16 +853,12 @@ def _excel_recalc_worker(path, on_progress, result, win32_client, pythoncom):
         _emit(on_progress, 82, "正在重算母版公式…")
         xl.Calculate()
         _emit(on_progress, 90, "正在写回计算结果并关闭 Excel…")
-        # T01481（P0-2）：SaveAs 到临时副本再原子替换——直接 Save 回写 out
-        # 会与并发同名请求的原子替换互相踩踏（实测 "File is not a zip file"）。
-        tmp_recalc = str(Path(path).with_name(
-            Path(path).name + f".recalc{os.getpid()}.{threading.get_ident()}.tmp"))
-        _track_recalc_file(tmp_recalc)
-        wb.SaveAs(tmp_recalc)
-        wb.Close(); wb = None           # 必须先放开句柄，否则原子替换会撞 EPERM
+        # path 已是主产物的私有副本（async）或本次同步生成的目标；直接 Save 回写本副本。
+        # 不使用 SaveAs：临时扩展名/覆盖确认/格式推断都可能让 Excel 弹隐藏对话框并卡住
+        # （实测 SaveAs 在 .tmp 名称上直接报「SaveAs 方法无效」，改为 .xlsx 后又偶发超时）。
+        wb.Save()
+        wb.Close(); wb = None
         xl.Quit(); xl = None
-        _atomic_replace(tmp_recalc, str(path))
-        tmp_recalc = None
         result["ok"] = True
         if os.environ.get("WE_DEBUG_RECALC"):
             print(f"[recalc] OK: {path}", flush=True)

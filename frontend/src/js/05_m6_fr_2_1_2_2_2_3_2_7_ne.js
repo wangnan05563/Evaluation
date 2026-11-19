@@ -73,7 +73,22 @@ function fastToGb(){  // FE01→FE02 串联：快算结果带入国标造价
 /* FR-2.2/2.7：国标造价页签 */
 function gbTab(which){
   const vr=document.querySelector("#v-result");
-  [...vr.children].forEach(el=>{if(!el.classList.contains("r-tabs")&&el.id!=="gbCard")el.style.display=which==="sum"?"":"none";});
+  [...vr.children].forEach(el=>{
+    if(el.classList.contains("r-tabs")||el.id==="gbCard")return;
+    // T05693：原实现对所有子节点统一 display=""，会把默认折叠的 rGridSec 展开、
+    // 把 display:none 的 storyBox 恢复成可见（空白用户故事面板）。这两块要按自身状态恢复。
+    if(el.id==="rGridSec"){
+      if(which==="gb")el.style.display="none";
+      else if(typeof foldApply==="function")foldApply();
+      else el.style.display="";
+      return;
+    }
+    if(el.id==="storyBox"){
+      el.style.display=(which==="sum"&&el.dataset.ready==="1")?"block":"none";
+      return;
+    }
+    el.style.display=which==="sum"?"":"none";
+  });
   document.getElementById("gbCard").style.display=which==="gb"?"block":"none";
   document.getElementById("tabSum").style.fontWeight=which==="sum"?"700":"500";
   document.getElementById("tabGb").style.fontWeight=which==="gb"?"700":"500";

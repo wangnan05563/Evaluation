@@ -12,6 +12,10 @@ function refreshCharts(){
   let sysArr=Object.entries(sys).map(([k,v])=>({name:k,us:+v.toFixed(2)})).sort((a,b)=>b.us-a.us);
   if(sysArr.length>15){const rest=+sysArr.slice(14).reduce((s,x)=>s+x.us,0).toFixed(2);
     sysArr=sysArr.slice(0,14);sysArr.push({name:t("result.chart_other"),us:rest});}
+  // T05692：系统名常含「XX新一代票据业务系统」等长中文名，原 grid.left=90 会把
+  // 左侧文字裁掉，只剩结尾几个字。按最长名称预留标签宽度，并用 truncate 兜底。
+  const sysNames=sysArr.map(x=>x.name);
+  const c3Left=Math.min(240,Math.max(90,Math.max(0,...sysNames.map(n=>String(n).length))*12+20));
   const th=chartTheme();
   // T03695：ECharts 5.6 的系列标签默认 fill=#333 + 2px 白描边（为浅色背景提可读性）。
   // 深色/高对比主题下深色字芯被白边包住，看起来像两份数值叠印；这里把字色与描边
@@ -30,8 +34,8 @@ function refreshCharts(){
     c2:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:44,right:16,top:20,bottom:24},
         xAxis:axis({type:"category",data:Object.keys(byReuse).map(k=>t("common.lv."+LV[k]))}),yAxis:axis({type:"value",minInterval:1}),
         series:[{type:"bar",barWidth:"45%",data:Object.values(byReuse),itemStyle:{color:th.brand}}]},
-    c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:90,right:30,top:10,bottom:24},
-        xAxis:axis({type:"value"}),yAxis:axis({type:"category",inverse:true,data:sysArr.map(x=>x.name)}),
+    c3:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:c3Left,right:30,top:10,bottom:24},
+        xAxis:axis({type:"value"}),yAxis:axis({type:"category",inverse:true,data:sysNames,axisLabel:{color:th.muted,width:c3Left-14,overflow:"truncate"}}),
         series:[{type:"bar",barWidth:"55%",data:sysArr.map(x=>x.us),itemStyle:{color:th.brand},
                  label:lbl({show:true,position:"right",formatter:"{c} US"})}]},
     c4:{tooltip:{backgroundColor:th.tipBg,borderColor:th.grid,textStyle:{color:th.tipInk}},grid:{left:60,right:30,top:24,bottom:24},

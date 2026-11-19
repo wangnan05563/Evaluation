@@ -33,19 +33,19 @@ const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").re
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
-function us(it){return +(ufp(it)*REUSE[it.reuse]*MODIFY[it.modify]).toFixed(2);}
+function us(it){return ufp(it)*REUSE[it.reuse]*MODIFY[it.modify];}
 function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
 function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
 function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
 function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
-tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
+tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
 function refreshTotals(){
   const okT=items.filter(x=>x.ok),tU=items.reduce((a,x)=>a+ufp(x),0),tS=items.reduce((a,x)=>a+us(x),0).toFixed(2);
   $("#okCnt").textContent=okT.length;$("#leftCnt").textContent=items.length-okT.length;
-  $("#treeUfp").textContent=tU;$("#dockUfp").textContent=tU;$("#dockUs").textContent=tS;$("#listCnt").textContent=tf("review.count",{n:items.length});
-  $("#goRes").disabled=okT.length!==items.length;
+  // listCnt 由 render() 按当前筛选结果写入；这里不再覆盖，否则筛选/搜索后计数恒为总数。
+  $("#treeUfp").textContent=tU;$("#dockUfp").textContent=tU;$("#dockUs").textContent=tS;$("#goRes").disabled=okT.length!==items.length;
 }
 function buildTree(){
   const sys={};items.forEach(x=>sys[x.system]=(sys[x.system]||0)+1);
@@ -114,10 +114,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
 function rowHTML(it){
   return `<tr class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}">
       <td><input type="checkbox" class="ck" ${it.ok?'checked':''}></td>
-      <td><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><br><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button><div class="basis">${it.basis||''}</div></td>
+      <td><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></td>
       <td><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></td>
       <td><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></td>
-      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it)}</td>
+      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it).toFixed(2)}</td>
       <td><span class="rowst">${badge(it)}</span></td>
     </tr>`;}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选同步（滚动路径专用，建树开销不随窗口变化）
@@ -170,7 +170,7 @@ document.addEventListener("keydown",e=>{
 });
 function toggleBasis(seq){
   const tr=document.querySelector(`tr[data-seq="${seq}"]`);
-  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");const btn=tr.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
 function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(tr)tr.classList.add("showb");});

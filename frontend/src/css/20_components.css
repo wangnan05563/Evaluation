@@ -91,9 +91,14 @@ tr.rowr.done{opacity:.7}
 .desc{max-width:420px;line-height:1.55;font-weight:500;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;cursor:zoom-in}
 .desc.exp{display:block;-webkit-line-clamp:none;cursor:zoom-out}
 .desc:not(.exp){overflow-wrap:anywhere}
+/* 判定依据按钮与描述同排：原实现用 <br> 把按钮挤到下一行，每行多出一条只有箭头的空行。 */
+.descline{display:flex;align-items:flex-start;gap:6px}
+.descline .desc{flex:1;min-width:0}
+.descline .toggle{flex:none;margin-top:1px}
 /* 复核表列宽再分配：自动布局下描述列（信息密度最高）仅分得 ~105px，
    3 行钳制后可见内容过少。给描述列 30% 权重（≥240px），从次要窄列让出空间。 */
 #v-review thead th:nth-child(2){width:30%;min-width:240px}
+#v-review thead th:last-child{width:84px;min-width:84px}
 .cat{display:inline-block;font-weight:600;font-size:11px;padding:2px 8px;border-radius:6px}
 .c-ILF{background:var(--cat-ilf-bg);color:var(--cat-ilf-ink)}.c-EIF{background:var(--cat-eif-bg);color:var(--cat-eif-ink)}
 .c-EI{background:var(--cat-ei-bg);color:var(--cat-ei-ink)}.c-EO{background:var(--cat-eo-bg);color:var(--cat-eo-ink)}.c-EQ{background:var(--cat-eq-bg);color:var(--cat-eq-ink)}
@@ -102,7 +107,7 @@ tr.rowr.done{opacity:.7}
 .basis{font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:7px 9px;border-radius:8px;line-height:1.55;margin-top:6px;display:none}
 tr.rowr.showb .basis{display:block}
 .toggle{border:0;background:var(--line-2);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:500;cursor:pointer}
-.stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px}
+.stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;white-space:nowrap}
 .stat .lic{width:15px;height:15px}
 .st-ok{color:var(--ok)}.st-md{color:var(--warn)}
 .dockbar{position:sticky;bottom:14px;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:var(--shadow-lg);flex-wrap:wrap}
