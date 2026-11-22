@@ -43,8 +43,16 @@ async function waitHealth(timeout = 120000) {
   return false;
 }
 async function startChrome() {
-  const p = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${CDP_PORT}`,
-    `--user-data-dir=${path.join(TMP, 'chrome')}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', 'about:blank'], { stdio: 'ignore' });
+  const headed = process.env.PHASE3_HEADED === '1';
+  const useGpu = process.env.PHASE3_GPU === '1';
+  const args = [
+    ...(headed ? [] : ['--headless=new']),
+    ...(useGpu ? [] : ['--disable-gpu']),
+    `--remote-debugging-port=${CDP_PORT}`,
+    `--user-data-dir=${path.join(TMP, 'chrome')}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions',
+    '--window-size=1440,900', 'about:blank',
+  ];
+  const p = spawn(CHROME, args, { stdio: 'ignore' });
   const t0 = Date.now();
   while (Date.now() - t0 < 20000) {
     try { const r = await fetch(`${CDP}/json/version`); if (r.ok) return p; } catch { /* noop */ }

@@ -1,6 +1,6 @@
 {
   "suite": "ui-a11y-wcag22",
-  "at": "2026-11-22T09:30:31.605Z",
+  "at": "2026-11-22T10:17:22.358Z",
   "checks": [
     {
       "title": "axe-core 已注入并可运行",
@@ -30,7 +30,7 @@
     {
       "title": "200% 缩放 upload 无横向滚动",
       "ok": false,
-      "detail": "vw=720 doc=804 body=705"
+      "detail": "vw=720 doc=796 body=705"
     },
     {
       "title": "200% 缩放 upload 可见控件未被横向裁切",
@@ -50,7 +50,7 @@
     {
       "title": "200% 缩放 config 无横向滚动",
       "ok": false,
-      "detail": "vw=720 doc=804 body=705"
+      "detail": "vw=720 doc=796 body=705"
     },
     {
       "title": "200% 缩放 config 可见控件未被横向裁切",
@@ -60,7 +60,7 @@
     {
       "title": "200% 缩放 help 无横向滚动",
       "ok": false,
-      "detail": "vw=720 doc=804 body=705"
+      "detail": "vw=720 doc=796 body=705"
     },
     {
       "title": "200% 缩放 help 可见控件未被横向裁切",
@@ -70,7 +70,7 @@
     {
       "title": "AX 树可交互控件均有可读名称（屏幕阅读器）",
       "ok": false,
-      "detail": "240,254,259,264,270"
+      "detail": "233,247,252,257,263"
     },
     {
       "title": "六步步骤条键盘语义齐备",
@@ -279,7 +279,7 @@
     {
       "label": "upload",
       "vw": 720,
-      "docW": 804,
+      "docW": 796,
       "bodyW": 705,
       "visible": 18,
       "clipped": 4
@@ -295,7 +295,7 @@
     {
       "label": "config",
       "vw": 720,
-      "docW": 804,
+      "docW": 796,
       "bodyW": 705,
       "visible": 22,
       "clipped": 4
@@ -303,7 +303,7 @@
     {
       "label": "help",
       "vw": 720,
-      "docW": 804,
+      "docW": 796,
       "bodyW": 705,
       "visible": 16,
       "clipped": 4
