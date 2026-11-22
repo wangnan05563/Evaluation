@@ -1,0 +1,5 @@
+/* T06174：10k 复核表固定视口——滚动父容器不再随 10k 行内容无限增高，ctBindScroll 才能触发。 */
+#v-review div[style*="overflow:auto"] {
+  max-height: calc(100vh - 240px);
+  overflow: auto !important;
+}

@@ -8,10 +8,14 @@ const page = await openPage({ width: 1440, height: 900 });
 try {
   await page.nav();
   const setup = await page.ev(`(() => {
-    const st=document.createElement('style');
-    st.id='__phase3_10k_viewport';
-    st.textContent='#v-review div[style*="overflow:auto"]{max-height:calc(100vh - 240px);overflow:auto!important}';
-    document.head.appendChild(st);
+    const wrap0=document.querySelector('#v-review div[style*="overflow:auto"]');
+    let injected=false;
+    if(!wrap0 || getComputedStyle(wrap0).maxHeight==='none'){
+      const st=document.createElement('style');
+      st.id='__phase3_10k_viewport';
+      st.textContent='#v-review div[style*="overflow:auto"]{max-height:calc(100vh - 240px);overflow:auto!important}';
+      document.head.appendChild(st); injected=true;
+    }
     CT_SC=null; CT_VPH=600;
     goPage('work');
     const types = ['ILF','EIF','EI','EO','EQ'];
@@ -124,6 +128,32 @@ try {
   const ifps2 = isolate2.frames / (isolate2.elapsed / 1000);
   check('隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）', ifps2 >= 55,
     `${ifps2.toFixed(1)}fps / ${isolate2.frames} frames, long=${isolate2.long}, avgRender=${isolate2.avgRenderMs}ms, calls=${isolate2.renderCalls}`);
+
+  // 低成本候选：table-layout:fixed 关闭自动列宽测量，观察表格布局是否是主瓶颈
+  const fixed = JSON.parse(await page.ev(`(async () => {
+    const style = document.createElement('style');
+    style.textContent = '#v-review table{table-layout:fixed!important}';
+    document.head.appendChild(style);
+    const sc = ctScrollParent(document.querySelector('#tbody'));
+    sc.scrollTop = 0; void document.querySelector('#tbody').offsetWidth;
+    const duration = 10000;
+    const r = await new Promise(resolve => {
+      const t0 = performance.now(); let frames = 0, long = 0, last = t0;
+      function tick(now) {
+        const p = Math.min(1, (now - t0) / duration);
+        sc.scrollTop = Math.round(p * (sc.scrollHeight - sc.clientHeight));
+        frames++; if (now - last > 20) long++; last = now;
+        if (now - t0 < duration) requestAnimationFrame(tick);
+        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody tr.rowr').length }));
+      }
+      requestAnimationFrame(tick);
+    });
+    style.remove();
+    return r;
+  })()`, 30000));
+  const ffps = fixed.frames / (fixed.elapsed / 1000);
+  check('table-layout:fixed 后 ≥55fps（低风险 CSS 候选）', ffps >= 55,
+    `${ffps.toFixed(1)}fps / ${fixed.frames} frames, long=${fixed.long}, rows=${fixed.rows}`);
 } catch (e) {
   check('测试执行无异常', false, e.message);
   console.error(e);
