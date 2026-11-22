@@ -1,6 +1,6 @@
 {
   "suite": "ui-10k-grid",
-  "at": "2026-11-22T10:17:04.729Z",
+  "at": "2026-11-22T10:33:35.367Z",
   "checks": [
     {
       "title": "10k 数据已装载并进入复核页",
@@ -20,7 +20,7 @@
     {
       "title": "连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）",
       "ok": false,
-      "detail": "8.3fps / 501 frames"
+      "detail": "6.5fps / 393 frames"
     },
     {
       "title": "无白屏采样",
@@ -30,17 +30,17 @@
     {
       "title": "窗口行数始终受控（≤120）",
       "ok": true,
-      "detail": "min=26 max=31"
+      "detail": "min=31 max=31"
     },
     {
       "title": "可滚动至数据末尾",
       "ok": true,
-      "detail": "lastY=439745/439745"
+      "detail": "lastY=439776/439776"
     },
     {
       "title": "长帧（>20ms）占比 <10%",
       "ok": false,
-      "detail": "99.4% (498)"
+      "detail": "99.5% (391)"
     },
     {
       "title": "末尾窗口包含第 10000 行",
@@ -50,12 +50,12 @@
     {
       "title": "隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）",
       "ok": false,
-      "detail": "9.3fps / 93 frames, long=91"
+      "detail": "6.4fps / 64 frames, long=62"
     },
     {
       "title": "隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）",
       "ok": false,
-      "detail": "10.7fps / 108 frames, long=107, avgRender=23.98ms, calls=107"
+      "detail": "7.4fps / 75 frames, long=74, avgRender=33.65ms, calls=74"
     }
   ],
   "pass": 7,

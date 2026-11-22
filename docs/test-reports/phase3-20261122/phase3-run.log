@@ -1,4 +1,4 @@
-[info][datakeeper] backup_done {'dst': 'C:\\PYFIX_~4\\we_phase3_5EfuVj\\data\\backups\\20261122-181513'}
+[info][datakeeper] backup_done {'dst': 'C:\\PYFIX_~4\\we_phase3_vwEQTo\\data\\backups\\20261122-183203'}
 [info][datakeeper] schema_ready {'ver': 2, 'applied': [1]}
 前端由本服务提供: http://127.0.0.1:8033
 本地服务已启动: http://127.0.0.1:8033  (Ctrl+C 退出)
@@ -8,14 +8,14 @@
 PASS  10k 数据已装载并进入复核页  — {"n":10000,"rows":31,"scrollHeight":440455,"clientHeight":645,"step":"block"}
 PASS  虚拟窗口 DOM 行数受控（≤120）  — rows=31
 PASS  滚动容器固定视口（300–900px）且总高覆盖 10000×44px  — clientHeight=645, scrollHeight=440455
-FAIL  连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）  — 8.3fps / 501 frames
+FAIL  连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）  — 6.5fps / 393 frames
 PASS  无白屏采样  — blank=0
-PASS  窗口行数始终受控（≤120）  — min=26 max=31
-PASS  可滚动至数据末尾  — lastY=439745/439745
-FAIL  长帧（>20ms）占比 <10%  — 99.4% (498)
+PASS  窗口行数始终受控（≤120）  — min=31 max=31
+PASS  可滚动至数据末尾  — lastY=439776/439776
+FAIL  长帧（>20ms）占比 <10%  — 99.5% (391)
 PASS  末尾窗口包含第 10000 行  — tail=功能项 10000
-FAIL  隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）  — 9.3fps / 93 frames, long=91
-FAIL  隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）  — 10.7fps / 108 frames, long=107, avgRender=23.98ms, calls=107
+FAIL  隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）  — 6.4fps / 64 frames, long=62
+FAIL  隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）  — 7.4fps / 75 frames, long=74, avgRender=33.65ms, calls=74
 
 ui-10k-grid: 7/11 checks passed
 
@@ -34,7 +34,7 @@ FAIL  200% 缩放 config 无横向滚动  — vw=720 doc=796 body=705
 FAIL  200% 缩放 config 可见控件未被横向裁切  — visible=22 clipped=4
 FAIL  200% 缩放 help 无横向滚动  — vw=720 doc=796 body=705
 FAIL  200% 缩放 help 可见控件未被横向裁切  — visible=16 clipped=4
-FAIL  AX 树可交互控件均有可读名称（屏幕阅读器）  — 233,247,252,257,263
+FAIL  AX 树可交互控件均有可读名称（屏幕阅读器）  — 240,254,259,264,270
 PASS  六步步骤条键盘语义齐备  — {"steps":6,"stepsOk":true,"drop":true,"sw":true}
 PASS  上传拖放区键盘语义齐备  — role=button tabindex=0 aria-label
 PASS  大模型开关键盘语义齐备  — role=switch tabindex=0 aria-checked

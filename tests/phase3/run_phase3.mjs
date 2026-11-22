@@ -54,7 +54,8 @@ async function startChrome() {
   ];
   const p = spawn(CHROME, args, { stdio: 'ignore' });
   const t0 = Date.now();
-  while (Date.now() - t0 < 20000) {
+  const waitMs = headed ? 45000 : 30000;
+  while (Date.now() - t0 < waitMs) {
     try { const r = await fetch(`${CDP}/json/version`); if (r.ok) return p; } catch { /* noop */ }
     await sleep(400);
   }

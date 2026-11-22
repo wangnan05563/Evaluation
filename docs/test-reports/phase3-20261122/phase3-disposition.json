@@ -37,7 +37,7 @@
     "batch": "A",
     "status": "gap",
     "status_cn": "有缺口（保持待办）",
-    "reason": "ctRenderVirtual 已存在，但复核表滚动父容器无固定高度：10k 下 clientHeight=scrollHeight=440455，窗口不更新。注入视口 CSS 后 645px、DOM 31 行、可到第 10000 行，但 60 秒滚动约 8.3fps（多次 7.7–8.4）、99.4% 长帧；隔离汇总+图标后约 11fps。补充对照：外部 spacer+sticky 表格原型 6.8–9.0fps，PHASE3_GPU=1 为 7.7fps，headless/软件渲染可能自身限速，不能全部归因产品代码。下一步需有头 Chrome 或目标机复测，仍不达标再按行容器重构处理。"
+    "reason": "复核表滚动父容器无固定高度：10k 下 clientHeight=scrollHeight=440455，窗口不更新。注入视口 CSS 后 645px、DOM 31 行、可到第 10000 行，但 60 秒滚动 headless 6.5–8.4fps、有头 9.8fps、长帧 99.5%；隔离汇总/图标后 7.4–11.7fps，render 22.8–33.7ms/帧，余下约 79ms 在表格布局/绘制；外部 spacer 原型 6.8–9.0fps 也失败。需行容器重构 + 行 DOM 复用 + 汇总/图标移出滚动路径。"
   },
   {
     "task_no": "T06175",

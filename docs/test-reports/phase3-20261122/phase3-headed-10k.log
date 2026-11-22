@@ -1,0 +1,20 @@
+[info][datakeeper] backup_done {'dst': 'C:\\PYFIX_~4\\we_phase3_gt9QJ3\\data\\backups\\20261122-182326'}
+[info][datakeeper] schema_ready {'ver': 2, 'applied': [1]}
+前端由本服务提供: http://127.0.0.1:8033
+本地服务已启动: http://127.0.0.1:8033  (Ctrl+C 退出)
+
+
+## 10k-grid
+PASS  10k 数据已装载并进入复核页  — {"n":10000,"rows":31,"scrollHeight":440402,"clientHeight":645,"step":"block"}
+PASS  虚拟窗口 DOM 行数受控（≤120）  — rows=31
+PASS  滚动容器固定视口（300–900px）且总高覆盖 10000×44px  — clientHeight=645, scrollHeight=440402
+FAIL  连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）  — 9.8fps / 589 frames
+PASS  无白屏采样  — blank=0
+PASS  窗口行数始终受控（≤120）  — min=23 max=31
+PASS  可滚动至数据末尾  — lastY=439666/439666
+FAIL  长帧（>20ms）占比 <10%  — 99.5% (586)
+PASS  末尾窗口包含第 10000 行  — tail=功能项 10000
+FAIL  隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）  — 9.9fps / 99 frames, long=97
+FAIL  隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）  — 11.7fps / 118 frames, long=117, avgRender=22.82ms, calls=117
+
+ui-10k-grid: 7/11 checks passed
