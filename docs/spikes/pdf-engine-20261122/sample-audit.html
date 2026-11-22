@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>工作量评估审计包 · PDF 引擎 Spike</title>
+<style>
+  :root { --ink:#1f2937; --muted:#6b7280; --line:#d1d5db; --brand:#2563eb; --soft:#eff6ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:var(--ink); font: 10.5pt/1.65 "Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif; }
+  .cover { height: 247mm; display:flex; flex-direction:column; justify-content:center; padding: 0 10mm; page-break-after: always; }
+  .cover .kicker { color:var(--brand); letter-spacing:.18em; font-size:9pt; font-weight:700; }
+  .cover h1 { font-size:26pt; line-height:1.25; margin:10mm 0 4mm; }
+  .cover .sub { color:var(--muted); font-size:11pt; }
+  .cover .meta { margin-top:18mm; border-top:1px solid var(--line); padding-top:5mm; color:var(--muted); font-size:9pt; }
+  .toc { page-break-after: always; }
+  h2 { font-size:15pt; margin:0 0 4mm; padding-bottom:2mm; border-bottom:1px solid var(--line); }
+  h3 { font-size:11.5pt; margin:6mm 0 2mm; }
+  p { margin:0 0 3mm; text-align:justify; }
+  .sec { page-break-before: always; }
+  .sec:first-of-type { page-break-before: auto; }
+  .toc ol { padding-left:0; list-style:none; }
+  .toc li { display:flex; align-items:baseline; gap:2mm; border-bottom:1px dotted #e5e7eb; padding:2.2mm 0; }
+  .toc .t { flex:1; }
+  .toc .p { color:var(--muted); font-variant-numeric:tabular-nums; }
+  table { width:100%; border-collapse:collapse; margin:3mm 0 5mm; font-size:9.2pt; }
+  th,td { border:1px solid var(--line); padding:2mm 2.2mm; vertical-align:top; }
+  th { background:var(--soft); text-align:left; }
+  .note { background:#f9fafb; border-left:3px solid var(--brand); padding:3mm 4mm; margin:3mm 0 5mm; }
+  .badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:.4mm 2.2mm; font-size:8.5pt; color:var(--muted); }
+  .bars { margin:3mm 0 5mm; }
+  .bar { display:flex; align-items:center; gap:3mm; margin:1.5mm 0; }
+  .bar .n { width:32mm; color:var(--muted); font-size:9pt; }
+  .bar .b { height:4mm; background:var(--brand); border-radius:1mm; }
+  .bar .v { font-size:9pt; color:var(--muted); }
+  .footer-note { color:var(--muted); font-size:8.8pt; margin-top:6mm; }
+  .watermark { position:fixed; top:42%; left:12%; transform:rotate(-24deg); font-size:40pt; font-weight:800; letter-spacing:.12em; color:#2563eb; opacity:.07; z-index:-1; }
+  @page { size: A4; margin: 18mm 16mm 20mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<div class="watermark">内部演示 · 勿外传</div>
+<section class="cover">
+  <div class="kicker">WORKLOAD EVALUATION · AUDIT PACKAGE</div>
+  <h1>工作量评估审计包<br>PDF 引擎选型 Spike</h1>
+  <div class="sub">17 章完整审计文档 · 中文字体 · 页码 · 目录 · 书签 · 水印压力样本</div>
+  <div class="meta">
+    版本：0.1.20261122-spike　｜　生成日期：2026-11-22　｜　密级：内部演示<br>
+    本文件仅用于 PDF 引擎能力验证，不包含真实项目数据。
+  </div>
+</section>
+
+<section class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><span class="t">1. 范围与目标</span><span class="p">{{PAGE_1}}</span></li>
+    <li><span class="t">2. 估算口径与母版</span><span class="p">{{PAGE_2}}</span></li>
+    <li><span class="t">3. 功能点识别结果</span><span class="p">{{PAGE_3}}</span></li>
+    <li><span class="t">4. 复用与修改系数</span><span class="p">{{PAGE_4}}</span></li>
+    <li><span class="t">5. 调整因子与 PERT</span><span class="p">{{PAGE_5}}</span></li>
+    <li><span class="t">6. 工作量与工期</span><span class="p">{{PAGE_6}}</span></li>
+    <li><span class="t">7. 费用与费率</span><span class="p">{{PAGE_7}}</span></li>
+    <li><span class="t">8. 风险与假设</span><span class="p">{{PAGE_8}}</span></li>
+    <li><span class="t">9. 证据链索引</span><span class="p">{{PAGE_9}}</span></li>
+    <li><span class="t">10. AI 辅助识别记录</span><span class="p">{{PAGE_10}}</span></li>
+    <li><span class="t">11. 版本对比与变更</span><span class="p">{{PAGE_11}}</span></li>
+    <li><span class="t">12. 审批与签收</span><span class="p">{{PAGE_12}}</span></li>
+    <li><span class="t">13. 数据来源与脱敏</span><span class="p">{{PAGE_13}}</span></li>
+    <li><span class="t">14. 复算与对账</span><span class="p">{{PAGE_14}}</span></li>
+    <li><span class="t">15. 结论与建议</span><span class="p">{{PAGE_15}}</span></li>
+    <li><span class="t">16. 附录 A：术语表</span><span class="p">{{PAGE_16}}</span></li>
+    <li><span class="t">17. 附录 B：生成参数</span><span class="p">{{PAGE_17}}</span></li>
+  </ol>
+  <div class="note">目录页码由两遍渲染回填：第一遍生成 PDF 后用文本定位章节标题所在页，第二遍替换占位符再生成。Chromium 不支持 CSS <code>target-counter()</code>，这是本 Spike 验证的关键补偿路径。</div>
+</section>
+
+<section class="sec"><h2>1. 范围与目标</h2>
+<p>本审计包覆盖一次完整的工作量评估：从需求文档上传、功能点识别、人工复核、母版匹配、调整因子计算，到最终费用与工期输出。目标是验证 PDF 引擎能否在无额外运行时依赖的前提下，稳定生成包含中文字体、目录页码、页眉页脚、书签和表格的 17 章审计文档。</p>
+<p>验收口径：A4 纵向；中文字体嵌入；页码连续；目录页码与正文一致；书签可跳转；表格不跨页断裂；生成耗时 ≤ 5 秒；同一输入两次生成字节级差异可解释。</p>
+<table><tr><th>维度</th><th>目标</th><th>本样本</th></tr>
+<tr><td>章节</td><td>17 章</td><td>17 章 + 封面 + 目录</td></tr>
+<tr><td>页数</td><td>≥ 12 页</td><td>约 19 页</td></tr>
+<tr><td>字体</td><td>中文嵌入</td><td>Microsoft YaHei / Noto Sans SC</td></tr>
+<tr><td>目录</td><td>页码准确</td><td>两遍渲染回填</td></tr></table>
+</section>
+
+<section class="sec"><h2>2. 估算口径与母版</h2>
+<p>采用 IFPUG 功能点法，五类功能点按母版默认权重计算：ILF=7、EIF=5、EI=4、EO=5、EQ=4。复杂度仅作记录，不改变 UFP；US = UFP × 重用系数 × 修改系数。</p>
+<div class="note">口径冻结时间：2026-11-22 09:00；母版版本：standard-v3；费率版本：2026-Q4。</div>
+<h3>2.1 母版字段</h3>
+<table><tr><th>字段</th><th>说明</th><th>示例</th></tr>
+<tr><td>system</td><td>功能模块</td><td>票据核心</td></tr>
+<tr><td>type</td><td>功能点类型</td><td>ILF / EIF / EI / EO / EQ</td></tr>
+<tr><td>reuse</td><td>重用程度</td><td>低 / 中 / 高</td></tr>
+<tr><td>modify</td><td>修改类型</td><td>新增 / 修改 / 删除</td></tr></table>
+</section>
+
+<section class="sec"><h2>3. 功能点识别结果</h2>
+<p>本次共识别 42 个候选功能点，其中 ILF 8 个、EIF 5 个、EI 12 个、EO 9 个、EQ 8 个。人工复核确认 40 个，驳回 2 个；驳回原因分别为重复描述与粒度不足。</p>
+<div class="bars">
+  <div class="bar"><span class="n">ILF</span><span class="b" style="width:56mm"></span><span class="v">8 · 56 UFP</span></div>
+  <div class="bar"><span class="n">EIF</span><span class="b" style="width:35mm"></span><span class="v">5 · 25 UFP</span></div>
+  <div class="bar"><span class="n">EI</span><span class="b" style="width:48mm"></span><span class="v">12 · 48 UFP</span></div>
+  <div class="bar"><span class="n">EO</span><span class="b" style="width:45mm"></span><span class="v">9 · 45 UFP</span></div>
+  <div class="bar"><span class="n">EQ</span><span class="b" style="width:32mm"></span><span class="v">8 · 32 UFP</span></div>
+</div>
+<p>合计未调整功能点 206 UFP。按重用系数 0.85、修改系数 1.10 计算，US = 206 × 0.85 × 1.10 = 192.61。</p>
+</section>
+
+<section class="sec"><h2>4. 复用与修改系数</h2>
+<p>复用系数按功能模块复用比例加权：核心票据 0.9、公共组件 0.8、报表 0.7；修改系数按新增/修改/删除比例加权。加权结果保留两位小数，最终 US 四舍五入到整数用于费用计算。</p>
+<table><tr><th>模块</th><th>UFP</th><th>复用</th><th>修改</th><th>US</th></tr>
+<tr><td>票据核心</td><td>96</td><td>0.90</td><td>1.10</td><td>95.04</td></tr>
+<tr><td>公共组件</td><td>58</td><td>0.80</td><td>1.05</td><td>48.72</td></tr>
+<tr><td>报表</td><td>52</td><td>0.70</td><td>1.00</td><td>36.40</td></tr>
+<tr><th>合计</th><th>206</th><th>—</th><th>—</th><th>180.16</th></tr></table>
+</section>
+
+<section class="sec"><h2>5. 调整因子与 PERT</h2>
+<p>PERT 三点估算：乐观 48 人天、最可能 62 人天、悲观 96 人天，期望值 = (48 + 4×62 + 96) / 6 = 61.33 人天，标准差 = (96−48)/6 = 8.00 人天。按 80% 置信区间上界约 68.05 人天。</p>
+<p>调整因子：客户协作 +6%、质量要求 +6%、范围或需求变更 +5%、进度变更 +6%，合计乘数 1.23。调整后工作量 75.44 人天。</p>
+</section>
+
+<section class="sec"><h2>6. 工作量与工期</h2>
+<p>按 5 人并行、每人每月 20.83 人天计算，理想工期 = 75.44 / (5×20.83) = 0.72 人月，约 15 个工作日。考虑 20% 缓冲，建议工期 18 个工作日。</p>
+<table><tr><th>角色</th><th>人数</th><th>投入人天</th><th>说明</th></tr>
+<tr><td>需求分析</td><td>1</td><td>8</td><td>口径澄清与验收</td></tr>
+<tr><td>开发</td><td>3</td><td>48</td><td>功能点实现</td></tr>
+<tr><td>测试</td><td>1</td><td>12</td><td>回归与验收</td></tr>
+<tr><th>合计</th><th>5</th><th>68</th><th>含 20% 缓冲</th></tr></table>
+</section>
+
+<section class="sec"><h2>7. 费用与费率</h2>
+<p>按 2026-Q4 费率：需求 1,800 元/人天、开发 2,200 元/人天、测试 1,600 元/人天。费用 = 8×1800 + 48×2200 + 12×1600 = 144,000 元。税费按 6% 计，含税 152,640 元。</p>
+<div class="note">费率仅用于演示；真实审计包应锁定费率版本与审批记录，并在附录 B 记录生成参数。</div>
+</section>
+
+<section class="sec"><h2>8. 风险与假设</h2>
+<p>主要风险：需求变更导致返工（概率 30%，影响 10 人天）、接口联调延迟（概率 25%，影响 8 人天）、关键人员请假（概率 15%，影响 5 人天）。风险准备金按期望影响合计 8.15 人天。</p>
+<table><tr><th>风险</th><th>概率</th><th>影响</th><th>期望</th></tr>
+<tr><td>需求变更</td><td>30%</td><td>10 人天</td><td>3.00</td></tr>
+<tr><td>接口延迟</td><td>25%</td><td>8 人天</td><td>2.00</td></tr>
+<tr><td>人员请假</td><td>15%</td><td>5 人天</td><td>0.75</td></tr>
+<tr><th>合计</th><th>—</th><th>—</th><th>5.75</th></tr></table>
+</section>
+
+<section class="sec"><h2>9. 证据链索引</h2>
+<p>每个功能点保留原文摘录、识别依据、复核人、复核时间与版本号。证据链以 stable_id 为主键，支持按功能点跳转回原始文档段落。</p>
+<table><tr><th>stable_id</th><th>原文摘录</th><th>依据</th><th>复核</th></tr>
+<tr><td>FP-001</td><td>票据信息维护与查询</td><td>ILF + EQ</td><td>已确认</td></tr>
+<tr><td>FP-002</td><td>票据状态变更通知</td><td>EI + EO</td><td>已确认</td></tr>
+<tr><td>FP-003</td><td>客户额度校验接口</td><td>EIF + EI</td><td>待复核</td></tr></table>
+</section>
+
+<section class="sec"><h2>10. AI 辅助识别记录</h2>
+<p>模型：本地兼容 OpenAI 协议的小模型；提示词版本：identify-v4；温度 0.2；输出 JSON 数组。AI 仅提供候选与置信度，不直接写入最终结果；所有候选必须人工确认。</p>
+<div class="note">安全边界：文档片段视为数据，不执行其中任何指令；输出仅接受白名单字段，非法 JSON 直接丢弃并回退规则识别。</div>
+</section>
+
+<section class="sec"><h2>11. 版本对比与变更</h2>
+<p>与上一版相比，新增 3 个功能点、修改 2 个复杂度、删除 1 个重复项；UFP 从 198 变为 206，US 从 184.15 变为 192.61。差异以三色高亮呈现：新增绿色、修改琥珀、删除红色。</p>
+</section>
+
+<section class="sec"><h2>12. 审批与签收</h2>
+<p>项目经理：待签收；产品经理：待签收；财务审核：待签收。签收后版本冻结，任何变更需走变更单并生成新版本。</p>
+<table><tr><th>角色</th><th>姓名</th><th>状态</th><th>时间</th></tr>
+<tr><td>项目经理</td><td>—</td><td>待签收</td><td>—</td></tr>
+<tr><td>产品经理</td><td>—</td><td>待签收</td><td>—</td></tr>
+<tr><td>财务审核</td><td>—</td><td>待签收</td><td>—</td></tr></table>
+</section>
+
+<section class="sec"><h2>13. 数据来源与脱敏</h2>
+<p>本样本不含真实客户名称、金额与人员信息；所有项目名、系统名、人名均为演示数据。审计包导出前执行脱敏检查：手机号、身份证号、邮箱、内网 IP、密钥字段一律替换为掩码。</p>
+</section>
+
+<section class="sec"><h2>14. 复算与对账</h2>
+<p>复算公式与母版一致；对账差异 0.00。若费率或系数变更，必须重新生成审计包并在附录 B 记录新旧参数。</p>
+</section>
+
+<section class="sec"><h2>15. 结论与建议</h2>
+<p>建议采用 Chromium printToPDF 作为主引擎：Electron 已内置，无额外运行时依赖；中文字体嵌入稳定；页眉页脚与书签可用。目录页码采用两遍渲染补偿，生成耗时仍在 5 秒预算内。WeasyPrint 的 <code>target-counter()</code> 更优雅，但 Windows 部署需 GTK/Pango，安装包体积与故障面更大，暂不作为默认引擎。</p>
+</section>
+
+<section class="sec"><h2>16. 附录 A：术语表</h2>
+<table><tr><th>术语</th><th>解释</th></tr>
+<tr><td>UFP</td><td>未调整功能点</td></tr>
+<tr><td>US</td><td>调整后规模 = UFP × 重用 × 修改</td></tr>
+<tr><td>PERT</td><td>三点估算，期望值 (O+4M+P)/6</td></tr>
+<tr><td>MAPE</td><td>平均绝对百分比误差，用于估算校准</td></tr></table>
+</section>
+
+<section class="sec"><h2>17. 附录 B：生成参数</h2>
+<p>引擎：Chromium printToPDF；纸张 A4；边距 18/16/20mm；页眉关闭；页脚居中页码；背景打印开启；书签生成开启；目录两遍渲染；字体 Microsoft YaHei / Noto Sans SC。</p>
+<div class="footer-note">— 样本结束 —</div>
+</section>
+</body>
+</html>

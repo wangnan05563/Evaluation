@@ -1,0 +1,76 @@
+[info][datakeeper] backup_done {'dst': 'C:\\PYFIX_~4\\we_phase3_FUWm8C\\data\\backups\\20261122-172832'}
+[info][datakeeper] schema_ready {'ver': 2, 'applied': [1]}
+前端由本服务提供: http://127.0.0.1:8033
+本地服务已启动: http://127.0.0.1:8033  (Ctrl+C 退出)
+
+
+## 10k-grid
+PASS  10k 数据已装载并进入复核页  — {"n":10000,"rows":31,"scrollHeight":440455,"clientHeight":645,"step":"block"}
+PASS  虚拟窗口 DOM 行数受控（≤120）  — rows=31
+PASS  滚动容器固定视口（300–900px）且总高覆盖 10000×44px  — clientHeight=645, scrollHeight=440455
+FAIL  连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）  — 8.1fps / 488 frames
+PASS  无白屏采样  — blank=0
+PASS  窗口行数始终受控（≤120）  — min=31 max=31
+PASS  可滚动至数据末尾  — lastY=439776/439776
+FAIL  长帧（>20ms）占比 <10%  — 99.4% (485)
+PASS  末尾窗口包含第 10000 行  — tail=功能项 10000
+FAIL  隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）  — 8.9fps / 89 frames, long=87
+FAIL  隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）  — 11.3fps / 113 frames, long=112, avgRender=23.63ms, calls=112
+
+ui-10k-grid: 7/11 checks passed
+
+
+## a11y-wcag22
+PASS  axe-core 已注入并可运行  — axe-core 4.10.2
+FAIL  work-upload axe 无 serious/critical 阻断  — label:2 | select-name:5
+FAIL  work-review-20 axe 无 serious/critical 阻断  — aria-allowed-attr:3 | color-contrast:60 | label:20 | select-name:83
+FAIL  config axe 无 serious/critical 阻断  — color-contrast:1 | label:25 | select-name:15
+FAIL  help axe 无 serious/critical 阻断  — color-contrast:1
+FAIL  200% 缩放 upload 无横向滚动  — vw=720 doc=804 body=705
+FAIL  200% 缩放 upload 可见控件未被横向裁切  — visible=18 clipped=4
+FAIL  200% 缩放 review 无横向滚动  — vw=720 doc=855 body=855
+FAIL  200% 缩放 review 可见控件未被横向裁切  — visible=43 clipped=11
+FAIL  200% 缩放 config 无横向滚动  — vw=720 doc=804 body=705
+FAIL  200% 缩放 config 可见控件未被横向裁切  — visible=22 clipped=4
+FAIL  200% 缩放 help 无横向滚动  — vw=720 doc=804 body=705
+FAIL  200% 缩放 help 可见控件未被横向裁切  — visible=16 clipped=4
+FAIL  AX 树可交互控件均有可读名称（屏幕阅读器）  — 240,254,259,264,270
+PASS  六步步骤条键盘语义齐备  — {"steps":6,"stepsOk":true,"drop":true,"sw":true}
+PASS  上传拖放区键盘语义齐备  — role=button tabindex=0 aria-label
+PASS  大模型开关键盘语义齐备  — role=switch tabindex=0 aria-checked
+
+ui-a11y-wcag22: 4/17 checks passed
+
+
+## i18n-pseudo
+PASS  en-US 字典可取  — keys=926
+PASS  伪本地化字典覆盖全部 key  — n=926
+PASS  t() 与 DOM 均已切换到伪本地化  — title=ŵóŕķļóáð éšţíɱáţóŕ ⟪ŵóŕķļó⟫
+PASS  伪本地化 1440px 无横向滚动  — vw=1440 doc=1440 body=1440
+PASS  伪本地化 1440px 标签未裁切/溢出  — clipped=0 overflow=0
+PASS  伪本地化 1024px 无横向滚动  — vw=1024 doc=1009 body=1009
+PASS  伪本地化 1024px 标签未裁切/溢出  — clipped=0 overflow=0
+PASS  伪本地化 768px 无横向滚动  — vw=768 doc=753 body=753
+PASS  伪本地化 768px 标签未裁切/溢出  — clipped=0 overflow=0
+PASS  CJK 字体已加载且可测量（非豆腐块宽度）  — {"status":"loaded","cjk":112,"latin":74.140625,"family":"Inter, \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif"}
+
+ui-i18n-pseudo: 10/10 checks passed
+
+
+## single-machine
+PASS  导航与四页面均无协作/工作组/SSO 入口  — labels=IFPUG 估算上传需求 → 审核功能点 → 生成成品造价表/PERT 估算三点估算，输入乐观/最可能/悲观自动算预期/配置中心大模型识别增强、连接测试与模型管理/帮助文档评估方法论与计算算法说明
+PASS  未注册团队协作 API（/api/team 非 200）  — status=404
+PASS  单机主流程上传入口完整  — {"drop":true,"file":true,"start":true}
+PASS  源码无协作功能残留（白名单排除估算因子）  — 扫描 frontend/src,scripts,dev-shell
+
+ui-single-machine: 4/4 checks passed
+
+
+## empty-error
+PASS  复核无数据：空态插画 + 标题 + 说明 + 下一步  — {"exists":true,"role":"status","art":true,"title":"暂无候选功能项","desc":"上传需求文档并完成识别后，候选功能点将出现在这里","action":""}
+PASS  复核筛选无结果：空态提供一键清除筛选  — {"exists":true,"title":"没有匹配的功能项","desc":"调整搜索词或清除筛选后重试","action":"清除筛选","onclick":"clearFilters()"}
+PASS  估算历史无数据：空态标题 + 说明  — {"body":true,"exists":true,"title":"暂无历史估算","desc":"完成一次生成后自动记录在这里，可随时重开或对比版本"}
+PASS  错误态 role=alert + 原因 + 重试 + 诊断指引  — {"role":"alert","title":"操作失败","retry":true,"diag":true,"text":"操作失败 模拟网络失败 重试 查看诊断指引"}
+PASS  配置中心异步加载失败/降级有可读反馈  — {"exists":true,"text":"重开 = 载入该版本到「审核功能点」，修改后重新生成会自动记为下一版本；另存为 = 载入后换标题生成新记录。删除历史不影响已下载的成品表。勾选两个版本可对比差异"}
+
+ui-empty-error: 5/5 checks passed

@@ -1,0 +1,97 @@
+{
+  "suite": "ui-i18n-pseudo",
+  "at": "2026-11-22T09:30:40.635Z",
+  "checks": [
+    {
+      "title": "en-US 字典可取",
+      "ok": true,
+      "detail": "keys=926"
+    },
+    {
+      "title": "伪本地化字典覆盖全部 key",
+      "ok": true,
+      "detail": "n=926"
+    },
+    {
+      "title": "t() 与 DOM 均已切换到伪本地化",
+      "ok": true,
+      "detail": "title=ŵóŕķļóáð éšţíɱáţóŕ ⟪ŵóŕķļó⟫"
+    },
+    {
+      "title": "伪本地化 1440px 无横向滚动",
+      "ok": true,
+      "detail": "vw=1440 doc=1440 body=1440"
+    },
+    {
+      "title": "伪本地化 1440px 标签未裁切/溢出",
+      "ok": true,
+      "detail": "clipped=0 overflow=0"
+    },
+    {
+      "title": "伪本地化 1024px 无横向滚动",
+      "ok": true,
+      "detail": "vw=1024 doc=1009 body=1009"
+    },
+    {
+      "title": "伪本地化 1024px 标签未裁切/溢出",
+      "ok": true,
+      "detail": "clipped=0 overflow=0"
+    },
+    {
+      "title": "伪本地化 768px 无横向滚动",
+      "ok": true,
+      "detail": "vw=768 doc=753 body=753"
+    },
+    {
+      "title": "伪本地化 768px 标签未裁切/溢出",
+      "ok": true,
+      "detail": "clipped=0 overflow=0"
+    },
+    {
+      "title": "CJK 字体已加载且可测量（非豆腐块宽度）",
+      "ok": true,
+      "detail": "{\"status\":\"loaded\",\"cjk\":112,\"latin\":74.140625,\"family\":\"Inter, \\\"PingFang SC\\\", \\\"Microsoft YaHei\\\", system-ui, sans-serif\"}"
+    }
+  ],
+  "pass": 10,
+  "total": 10,
+  "widths": [
+    {
+      "width": 1440,
+      "vw": 1440,
+      "docW": 1440,
+      "bodyW": 1440,
+      "clipped": 0,
+      "overflow": 0,
+      "lang": "zh-CN"
+    },
+    {
+      "width": 1024,
+      "vw": 1024,
+      "docW": 1009,
+      "bodyW": 1009,
+      "clipped": 0,
+      "overflow": 0,
+      "lang": "zh-CN"
+    },
+    {
+      "width": 768,
+      "vw": 768,
+      "docW": 753,
+      "bodyW": 753,
+      "clipped": 0,
+      "overflow": 0,
+      "lang": "zh-CN"
+    }
+  ],
+  "applied": {
+    "n": 926,
+    "title": "ŵóŕķļóáð éšţíɱáţóŕ ⟪ŵóŕķļó⟫"
+  },
+  "font": {
+    "status": "loaded",
+    "cjk": 112,
+    "latin": 74.140625,
+    "family": "Inter, \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif"
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "suite": "ui-a11y-wcag22",
+  "at": "2026-11-22T09:30:31.605Z",
+  "checks": [
+    {
+      "title": "axe-core 已注入并可运行",
+      "ok": true,
+      "detail": "axe-core 4.10.2"
+    },
+    {
+      "title": "work-upload axe 无 serious/critical 阻断",
+      "ok": false,
+      "detail": "label:2 | select-name:5"
+    },
+    {
+      "title": "work-review-20 axe 无 serious/critical 阻断",
+      "ok": false,
+      "detail": "aria-allowed-attr:3 | color-contrast:60 | label:20 | select-name:83"
+    },
+    {
+      "title": "config axe 无 serious/critical 阻断",
+      "ok": false,
+      "detail": "color-contrast:1 | label:25 | select-name:15"
+    },
+    {
+      "title": "help axe 无 serious/critical 阻断",
+      "ok": false,
+      "detail": "color-contrast:1"
+    },
+    {
+      "title": "200% 缩放 upload 无横向滚动",
+      "ok": false,
+      "detail": "vw=720 doc=804 body=705"
+    },
+    {
+      "title": "200% 缩放 upload 可见控件未被横向裁切",
+      "ok": false,
+      "detail": "visible=18 clipped=4"
+    },
+    {
+      "title": "200% 缩放 review 无横向滚动",
+      "ok": false,
+      "detail": "vw=720 doc=855 body=855"
+    },
+    {
+      "title": "200% 缩放 review 可见控件未被横向裁切",
+      "ok": false,
+      "detail": "visible=43 clipped=11"
+    },
+    {
+      "title": "200% 缩放 config 无横向滚动",
+      "ok": false,
+      "detail": "vw=720 doc=804 body=705"
+    },
+    {
+      "title": "200% 缩放 config 可见控件未被横向裁切",
+      "ok": false,
+      "detail": "visible=22 clipped=4"
+    },
+    {
+      "title": "200% 缩放 help 无横向滚动",
+      "ok": false,
+      "detail": "vw=720 doc=804 body=705"
+    },
+    {
+      "title": "200% 缩放 help 可见控件未被横向裁切",
+      "ok": false,
+      "detail": "visible=16 clipped=4"
+    },
+    {
+      "title": "AX 树可交互控件均有可读名称（屏幕阅读器）",
+      "ok": false,
+      "detail": "240,254,259,264,270"
+    },
+    {
+      "title": "六步步骤条键盘语义齐备",
+      "ok": true,
+      "detail": "{\"steps\":6,\"stepsOk\":true,\"drop\":true,\"sw\":true}"
+    },
+    {
+      "title": "上传拖放区键盘语义齐备",
+      "ok": true,
+      "detail": "role=button tabindex=0 aria-label"
+    },
+    {
+      "title": "大模型开关键盘语义齐备",
+      "ok": true,
+      "detail": "role=switch tabindex=0 aria-checked"
+    }
+  ],
+  "pass": 4,
+  "total": 17,
+  "pages": [
+    {
+      "label": "work-upload",
+      "violations": [
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "nodes": 2,
+          "targets": [
+            [
+              "input[value=\"2.57\"]"
+            ],
+            [
+              "input[value=\"10.67\"]"
+            ]
+          ]
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "nodes": 5,
+          "targets": [
+            [
+              ".glass.pad:nth-child(2) > .fields > .fill:nth-child(1) > select"
+            ],
+            [
+              "#methodSel"
+            ],
+            [
+              ".fill:nth-child(3) > select"
+            ]
+          ]
+        }
+      ],
+      "passes": 22,
+      "incomplete": 1
+    },
+    {
+      "label": "work-review-20",
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "nodes": 3,
+          "targets": [
+            [
+              "th[onclick=\"sortBy('desc')\"]"
+            ],
+            [
+              "th[onclick=\"sortBy('type')\"]"
+            ],
+            [
+              "th[onclick=\"sortBy('us')\"]"
+            ]
+          ]
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 60,
+          "targets": [
+            [
+              ".rowr[data-seq=\"1\"][data-sys=\"系统1\"] > td:nth-child(3) > .c-ILF.cat"
+            ],
+            [
+              ".rowr[data-seq=\"1\"][data-sys=\"系统1\"] > td:nth-child(3) > div:nth-child(2)"
+            ],
+            [
+              ".rowr[data-seq=\"1\"][data-sys=\"系统1\"] > td:nth-child(9) > .rowst > .stat.st-ok"
+            ]
+          ]
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "nodes": 20,
+          "targets": [
+            [
+              ".rowr[data-seq=\"1\"][data-sys=\"系统1\"] > td:nth-child(1) > .ck[type=\"checkbox\"]"
+            ],
+            [
+              ".rowr[data-seq=\"2\"][data-sys=\"系统2\"] > td:nth-child(1) > .ck[type=\"checkbox\"]"
+            ],
+            [
+              ".rowr[data-seq=\"3\"][data-sys=\"系统3\"] > td:nth-child(1) > .ck[type=\"checkbox\"]"
+            ]
+          ]
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "nodes": 83,
+          "targets": [
+            [
+              "#bReuse"
+            ],
+            [
+              "#bModify"
+            ],
+            [
+              "#bCx"
+            ]
+          ]
+        }
+      ],
+      "passes": 26,
+      "incomplete": 1
+    },
+    {
+      "label": "config",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 1,
+          "targets": [
+            [
+              ".lbl[data-i18n=\"nav.work\"]"
+            ]
+          ]
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "nodes": 25,
+          "targets": [
+            [
+              "#brandPick"
+            ],
+            [
+              "input[value=\"R-ILF-001\"]"
+            ],
+            [
+              "input[value=\"数据结构变更→ILF\"]"
+            ]
+          ]
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "nodes": 15,
+          "targets": [
+            [
+              "#providerSel"
+            ],
+            [
+              "#recalcMode"
+            ],
+            [
+              "#ratesSel"
+            ]
+          ]
+        }
+      ],
+      "passes": 26,
+      "incomplete": 1
+    },
+    {
+      "label": "help",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 1,
+          "targets": [
+            [
+              ".lbl[data-i18n=\"nav.work\"]"
+            ]
+          ]
+        }
+      ],
+      "passes": 21,
+      "incomplete": 1
+    }
+  ],
+  "zoomPages": [
+    {
+      "label": "upload",
+      "vw": 720,
+      "docW": 804,
+      "bodyW": 705,
+      "visible": 18,
+      "clipped": 4
+    },
+    {
+      "label": "review",
+      "vw": 720,
+      "docW": 855,
+      "bodyW": 855,
+      "visible": 43,
+      "clipped": 11
+    },
+    {
+      "label": "config",
+      "vw": 720,
+      "docW": 804,
+      "bodyW": 705,
+      "visible": 22,
+      "clipped": 4
+    },
+    {
+      "label": "help",
+      "vw": 720,
+      "docW": 804,
+      "bodyW": 705,
+      "visible": 16,
+      "clipped": 4
+    }
+  ]
+}
