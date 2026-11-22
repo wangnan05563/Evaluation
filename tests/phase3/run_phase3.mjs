@@ -23,6 +23,9 @@ const suites = [
   { id: 'single-machine', script: 'tests/phase3/ui_single_machine.mjs', timeout: 120000 },
   { id: 'empty-error', script: 'tests/phase3/ui_empty_error.mjs', timeout: 120000 },
   { id: 'proto-rowpool', script: 'tests/phase3/proto_10k_rowpool.mjs', timeout: 120000, proto: true },
+  { id: 'proto-divgrid', script: 'tests/phase3/proto_10k_divgrid.mjs', timeout: 120000, proto: true },
+  { id: 'proto-cssgrid', script: 'tests/phase3/proto_10k_cssgrid.mjs', timeout: 120000, proto: true },
+  { id: 'proto-rowpoolgrid', script: 'tests/phase3/proto_10k_rowpoolgrid.mjs', timeout: 120000, proto: true },
 ];
 const only = process.argv[2] === '--only' ? process.argv[3] : '';
 const selected = only ? suites.filter(s => s.id === only) : suites.filter(s => !s.proto);

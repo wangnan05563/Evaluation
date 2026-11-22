@@ -1,0 +1,28 @@
+{
+  "suite": "proto-10k-divgrid",
+  "at": "2026-11-22T12:29:41.740Z",
+  "checks": [
+    {
+      "title": "div 网格原型已装载",
+      "ok": true,
+      "detail": "{\"rows\":5,\"scrollHeight\":440220,\"clientHeight\":660,\"last\":\"5\"}"
+    },
+    {
+      "title": "div 网格原型 60 秒滚动 ≥55fps",
+      "ok": true,
+      "detail": "59.1fps / 3549 frames, long=51, maxRows=20, last=10000"
+    },
+    {
+      "title": "div 网格原型可到第 10000 行",
+      "ok": true,
+      "detail": "last=10000, scrollTop=440000/440000"
+    },
+    {
+      "title": "div 网格原型无白屏",
+      "ok": true,
+      "detail": "blank=0"
+    }
+  ],
+  "pass": 4,
+  "total": 4
+}
