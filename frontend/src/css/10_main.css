@@ -77,7 +77,7 @@ body{font-family:var(--ff);color:var(--ink);background:var(--bg);-webkit-font-sm
 body[data-step="upload"] #v-upload,body[data-step="review"] #v-review,body[data-step="result"] #v-result,body[data-step="history"] #v-history{display:block}
 /* M3/FR-1.4：排序表头 + 键盘焦点行 */
 .sortable{cursor:pointer;user-select:none}
-#tbody tr.cur{outline:2px solid var(--brand);outline-offset:-2px}
+#tbody .rowr.cur{outline:2px solid var(--brand);outline-offset:-2px}
 #fSys,#fType,#fReuse{max-width:110px;font-size:12px}
 /* M2/FR-1.2：结果页图表网格 */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}

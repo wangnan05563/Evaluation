@@ -120,11 +120,21 @@
           <button class="btn btn-ghost" onclick="batchConfirm()" data-i18n="title=review.batch.confirm_title" title="全部标记为已确认"><span data-i18n="review.batch.confirm">标记确认</span></button>
           <button class="btn btn-ghost" onclick="batchDelete()" data-i18n="title=review.batch.del_title" title="删除筛选出的全部行（需确认）"><i aria-hidden="true" data-lucide="trash-2" style="width:14px;height:14px"></i><span data-i18n="review.batch.del">删除</span></button>
         </div>
-        <div style="overflow:auto">
-        <table>
-          <thead><tr><th style="width:34px"><input type="checkbox" id="ckAll" data-i18n="title=review.th.select_all|aria-label=review.th.select_all_aria" title="全选/全不选（确认所有功能项）" aria-label="全选/全不选，确认所有功能项" onchange="toggleAllCk(this.checked)"></th><th onclick="sortBy('desc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('desc')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.desc_title" title="按描述排序"><span data-i18n="review.th.desc">功能项描述</span> <span id="s-desc"></span></th><th onclick="sortBy('type')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('type')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.count_item_title" title="按类型排序"><span data-i18n="review.th.count_item">计数项 · 类别</span> <span id="s-type"></span></th><th style="width:168px" data-i18n="title=review.th.cx_title|review.th.cx" title="复杂度仅作记录，不参与 UFP；母版按类别默认权重计算">复杂度</th><th style="width:60px" data-i18n="review.th.ufp">UFP</th><th style="width:86px" data-i18n="review.th.reuse">重用</th><th style="width:86px" data-i18n="review.th.modify">修改</th><th onclick="sortBy('us')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('us')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.us_title" title="按 US 排序" style="width:60px"><span data-i18n="review.th.us">US</span> <span id="s-us"></span></th><th data-i18n="review.th.status">状态</th></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
+        <div class="ct-wrap" role="table" aria-label="功能点复核表">
+        <div class="ct-head" role="row">
+          <div class="ct-h ct-ck" role="columnheader"><input type="checkbox" id="ckAll" data-i18n="title=review.th.select_all|aria-label=review.th.select_all_aria" title="全选/全不选（确认所有功能项）" aria-label="全选/全不选，确认所有功能项" onchange="toggleAllCk(this.checked)"></div>
+          <div class="ct-h sortable" role="button" tabindex="0" aria-sort="none" onclick="sortBy('desc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('desc')}" data-i18n="title=review.th.desc_title" title="按描述排序"><span data-i18n="review.th.desc">功能项描述</span> <span id="s-desc"></span></div>
+          <div class="ct-h sortable" role="button" tabindex="0" aria-sort="none" onclick="sortBy('type')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('type')}" data-i18n="title=review.th.count_item_title" title="按类型排序"><span data-i18n="review.th.count_item">计数项 · 类别</span> <span id="s-type"></span></div>
+          <div class="ct-h" role="columnheader" data-i18n="title=review.th.cx_title|review.th.cx" title="复杂度仅作记录，不参与 UFP；母版按类别默认权重计算">复杂度</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.ufp">UFP</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.reuse">重用</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.modify">修改</div>
+          <div class="ct-h sortable" role="button" tabindex="0" aria-sort="none" onclick="sortBy('us')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('us')}" data-i18n="title=review.th.us_title" title="按 US 排序"><span data-i18n="review.th.us">US</span> <span id="s-us"></span></div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.status">状态</div>
+        </div>
+        <div class="ct-scroll" style="overflow:auto">
+          <div id="tbody" class="ct-body" role="rowgroup"></div>
+        </div>
         </div>
         <div class="dockbar">
           <div class="gprog" id="genProg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-live="polite">

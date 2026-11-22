@@ -48,7 +48,7 @@ const a11y = JSON.parse(await ev(`JSON.stringify({
   steps:[...document.querySelectorAll('.step')].map(e=>({id:e.id,role:e.getAttribute('role'),ti:e.getAttribute('tabindex'),kd:!!e.getAttribute('onkeydown')})),
   drop:{role:document.querySelector('#drop').getAttribute('role'),ti:document.querySelector('#drop').getAttribute('tabindex'),label:!!document.querySelector('#drop').getAttribute('aria-label')},
   sw:{role:document.querySelector('#llmSwitch').getAttribute('role'),ti:document.querySelector('#llmSwitch').getAttribute('tabindex'),checked:document.querySelector('#llmSwitch').getAttribute('aria-checked'),label:!!document.querySelector('#llmSwitch').getAttribute('aria-label')},
-  sortable:[...document.querySelectorAll('th.sortable')].map(e=>({role:e.getAttribute('role'),ti:e.getAttribute('tabindex'),as:e.getAttribute('aria-sort')})),
+  sortable:[...document.querySelectorAll('.ct-h.sortable')].map(e=>({role:e.getAttribute('role'),ti:e.getAttribute('tabindex'),as:e.getAttribute('aria-sort')})),
   pert:{role:document.querySelector('#pertDrop').getAttribute('role'),ti:document.querySelector('#pertDrop').getAttribute('tabindex')},
   focusRing:getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()
 })`));
@@ -107,16 +107,16 @@ check('键盘可完成「上传→识别→复核页」', true, `items=${await e
 
 // ---- 6b) 键盘触发：可排序表头 Enter 排序（此刻在复核页，表头可见可聚焦）----
 await ev(`goStep('review');`); await sleep(200);
-await focusEl('th.sortable');
+await focusEl('.ct-h.sortable');
 await key('Enter'); await sleep(300);
 // 注意：sortState 是顶层 let 声明，不挂在 window 上，须用 typeof 探测而非 window.sortState
-const sorted = JSON.parse(await ev(`JSON.stringify({st:(typeof sortState!=='undefined')&&!!sortState,aria:[...document.querySelectorAll('th.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
+const sorted = JSON.parse(await ev(`JSON.stringify({st:(typeof sortState!=='undefined')&&!!sortState,aria:[...document.querySelectorAll('.ct-h.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
 check('表头 Enter 可排序且 aria-sort 变为 ascending', sorted.st && sorted.aria[0] === 'ascending', JSON.stringify(sorted));
 await key('Enter'); await sleep(200);
-const sorted2 = JSON.parse(await ev(`JSON.stringify({aria:[...document.querySelectorAll('th.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
+const sorted2 = JSON.parse(await ev(`JSON.stringify({aria:[...document.querySelectorAll('.ct-h.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
 check('表头二次 Enter 降序且 aria-sort 同步', sorted2.aria[0] === 'descending', JSON.stringify(sorted2));
 await key('Enter'); await sleep(200);
-const sorted3 = JSON.parse(await ev(`JSON.stringify({st:(typeof sortState!=='undefined')&&!!sortState,aria:[...document.querySelectorAll('th.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
+const sorted3 = JSON.parse(await ev(`JSON.stringify({st:(typeof sortState!=='undefined')&&!!sortState,aria:[...document.querySelectorAll('.ct-h.sortable')].map(e=>e.getAttribute('aria-sort'))})`));
 check('表头三次 Enter 取消排序且 aria-sort 归 none', !sorted3.st && sorted3.aria.every(a => a === 'none'), JSON.stringify(sorted3));
 
 // 全选：聚焦到全选框后按 Space（原生 checkbox 的键盘行为）

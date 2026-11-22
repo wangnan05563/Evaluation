@@ -1,26 +1,26 @@
 {
   "suite": "ui-10k-grid",
-  "at": "2026-11-22T11:15:45.309Z",
+  "at": "2026-11-22T17:13:57.791Z",
   "checks": [
     {
       "title": "10k 数据已装载并进入复核页",
       "ok": true,
-      "detail": "{\"n\":10000,\"rows\":31,\"scrollHeight\":440455,\"clientHeight\":645,\"step\":\"block\"}"
+      "detail": "{\"n\":10000,\"rows\":9,\"scrollHeight\":440000,\"clientHeight\":394,\"step\":\"block\"}"
     },
     {
       "title": "虚拟窗口 DOM 行数受控（≤120）",
       "ok": true,
-      "detail": "rows=31"
+      "detail": "rows=9"
     },
     {
       "title": "滚动容器固定视口（300–900px）且总高覆盖 10000×44px",
       "ok": true,
-      "detail": "clientHeight=645, scrollHeight=440455"
+      "detail": "clientHeight=394, scrollHeight=440000"
     },
     {
       "title": "连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）",
-      "ok": false,
-      "detail": "6.5fps / 392 frames"
+      "ok": true,
+      "detail": "59.8fps / 3586 frames"
     },
     {
       "title": "无白屏采样",
@@ -30,39 +30,24 @@
     {
       "title": "窗口行数始终受控（≤120）",
       "ok": true,
-      "detail": "min=27 max=31"
+      "detail": "min=9 max=9"
     },
     {
       "title": "可滚动至数据末尾",
       "ok": true,
-      "detail": "lastY=439758/439758"
+      "detail": "lastY=439606/439606"
     },
     {
       "title": "长帧（>20ms）占比 <10%",
-      "ok": false,
-      "detail": "99.2% (389)"
+      "ok": true,
+      "detail": "0.4% (13)"
     },
     {
       "title": "末尾窗口包含第 10000 行",
       "ok": true,
       "detail": "tail=功能项 10000"
-    },
-    {
-      "title": "隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）",
-      "ok": false,
-      "detail": "6.9fps / 70 frames, long=68"
-    },
-    {
-      "title": "隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）",
-      "ok": false,
-      "detail": "8.6fps / 86 frames, long=85, avgRender=29.62ms, calls=85"
-    },
-    {
-      "title": "table-layout:fixed 后 ≥55fps（低风险 CSS 候选）",
-      "ok": false,
-      "detail": "6.5fps / 65 frames, long=64, rows=31"
     }
   ],
-  "pass": 7,
-  "total": 12
+  "pass": 9,
+  "total": 9
 }

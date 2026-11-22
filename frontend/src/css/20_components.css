@@ -84,8 +84,8 @@ body[data-page="pert"] #pg-pert{display:block}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-size:11px;color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
-tr.rowr:hover{background:var(--surface-2)}
-tr.rowr.done{opacity:.7}
+#v-review .rowr:hover{background:var(--surface-2)}
+#v-review .rowr.done{opacity:.7}
 /* 真实票据需求描述可达数百字，仅 max-width 限宽仍会换行几十行把行高撑到 300px+，
    表格不可用。改为默认钳制 3 行，点击描述全文展开/收起（JS 事件委托见 01_core.js）。 */
 .desc{max-width:420px;line-height:1.55;font-weight:500;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;cursor:zoom-in}
@@ -105,7 +105,7 @@ tr.rowr.done{opacity:.7}
 .pick{font-family:var(--ff);font-size:12px;font-weight:500;border:1px solid var(--line);border-radius:8px;padding:3px 6px;background:var(--card);color:var(--ink);outline:none;width:76px}
 .num{font-weight:600;font-variant-numeric:tabular-nums}
 .basis{font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:7px 9px;border-radius:8px;line-height:1.55;margin-top:6px;display:none}
-tr.rowr.showb .basis{display:block}
+#v-review .rowr.showb .basis{display:block}
 .toggle{border:0;background:var(--line-2);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:500;cursor:pointer}
 .stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;white-space:nowrap}
 .stat .lic{width:15px;height:15px}

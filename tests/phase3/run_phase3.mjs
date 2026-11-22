@@ -1,4 +1,6 @@
-/** 三期验证编排器：隔离实例 8033 + 无头 Chrome 9335，顺序跑 phase3 UI 套件。 */
+/** 三期验证编排器：隔离实例 8033 + 无头 Chrome 9335，顺序跑 phase3 UI 套件。
+ *  默认启用 GPU 合成（AC-03 帧率口径）；PHASE3_CPU=1 退回纯 CPU 对照，PHASE3_HEADED=1 用有头窗口。
+ */
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import fs from 'node:fs';
@@ -26,6 +28,8 @@ const suites = [
   { id: 'proto-divgrid', script: 'tests/phase3/proto_10k_divgrid.mjs', timeout: 120000, proto: true },
   { id: 'proto-cssgrid', script: 'tests/phase3/proto_10k_cssgrid.mjs', timeout: 120000, proto: true },
   { id: 'proto-rowpoolgrid', script: 'tests/phase3/proto_10k_rowpoolgrid.mjs', timeout: 120000, proto: true },
+  { id: 'proto-lite', script: 'tests/phase3/proto_10k_lite.mjs', timeout: 120000, proto: true },
+  { id: 'proto-contain', script: 'tests/phase3/proto_10k_contain.mjs', timeout: 120000, proto: true },
 ];
 const only = process.argv[2] === '--only' ? process.argv[3] : '';
 const selected = only ? suites.filter(s => s.id === only) : suites.filter(s => !s.proto);
@@ -48,7 +52,8 @@ async function waitHealth(timeout = 120000) {
 }
 async function startChrome() {
   const headed = process.env.PHASE3_HEADED === '1';
-  const useGpu = process.env.PHASE3_GPU === '1';
+  // T06174 的 AC-03 帧率口径需要 GPU 合成；默认启用，PHASE3_CPU=1 时退回纯 CPU 对照。
+  const useGpu = process.env.PHASE3_CPU !== '1';
   const args = [
     ...(headed ? [] : ['--headless=new']),
     ...(useGpu ? [] : ['--disable-gpu']),

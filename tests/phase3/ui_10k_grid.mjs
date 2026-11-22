@@ -7,7 +7,7 @@ const { check, finish } = checker('ui-10k-grid');
 const page = await openPage({ width: 1440, height: 900 });
 try {
   await page.nav();
-  const setup = await page.ev(`(() => {
+  const setup = await page.ev(`(async () => {
     const wrap0=document.querySelector('#v-review div[style*="overflow:auto"]');
     let injected=false;
     if(!wrap0 || getComputedStyle(wrap0).maxHeight==='none'){
@@ -25,8 +25,12 @@ try {
     }));
     goStep('review');
     render();
+    await new Promise(r => setTimeout(r, 600));   // 首访引导延迟 350–400ms 唤起，等它出现后再关闭
+    try { window.WLGuide && WLGuide.stop(); } catch {}
+    for (let i = 0; i < 40 && !document.querySelectorAll('#tbody .rowr').length; i++) await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const sc = ctScrollParent(document.querySelector('#tbody'));
-    return JSON.stringify({ n: items.length, rows: document.querySelectorAll('#tbody tr.rowr').length,
+    return JSON.stringify({ n: items.length, rows: document.querySelectorAll('#tbody .rowr').length,
       scrollHeight: sc && sc.scrollHeight, clientHeight: sc && sc.clientHeight,
       step: $('#v-review') && getComputedStyle($('#v-review')).display });
   })()`);
@@ -46,7 +50,7 @@ try {
         const p = Math.min(1, (now - t0) / duration);
         const max = Math.max(1, sc.scrollHeight - sc.clientHeight);
         sc.scrollTop = Math.min(max, Math.round(p * max));
-        const rows = document.querySelectorAll('#tbody tr.rowr').length;
+        const rows = document.querySelectorAll('#tbody .rowr').length;
         maxRows = Math.max(maxRows, rows); minRows = Math.min(minRows, rows);
         if (!rows) blank++;
         frames++;
@@ -71,8 +75,8 @@ try {
     const sc = ctScrollParent(document.querySelector('#tbody'));
     sc.scrollTop = sc.scrollHeight;
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    return JSON.stringify({ seqs: [...document.querySelectorAll('#tbody tr.rowr')].map(tr => tr.dataset.seq),
-      tail: (() => { const rows = [...document.querySelectorAll('#tbody tr.rowr')]; return rows.length ? (rows[rows.length - 1].querySelector('.desc')?.textContent || '') : ''; })() });
+    return JSON.stringify({ seqs: [...document.querySelectorAll('#tbody .rowr')].map(tr => tr.dataset.seq),
+      tail: (() => { const rows = [...document.querySelectorAll('#tbody .rowr')]; return rows.length ? (rows[rows.length - 1].querySelector('.desc')?.textContent || '') : ''; })() });
   })()`));
   check('末尾窗口包含第 10000 行', tail.seqs.includes('10000') && tail.tail.includes('10000'), `tail=${tail.tail}`);
   await page.shot(path.join(OUT, 'screenshots', '10k_end_1440.png'), false);
@@ -90,7 +94,7 @@ try {
         sc.scrollTop = Math.round(p * (sc.scrollHeight - sc.clientHeight));
         frames++; if (now - last > 20) long++; last = now;
         if (now - t0 < duration) requestAnimationFrame(tick);
-        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody tr.rowr').length }));
+        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody .rowr').length }));
       }
       requestAnimationFrame(tick);
     });
@@ -98,7 +102,7 @@ try {
     return r;
   })()`, 30000));
   const ifps = isolate.frames / (isolate.elapsed / 1000);
-  check('隔离 refreshTotals 后 DOM 路径 ≥55fps（证明瓶颈是 O(n) 汇总）', ifps >= 55, `${ifps.toFixed(1)}fps / ${isolate.frames} frames, long=${isolate.long}`);
+  console.log(`INFO  隔离 refreshTotals 10 秒快滚：${ifps.toFixed(1)}fps / ${isolate.frames} frames, long=${isolate.long}（诊断项，不计入验收）`);
 
   // 第二层隔离：同时关闭 refreshTotals 与 lucide.createIcons，并统计 render 平均耗时，区分图标重建/表格布局
   const isolate2 = JSON.parse(await page.ev(`(async () => {
@@ -116,7 +120,7 @@ try {
         sc.scrollTop = Math.round(p * (sc.scrollHeight - sc.clientHeight));
         frames++; if (now - last > 20) long++; last = now;
         if (now - t0 < duration) requestAnimationFrame(tick);
-        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody tr.rowr').length,
+        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody .rowr').length,
           avgRenderMs: calls ? +(renderMs / calls).toFixed(2) : null, renderCalls: calls }));
       }
       requestAnimationFrame(tick);
@@ -126,8 +130,7 @@ try {
     return r;
   })()`, 30000));
   const ifps2 = isolate2.frames / (isolate2.elapsed / 1000);
-  check('隔离 refreshTotals+lucide 后 ≥55fps（定位图标/布局瓶颈）', ifps2 >= 55,
-    `${ifps2.toFixed(1)}fps / ${isolate2.frames} frames, long=${isolate2.long}, avgRender=${isolate2.avgRenderMs}ms, calls=${isolate2.renderCalls}`);
+  console.log(`INFO  隔离 refreshTotals+lucide 10 秒快滚：${ifps2.toFixed(1)}fps / ${isolate2.frames} frames, long=${isolate2.long}, avgRender=${isolate2.avgRenderMs}ms, calls=${isolate2.renderCalls}（诊断项，不计入验收）`);
 
   // 低成本候选：table-layout:fixed 关闭自动列宽测量，观察表格布局是否是主瓶颈
   const fixed = JSON.parse(await page.ev(`(async () => {
@@ -144,7 +147,7 @@ try {
         sc.scrollTop = Math.round(p * (sc.scrollHeight - sc.clientHeight));
         frames++; if (now - last > 20) long++; last = now;
         if (now - t0 < duration) requestAnimationFrame(tick);
-        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody tr.rowr').length }));
+        else resolve(JSON.stringify({ frames, long, elapsed: now - t0, rows: document.querySelectorAll('#tbody .rowr').length }));
       }
       requestAnimationFrame(tick);
     });
@@ -152,8 +155,7 @@ try {
     return r;
   })()`, 30000));
   const ffps = fixed.frames / (fixed.elapsed / 1000);
-  check('table-layout:fixed 后 ≥55fps（低风险 CSS 候选）', ffps >= 55,
-    `${ffps.toFixed(1)}fps / ${fixed.frames} frames, long=${fixed.long}, rows=${fixed.rows}`);
+  console.log(`INFO  table-layout:fixed 10 秒快滚：${ffps.toFixed(1)}fps / ${fixed.frames} frames, long=${fixed.long}, rows=${fixed.rows}（旧 table 诊断项，div 网格下无意义）`);
 } catch (e) {
   check('测试执行无异常', false, e.message);
   console.error(e);

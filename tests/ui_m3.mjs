@@ -38,7 +38,7 @@ const n0 = await ev(`items.length`);
 const it0 = JSON.parse(await ev(`JSON.stringify({seq:items[0].seq,type:items[0].type,desc:items[0].desc.slice(0,8)})`));
 const toType = it0.type === 'EI' ? 'EO' : 'EI';
 await ev(`items[0]._ai={type:items[0].type,reuse:items[0].reuse,modify:items[0].modify};`);
-await ev(`(()=>{const tr=document.querySelector('#tbody tr[data-seq="'+items[0].seq+'"]');const s=tr.querySelector('[data-k=type]');s.value='${toType}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+await ev(`(()=>{const tr=document.querySelector('#tbody .rowr[data-seq="'+items[0].seq+'"]');const s=tr.querySelector('[data-k=type]');s.value='${toType}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
 const rej = JSON.parse(await ev(`JSON.stringify({q:rejQueue.length})`));
 check('行内驳回进入队列', rej.q >= 1, `queue=${rej.q}`);
 await ev(`window.prompt=()=>'${it0.desc}'`);   // 打桩：沉淀弹层关键词=首条描述前 8 字

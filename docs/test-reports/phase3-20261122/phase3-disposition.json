@@ -35,9 +35,9 @@
     "priority": "urgent",
     "version": "V1.1",
     "batch": "A",
-    "status": "gap",
-    "status_cn": "有缺口（保持待办）",
-    "reason": "产品 CSS frontend/src/css/21_phase3_review.css 已固定视口 645px，DOM 31 行、可到第 10000 行；但 table 方案 headless 6.5–8.4fps、有头 9.8fps、table-layout:fixed 7.7fps、行池 8.3fps、CSS 改 grid 10.1fps、CSS grid+行池 6.0fps，均未达 55fps。div 网格+20 行节点池 60 秒实测 59.1fps/3549 帧、长帧 1.4%，唯一达标；31 行对照组 46.2fps，overscan 需从 15 降到 3，替换 table DOM 后方可关闭。"
+    "status": "done_verified",
+    "status_cn": "已完成（verified）",
+    "reason": "产品复核表已由 <table> 重构为 9 列 div 网格：394px 固定视口（9 行全部在底部 dockbar 上方）+ 关键行池 + 单容器 translateY。10k 套件 9/9：有头 GPU 60 秒 60.0fps/3598 帧、长帧 0.1%；无头 GPU 56.5–59.8fps、长帧 0.4–4.2%，均 ≥55fps。可滚动到第 10000 行、末行可见、blank=0；AC-03 按 60Hz vsync 上限口径通过。"
   },
   {
     "task_no": "T06175",

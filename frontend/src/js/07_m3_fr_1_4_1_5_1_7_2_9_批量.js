@@ -118,8 +118,8 @@ document.addEventListener("keydown",e=>{
   if(!items.length||document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
   const h=ROW_KEYS[e.key];if(h)h(e);
 });
-function highlightRow(){document.querySelectorAll("#tbody tr").forEach(tr=>tr.classList.toggle("cur",+tr.dataset.seq===curSeq));
-  const tr=document.querySelector(`#tbody tr[data-seq="${curSeq}"]`);if(tr)tr.scrollIntoView({block:"nearest"});}
+function highlightRow(){document.querySelectorAll("#tbody .rowr").forEach(tr=>tr.classList.toggle("cur",+tr.dataset.seq===curSeq));
+  const tr=document.querySelector(`#tbody .rowr[data-seq="${curSeq}"]`);if(tr)tr.scrollIntoView({block:"nearest"});}
 /* M5：外观卡片逻辑（FR-4.1/4.2/4.3） */
 function setThemeMode(m){localStorage.setItem('wl_theme_mode',m);applyTheme();themeSegPaint();}
 function themeSegPaint(){const m=localStorage.getItem('wl_theme_mode')||'light';

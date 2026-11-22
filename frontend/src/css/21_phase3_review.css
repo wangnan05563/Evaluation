@@ -1,5 +1,84 @@
 /* T06174：10k 复核表固定视口——滚动父容器不再随 10k 行内容无限增高，ctBindScroll 才能触发。 */
-#v-review div[style*="overflow:auto"] {
-  max-height: calc(100vh - 240px);
+#v-review .ct-scroll {
+  max-height: max(300px, calc(100vh - 506px));   /* 表格下沿止于底部 sticky dockbar 上方，避免行被汇总条遮住 */
   overflow: auto !important;
+}
+
+/* T06174：复核表改为 div 网格，行体不再进入 <table> 布局；虚拟窗口约 20 行。 */
+#v-review .ct-head,
+#v-review .ct-body .rowr {
+  display: grid;
+  grid-template-columns: 34px minmax(150px, 1fr) 140px 170px 52px 76px 76px 56px 86px;
+  align-items: stretch;
+}
+#v-review .ct-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+#v-review .ct-h {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#v-review .ct-h.sortable { cursor: pointer; }
+#v-review .ct-ck { justify-content: center; padding-left: 0; padding-right: 0; }
+#v-review .ct-scroll { position: relative; }
+#v-review .ct-body { position: relative; }
+#v-review .ct-body .rowr {
+  position: relative;
+  min-height: 44px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line-2);
+}
+#v-review .ct-body.virtual .ct-spacer {
+  height: 0;
+}
+#v-review .ct-body.virtual .ct-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+  contain: layout paint;
+}
+#v-review .ct-body.virtual .rowr {
+  position: relative;
+  height: 44px;
+}
+#v-review .ct-c { display: block; min-width: 0; padding: 9px 10px; }
+#v-review .ct-body.virtual .ct-c { padding: 6px 8px; }
+#v-review .ct-body.virtual .rowr .desc {
+  display: block;
+  max-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#v-review .ct-body .ct-ck { display: flex; align-items: center; justify-content: center; padding: 0; }
+#v-review .ct-empty { padding: 24px 12px; }
+#v-review .ct-body .rowr:hover { background: var(--surface-2); }
+#v-review .ct-body .rowr.done { opacity: .7; }
+#v-review .ct-body .rowr.cur { outline: 2px solid var(--brand); outline-offset: -2px; z-index: 2; }
+/* 展开判定依据时行高不再固定；覆盖后续行并可读。 */
+#v-review .ct-body .rowr.showb {
+  z-index: 3;
+  height: auto;
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+#v-review .ct-body .rowr.showb .basis { display: block; }
+
+@media (max-width: 1180px) {
+  #v-review .ct-head,
+  #v-review .ct-body .rowr {
+    grid-template-columns: 34px minmax(180px, 1fr) 140px 170px 52px 76px 76px 56px 86px;
+  }
 }

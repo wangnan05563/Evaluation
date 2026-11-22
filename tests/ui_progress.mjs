@@ -60,7 +60,7 @@ const okReview = await waitFor(async () => (await ev(`document.body.dataset.step
 check('S0 进入「审核功能点」页', okReview, 'waitFor 轮询确认');
 await ev(`(()=>{const c=document.querySelector('#ckAll');c.checked=true;c.dispatchEvent(new Event('change'));})()`);
 await sleep(400);
-const n = await ev(`document.querySelectorAll('#tbody tr').length`);
+const n = await ev(`document.querySelectorAll('#tbody .rowr').length`);
 check('S0 全部功能点已确认，按钮可点', (await ev(`document.querySelector('#goRes').disabled`)) === false, `功能点 ${n} 条`);
 check('S1 点击前进度条隐藏', (await ev(`!document.querySelector('#genProg').classList.contains('on')`)) === true);
 

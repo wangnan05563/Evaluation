@@ -39,7 +39,7 @@ function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.
 function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
 function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
-function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
+function refreshRow(it){const tr=document.querySelector(`#tbody .rowr[data-seq="${it.seq}"]`);if(!tr)return;
 tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
 function refreshTotals(){
   const okT=items.filter(x=>x.ok),tU=items.reduce((a,x)=>a+ufp(x),0),tS=items.reduce((a,x)=>a+us(x),0).toFixed(2);
@@ -103,7 +103,7 @@ function updateSortInd(){
     const el=document.getElementById("s-"+k);
     if(el)el.textContent=d===0?"":(d===1?"▲":"▼");
     // FR-UI05：aria-sort 同步实际排序状态，读屏才能播报当前列与升降序（WCAG 1.3.1）
-    const th=document.querySelector(`th[onclick*="sortBy('${k}')"]`);
+    const th=document.querySelector(`.ct-h[onclick*="sortBy('${k}')"]`);
     if(th)th.setAttribute("aria-sort",ariaSortOf(k));
   });
 }
@@ -111,46 +111,61 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
   $("#fTodo").checked=false;sortState=null;render();toast(t("review.filter.cleared"));}
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
-function rowHTML(it){
-  return `<tr class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}">
-      <td><input type="checkbox" class="ck" ${it.ok?'checked':''}></td>
-      <td><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></td>
-      <td><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></td>
-      <td><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></td>
-      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it).toFixed(2)}</td>
-      <td><span class="rowst">${badge(it)}</span></td>
-    </tr>`;}
-function render(opts){   // FR-3.3：light 模式跳过树重建/筛选同步（滚动路径专用，建树开销不随窗口变化）
+function rowHTML(it,lite){
+  if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
+      <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
+      <div class="ct-c" role="gridcell">${escAttr(it.cx||'')}</div>
+      <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${it.reuse||''}</div><div class="ct-c" role="gridcell">${it.modify||'新增'}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
+      <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
+    </div>`;
+  return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></div>
+      <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
+      <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></div>
+      <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${reuseHTML(it)}</div><div class="ct-c" role="gridcell">${modHTML(it)}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
+      <div class="ct-c" role="gridcell"><span class="rowst">${badge(it)}</span></div>
+    </div>`;}
+function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
   if(!light){buildTree();syncSysFilter();updateSortInd();}
-  const arr=visibleItems();
-  $("#listCnt").textContent=tf("review.count",{n:arr.length});
-  const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;
+  const arr=light&&window.__ctArr?window.__ctArr:visibleItems();
+  if(!light)window.__ctArr=arr;
+  const lite=items.length>CT.liteLimit;   // 10k 级列表：紧凑只读行，编辑走批量操作
+  const vrEl=$("#v-review");if(vrEl)vrEl.classList.toggle("ct-lite",lite);
+  if(!light){$("#listCnt").textContent=tf("review.count",{n:arr.length});
+    const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;}
   if(!items.length){
-    $("#tbody").innerHTML=`<tr><td colspan="9">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</td></tr>`;
-    refreshTotals();window.lucide&&lucide.createIcons();return;}
+    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+    tb.innerHTML=`<div class="ct-empty">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</div>`;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
   if(!arr.length){
-    $("#tbody").innerHTML=`<tr><td colspan="9">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</td></tr>`;
-    refreshTotals();window.lucide&&lucide.createIcons();return;}
+    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+    tb.innerHTML=`<div class="ct-empty">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</div>`;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
   if(!window.__showb)window.__showb=new Set();   // FR-3.3：展开状态改 Set 驱动（虚拟路径可还原）
-  const ckBind=()=>document.querySelectorAll(".ck").forEach(c=>c.addEventListener("change",e=>{
-    const seq=+e.target.closest("tr").dataset.seq,it=items.find(x=>x.seq===seq);
-    it.ok=e.target.checked;e.target.closest("tr").classList.toggle("done",e.target.checked);
-    const rs=e.target.closest("tr").querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();
-  }));
   if(arr.length>CT.threshold){   // FR-3.3（UI03）：虚拟滚动窗口渲染
-    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it),curSeq,window.__showb);
-    ckBind();
+    if(!light){const tb=$("#tbody");tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
+    $("#tbody").setAttribute("role","rowgroup");
+    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it,lite),curSeq,window.__showb);
     ctBindScroll($("#tbody"),()=>render({light:true}));
-    refreshTotals();window.lucide&&lucide.createIcons();return;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+    return;
   }
-  $("#tbody").innerHTML=arr.map(it=>rowHTML(it).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
-  ckBind();
+  const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.setAttribute("role","rowgroup");
+  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
   refreshTotals();window.lucide&&lucide.createIcons();
 }
-$("#tbody").addEventListener("change",e=>{const s=e.target;if(!s.dataset.k)return;
-const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
+$("#tbody").addEventListener("change",e=>{
+  const ck=e.target.closest(".ck");
+  if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+    it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+    const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
+    window.lucide&&lucide.createIcons();refreshTotals();return;}
+  const s=e.target;if(!s.dataset.k)return;
+  const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -169,18 +184,18 @@ document.addEventListener("keydown",e=>{
   if(d){e.preventDefault();descToggle(d);}
 });
 function toggleBasis(seq){
-  const tr=document.querySelector(`tr[data-seq="${seq}"]`);
-  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");const btn=tr.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  const row=document.querySelector(`#tbody [data-seq="${seq}"]`);
+  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
-function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(tr)tr.classList.add("showb");});
-  if(document.querySelector("#tbody .vsp"))render();}   // 虚拟路径重渲窗口
+function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const row=document.querySelector(`#tbody [data-seq="${it.seq}"]`);if(row)row.classList.add("showb");});
+  if($("#tbody").classList.contains("virtual"))render();}   // 虚拟路径重渲窗口
 // 按功能模块过滤：此前用 tr.textContent.includes(sys) 判断，但表格行并不展示 system 字段，
 // 导致点击模块标题后所有行都被隐藏（数据"消失"）。改为按行内 data-sys 精确匹配。
 function filterSys(node){
   const sys=(node&&node.dataset)?node.dataset.sys:"";
   document.querySelectorAll("#tree .tnode").forEach(n=>n.classList.toggle("on",n===node));
-  document.querySelectorAll("#tbody tr").forEach(tr=>{
+  document.querySelectorAll("#tbody .rowr").forEach(tr=>{
     tr.style.display=(!sys||tr.dataset.sys===sys)?"":"none";
   });
 }
