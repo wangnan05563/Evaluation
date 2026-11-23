@@ -26,7 +26,7 @@ SRC = REPO
 
 # 规模估算明细列映射（1 起）：B系统 C一级 D二级 E三级 F四级 G描述 H计数项 I类别 J(公式) K重用 L修改 M(公式) N备注
 COLS = {"system": 2, "m1": 3, "m2": 4, "m3": 5, "m4": 6, "desc": 7,
-        "count_item": 8, "type": 9, "reuse": 11, "modify": 12, "remark": 14}
+        "count_item": 8, "type": 9, "ufp": 10, "reuse": 11, "modify": 12, "remark": 14}
 ROW_START, ROW_END = 6, 53
 
 
@@ -124,15 +124,23 @@ def _carry_system(row, last):
     return row["_sys_raw"] or last
 
 
-def fill_rows(ws, rows, end_row=None):
-    """对目标工作表写入明细（覆盖数据区，保留首尾/公式列）。end_row 供动态扩容后传入实际末行。"""
+def fill_rows(ws, rows, end_row=None, ufp_fn=None):
+    """对目标工作表写入明细（覆盖数据区，保留首尾/公式列）。end_row 供动态扩容后传入实际末行。
+
+    ufp_fn 非空时（标准 IFPUG 模式）把 J 列母版类别权重公式替换为按 DET/RET/FTR 算出的数值，
+    M 列 US 公式仍保留并按 J/K/L 重算；企业母版模式不动 J 公式。
+    """
     last = end_row or ROW_END
     # 清空数据列
     for r in range(ROW_START, last + 1):
         for col in (2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14):
             ws.cell(r, col).value = None
+        if ufp_fn:
+            ws.cell(r, COLS["ufp"]).value = None
     for it in rows:
         r = it["row"]
+        if ufp_fn:
+            ws.cell(r, COLS["ufp"]).value = ufp_fn(it)
         ws.cell(r, COLS["system"]).value = it.get("system", "")
         ws.cell(r, COLS["m1"]).value = it.get("m1", "")
         ws.cell(r, COLS["m2"]).value = it.get("m2", "")
@@ -445,7 +453,7 @@ def _remove_save_tmp(tmp):
 
 def run_from_json(js, out, systems=None, method="估算功能点", on_progress=None, recalc_info=None,
                   recalc_mode=None, recalc_timeout=None, on_recalc_state=None, brand_color=None, gb_state=None,
-                  template=None):
+                  template=None, cx_mode=engine.CX_MASTER):
     """生成成品表。
 
     on_progress: 可选回调 on_progress(pct:int, stage:str)，用于上层（服务端）上报真实阶段
@@ -463,7 +471,9 @@ def run_from_json(js, out, systems=None, method="估算功能点", on_progress=N
     new_end = _ensure_capacity(ws, len(rows))     # 行数超母版 48 行容量时动态扩容（T00606）
     _prog(30, "正在载入母版并扩容明细区…")
     ws["C1"] = method  # 规模估算方法：联动母版 J 列权重公式（估算功能点/预估功能点）
-    fill_rows(ws, rows, end_row=new_end)
+    cx_mode = engine.normalize_cx_mode(cx_mode)
+    fill_rows(ws, rows, end_row=new_end,
+              ufp_fn=(lambda it: engine.item_ufp(it, method, cx_mode)) if cx_mode == engine.CX_STANDARD else None)
     _prog(48, f"正在写入 {len(rows)} 条功能点明细…")
     if brand_color:
         _recolor_header(ws, brand_color)   # M5/FR-4.2：母版表头填充色随主题色联动（仅表头 fill，其余母版样式不动）
@@ -484,7 +494,9 @@ def run_from_json(js, out, systems=None, method="估算功能点", on_progress=N
     if recalc_info is not None:
         recalc_info["mode"] = how
     _report_recalc_stage(how, queued, _prog)
-    us_sum = engine.total_us([{"type": r["type"], "reuse": r["reuse"], "modify": r["modify"]} for r in rows])
+    us_sum = engine.total_us([{"type": r["type"], "reuse": r["reuse"], "modify": r["modify"],
+                               "det": r.get("det"), "ret": r.get("ret"), "ftr": r.get("ftr")} for r in rows],
+                             cx_mode=cx_mode)
     print(f"[gen] 已生成 {out}；功能点 {len(rows)} 条，US 合计 {us_sum}")
     return rows, ranges
 

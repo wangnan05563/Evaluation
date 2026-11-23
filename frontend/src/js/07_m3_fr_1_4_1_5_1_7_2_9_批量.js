@@ -326,6 +326,7 @@ function saveFormState(){
       pertPid, pertItems, pertSummary,
       pertPhase: v('#pertPhase'), pertO: v('#pertO'), pertM: v('#pertM'),
       pertP: v('#pertP'), pertD: v('#pertD'), pertEst: v('#pertEst'),
+      cxMode: (typeof cxMode!=='undefined'?cxMode:(v('#cxModeSel')||'企业母版')),
       ts: Date.now()
     }));
   }catch(e){/* 存储满/隐私模式等场景静默降级，不影响主流程 */}
@@ -337,6 +338,7 @@ function saveFormState(){
    恢复口径与调用顺序完全不变。 */
 function assignIfpugState(s){
   items=s.items;gSummary=s.gSummary||null;gSid=s.gSid||null;curFile=s.curFile||null;
+  if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel)sel.value=s.cxMode;if(typeof refreshCxHint==='function')refreshCxHint();}
 }
 function renderIfpugState(s){
   render();

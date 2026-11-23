@@ -1917,6 +1917,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/pickdir": "_post_pickdir",
         "/api/config/test": "_post_config_test",
         "/api/generate": "_post_generate",
+        "/api/ifpug/summary": "_post_ifpug_summary",
         "/api/pert/project": "_post_pert_project",
         "/api/pert/projects": "_post_pert_projects",
         "/api/pert/list": "_post_pert_list",
@@ -1999,7 +2000,13 @@ class Handler(BaseHTTPRequestHandler):
                 "key": (params.get("llm_key") or saved.get("key") or "").strip(),
             }
             items, llm_meta = recognize_doc(src, llm if llm["enabled"] else None)
-            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items])
+            try:
+                cx_mode = engine.normalize_cx_mode(params.get("cx_mode"))
+            except ValueError:
+                return self._json(400, {"ok": False, "msg": "未知复杂度口径"})
+            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"],
+                                       "det": i.get("det"), "ret": i.get("ret"), "ftr": i.get("ftr")} for i in items],
+                                     cx_mode=cx_mode)
             # 前端在配置中心勾选后，识别请求不再携带 params，此时回退已保存配置；meta 里标记来源
             source = "request" if ("llm_enabled" in params or params.get("enabled")) else "saved"
             return self._json(200, {"ok": True, "items": items, "summary": summary,
@@ -2231,6 +2238,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(502, {"ok": False, **_m("config.srv_ai_net_error", "网络错误：{err}", err=f"{type(e).__name__}: {e}")})
 
     # ---------------- 成品表生成（IFPUG） ----------------
+    def _post_ifpug_summary(self, raw):
+        # T06188：标准 IFPUG/企业母版切换的实时汇总；只读、不落库、不出表。
+        payload = json.loads(raw.decode("utf-8"))
+        items = payload.get("items") or []
+        if not isinstance(items, list) or not items:
+            return self._json(400, {"ok": False, "msg": "功能点明细不能为空"})
+        if len(items) > 2000:
+            return self._json(400, {"ok": False, "msg": "功能点明细超出 2000 条上限"})
+        try:
+            cx_mode = engine.normalize_cx_mode(payload.get("cx_mode"))
+            method = payload.get("method") or engine.METHOD_ESTIMATE
+            timing = payload.get("timing") or "估算中期"
+            summary = engine.summary(items, timing=timing, method=method, cx_mode=cx_mode)
+            detail = [{"seq": i + 1, "type": it.get("type"),
+                       "complexity": engine.complexity(it["type"], it.get("det"), it.get("ret"), it.get("ftr")),
+                       "ufp": engine.item_ufp(it, method, cx_mode),
+                       "us": round(engine.item_us(it, method, cx_mode), 2)} for i, it in enumerate(items)]
+        except (ValueError, KeyError, TypeError) as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        return self._json(200, {"ok": True, "cx_mode": cx_mode, "summary": summary, "items": detail})
+
     def _post_generate(self, path, raw):
         payload = json.loads(raw.decode("utf-8"))
         job = str(payload.get("job") or "")
@@ -2244,6 +2272,11 @@ class Handler(BaseHTTPRequestHandler):
                 n=len(its))})
         items = self._normalize_gen_items(its)
         method = payload.get("method", "估算功能点")
+        try:
+            cx_mode = engine.normalize_cx_mode(payload.get("cx_mode"))
+        except ValueError:
+            _gen_progress_set(job, 100, "生成失败", done=True, error="未知复杂度口径")
+            return self._json(400, {"ok": False, "msg": "未知复杂度口径"})
         # T00866：生成文件名 = 需求标题 + "-工作量评估.xlsx"。需求标题取前端上传文档
         # 文件名基名（title），无则回退时间戳。净化 Windows 非法字符，保留原意不截断。
         req_title, sid = self._gen_output_name(payload)
@@ -2266,13 +2299,15 @@ class Handler(BaseHTTPRequestHandler):
             _brand = _brand if re.fullmatch(r"#[0-9a-fA-F]{6}", _brand) else None   # FR-4.2：非法色值后端拒绝（回退母版默认）
             with _title_lock(str(out)):
                 g.run_from_json(items, str(out), method=method,
-                                brand_color=_brand, gb_state=_gb_state, template=_tpl,
+                                brand_color=_brand, gb_state=_gb_state, template=_tpl, cx_mode=cx_mode,
                                 on_progress=lambda p, s: _gen_progress_set(job, p, s),
                                 recalc_info=recalc_info,
                                 recalc_mode=recalc_mode, recalc_timeout=recalc_timeout,
                                 on_recalc_state=lambda st: _gen_recalc_set(job, st))
             _gen_progress_set(job, 96, "正在汇总评估结果…")
-            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"]} for i in items], method=method)
+            summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"],
+                                       "det": i.get("det"), "ret": i.get("ret"), "ftr": i.get("ftr")} for i in items],
+                                     method=method, cx_mode=cx_mode)
         except Exception as e:
             # 失败也落到进度表：前端据此把进度条转红并给出错误文案
             _gen_progress_set(job, 100, "生成失败", done=True, error=str(e))
@@ -2280,7 +2315,7 @@ class Handler(BaseHTTPRequestHandler):
         recalc_mode = recalc_info.get("mode", "off")
         _gen_progress_set(job, 100, "生成完成（公式缓存后台补算中）" if recalc_mode == "async" else "生成完成",
                           done=True)
-        history_id = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode)
+        history_id = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode)
         return self._json(200, {"ok": True, "sid": sid, "items": items, "summary": summary,
                                 "recalc": recalc_mode, "history_id": history_id})
 
@@ -2316,7 +2351,7 @@ class Handler(BaseHTTPRequestHandler):
         return req_title, re.sub(r'[\\/:*?"<>|]', "", req_title) + "-工作量评估.xlsx"
 
     @staticmethod
-    def _insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode):
+    def _insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode="企业母版"):
         """M1/FR-1.1：估算历史落库（失败仅记日志，不影响生成响应）。
 
         T01497：engine.summary 只产出 ufp/us，历史列表的「功能点 / US 合计」
@@ -2332,7 +2367,7 @@ class Handler(BaseHTTPRequestHandler):
             if "us_total" not in hist_summary:
                 # total_us 对非法 type/reuse/modify 会抛错，脏明细不应连带历史落库失败
                 try:
-                    hist_summary["us_total"] = engine.total_us(hist_items, method)
+                    hist_summary["us_total"] = engine.total_us(hist_items, method, cx_mode)
                 except Exception:
                     hist_summary["us_total"] = summary.get("us") if isinstance(summary, dict) else None
             hist = HIST.insert(
@@ -2340,6 +2375,7 @@ class Handler(BaseHTTPRequestHandler):
                 method=method,
                 params={"llm_enabled": payload.get("llm_enabled"),
                         "fee_version": payload.get("fee_version"),
+                        "cx_mode": cx_mode,
                         "recalc_mode": recalc_mode},
                 items=hist_items,
                 summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)

@@ -4,6 +4,8 @@
 const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8020';
 // T03724：UFP 口径与母版成品表一致——按类别默认权重（母版无复杂度列），复杂度仅作记录。
 const WEIGHT={ILF:10,EIF:7,EI:4,EO:5,EQ:4}; const WEIGHT_PRE={ILF:35,EIF:15};
+const STD_WEIGHT={ILF:{低:7,中:10,高:15},EIF:{低:5,中:7,高:10},EI:{低:3,中:4,高:6},EO:{低:4,中:5,高:7},EQ:{低:3,中:4,高:6}};
+let cxMode='企业母版';   // T06188：企业母版（默认）/ 标准IFPUG（DET/RET/FTR）
 const REUSE={低:1,中:2/3,高:1/3}; const MODIFY={新增:1,修改:.8,删除:.2};
 const CATCOLOR={ILF:'c-ILF',EIF:'c-EIF',EI:'c-EI',EO:'c-EO',EQ:'c-EQ'};
 let items=[]; let gSummary=null; let gSid=null; let curFile=null;
@@ -65,16 +67,65 @@ function a11yLabelControls(root=document){
 a11yLabelControls();
 document.addEventListener("DOMContentLoaded",()=>{a11yLabelControls();setTimeout(()=>a11yLabelControls(),600);});
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
-function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
+function cxInt(v,d){const n=Number.parseInt(v,10);return Number.isFinite(n)?n:d;}
+function cxDefaultDet(type){return (type==='ILF'||type==='EIF')?20:10;}
+function stdComplexity(it){
+  const d=Math.max(1,cxInt(it.det,cxDefaultDet(it.type)));
+  const r=Math.max(1,cxInt(it.ret,2));
+  const f=Math.max(0,cxInt(it.ftr,1));
+  if(it.type==='ILF'||it.type==='EIF'){
+    if(r<=1)return d<=50?'低':'中';
+    if(r<=5)return d<=19?'低':(d<=50?'中':'高');
+    return d<=19?'中':'高';
+  }
+  if(it.type==='EI'){
+    if(f<=2)return d<=4?'低':(d<=15?'中':'高');
+    return d<=4?'中':'高';
+  }
+  if(f<=3)return d<=5?'低':(d<=19?'中':'高');
+  return d<=5?'中':'高';
+}
+function stdUfp(it){const w=STD_WEIGHT[it.type];return w?w[stdComplexity(it)]:(WEIGHT[it.type]||0);}
+function ufp(it){if(cxMode==='标准IFPUG')return stdUfp(it);const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
+function cxHintText(){
+  const en=(document.documentElement.lang||"zh").toLowerCase().startsWith("en");
+  if(cxMode==='标准IFPUG')return en
+    ?'Standard IFPUG: UFP is calculated from the DET/RET/FTR complexity matrix and matches the manual matrix.'
+    :'已切换标准 IFPUG：UFP 按 DET/RET/FTR 复杂度矩阵计算，结果与手工矩阵一致。';
+  return en
+    ?'Enterprise template: UFP uses category default weights; complexity is recorded for review only.'
+    :'已按 IFPUG 初识，请人工复核类别与复杂度；企业母版按类别默认权重计算 UFP。';
+}
+function refreshCxHint(){
+  const hint=$("#cxHint");if(hint)dynText(hint,cxHintText);
+  const th=$("#cxColHead");if(th)th.title=cxMode==='标准IFPUG'
+    ?'标准 IFPUG：按 DET/RET/FTR 判定低/中/高并取标准权重'
+    :'企业母版：复杂度仅作记录，UFP 按类别默认权重计算';
+}
+function onCxModeChange(){
+  const sel=$("#cxModeSel");cxMode=sel?sel.value:'企业母版';
+  if(cxMode==='标准IFPUG')items.forEach(it=>{
+    it.det=cxInt(it.det,cxDefaultDet(it.type));it.ret=cxInt(it.ret,2);it.ftr=cxInt(it.ftr,1);it.cx=stdComplexity(it);
+  });
+  refreshCxHint();render();saveFormState();
+}
 function us(it){return ufp(it)*REUSE[it.reuse]*MODIFY[it.modify];}
 function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
 function cxCellHTML(it){return `<select class="pick" aria-label="${t("review.th.cx")} ${it.seq}" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
+function stdCxHTML(it){
+  const d=cxInt(it.det,cxDefaultDet(it.type)),r=cxInt(it.ret,2),f=cxInt(it.ftr,1),cx=stdComplexity(it);
+  const inp=(k,v,lab,max)=>`<input class="pick" type="number" min="0" ${max?`max="${max}"`:''} step="1" value="${v}" data-k="${k}" data-seq="${it.seq}" aria-label="${lab} ${it.seq}" style="width:42px;padding:2px 3px;font-size:11px">`;
+  return `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap" title="DET / RET / FTR">`+
+    inp('det',d,'DET',null)+inp('ret',r,'RET',null)+inp('ftr',f,'FTR',null)+
+    `<span class="cat ${CATCOLOR[it.type]}" data-cx="${it.seq}" style="min-width:28px;text-align:center">${cx}</span></div>`;
+}
 function reuseHTML(it){return `<select class="pick" aria-label="${t("review.th.reuse")} ${it.seq}" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
 function modHTML(it){return `<select class="pick" aria-label="${t("review.th.modify")} ${it.seq}" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
 function typeCell(it){return `<select class="pick" aria-label="${t("review.th.count_item")} ${it.seq}" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`#tbody .rowr[data-seq="${it.seq}"]`);if(!tr)return;
-tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
+tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;
+const cx=tr.querySelector('[data-cx]');if(cx)cx.textContent=it.cx;}
 function refreshTotals(){
   const okT=items.filter(x=>x.ok),tU=items.reduce((a,x)=>a+ufp(x),0),tS=items.reduce((a,x)=>a+us(x),0).toFixed(2);
   $("#okCnt").textContent=okT.length;$("#leftCnt").textContent=items.length-okT.length;
@@ -158,7 +209,7 @@ function rowHTML(it,lite){
       <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
       <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
-      <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></div>
+      <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap">${typeCell(it)}${cxMode==='标准IFPUG'?stdCxHTML(it):cxCellHTML(it)}</div></div>
       <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${reuseHTML(it)}</div><div class="ct-c" role="gridcell">${modHTML(it)}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
       <div class="ct-c" role="gridcell"><span class="rowst">${badge(it)}</span></div>
     </div>`;}
@@ -205,7 +256,11 @@ $("#tbody").addEventListener("change",e=>{
   const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
   if(String(it[s.dataset.k])===String(s.value))return;
   pushUndo("编辑 "+(s.dataset.k||""));
-  recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
+  recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;
+  if(cxMode==='标准IFPUG'&&['type','det','ret','ftr'].includes(s.dataset.k)){
+    it.det=cxInt(it.det,cxDefaultDet(it.type));it.ret=cxInt(it.ret,2);it.ftr=cxInt(it.ftr,1);it.cx=stdComplexity(it);
+  }
+  refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -1126,4 +1181,10 @@ $("#startBtn").addEventListener("click",async ()=>{
   }catch(err){dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
   b.disabled=false;b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';window.lucide&&lucide.createIcons();
 });
+
+// T06188：复杂度口径提示随模式/语言切换刷新（dynText 已注册可重绘）
+(function(){
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",refreshCxHint,{once:true});
+  else refreshCxHint();
+})();
 

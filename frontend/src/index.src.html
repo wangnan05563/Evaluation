@@ -99,6 +99,7 @@
         <div class="fields">
           <div class="fill"><div class="f-w">规模计数时机</div><select aria-label="规模计数时机"><option>估算早期</option><option selected>估算中期</option><option>估算晚期</option><option>交付后及运维</option></select></div>
           <div class="fill"><div class="f-w">规模估算方法</div><select id="methodSel" aria-label="规模估算方法" onchange="onMethodChange()"><option selected>估算功能点</option><option>预估功能点</option></select></div>
+          <div class="fill"><div class="f-w">复杂度口径</div><select id="cxModeSel" aria-label="复杂度口径" onchange="onCxModeChange()"><option selected>企业母版</option><option>标准IFPUG</option></select></div>
           <div class="fill"><div class="f-w">应用类型</div><select aria-label="应用类型"><option selected>业务处理</option><option>应用集成</option><option>科技</option><option>智能信息</option></select></div>
           <div class="fill"><div class="f-w">开发语言</div><select aria-label="开发语言"><option selected>JAVA、C++、C# 等</option><option>C 等</option><option>PowerBuilder、ASP 等</option></select></div>
           <div class="fill"><div class="f-w">开发团队背景</div><select aria-label="开发团队背景"><option selected>本行业类似软件</option><option>相关行业软件</option><option>无相关背景</option></select></div>
@@ -147,7 +148,7 @@
           <div class="ct-h ct-ck" role="columnheader"><input type="checkbox" id="ckAll" data-i18n="title=review.th.select_all|aria-label=review.th.select_all_aria" title="全选/全不选（确认所有功能项）" aria-label="全选/全不选，确认所有功能项" onchange="toggleAllCk(this.checked)"></div>
           <div class="ct-h sortable" role="columnheader" tabindex="0" aria-sort="none" onclick="sortBy('desc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('desc')}" data-i18n="title=review.th.desc_title" title="按描述排序"><span data-i18n="review.th.desc">功能项描述</span> <span id="s-desc"></span></div>
           <div class="ct-h sortable" role="columnheader" tabindex="0" aria-sort="none" onclick="sortBy('type')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('type')}" data-i18n="title=review.th.count_item_title" title="按类型排序"><span data-i18n="review.th.count_item">计数项 · 类别</span> <span id="s-type"></span></div>
-          <div class="ct-h" role="columnheader" data-i18n="title=review.th.cx_title|review.th.cx" title="复杂度仅作记录，不参与 UFP；母版按类别默认权重计算">复杂度</div>
+          <div class="ct-h" role="columnheader" id="cxColHead" data-i18n="title=review.th.cx_title|review.th.cx" title="企业母版：复杂度仅作记录；标准 IFPUG：按 DET/RET/FTR 判定复杂度">复杂度</div>
           <div class="ct-h" role="columnheader" data-i18n="review.th.ufp">UFP</div>
           <div class="ct-h" role="columnheader" data-i18n="review.th.reuse">重用</div>
           <div class="ct-h" role="columnheader" data-i18n="review.th.modify">修改</div>
@@ -163,7 +164,7 @@
             <div class="gprog-top"><span id="genProgTxt" data-i18n="review.gen.working">正在生成…</span><span id="genProgPct">0%</span></div>
             <div class="gprog-track"><div class="gprog-fill" id="genProgFill"></div></div>
           </div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6"><span data-i18n="review.gen.hint">已按 IFPUG 初识，请人工复核类别与复杂度；复杂度仅作记录，UFP 按母版类别默认权重计算。</span></div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6"><span id="cxHint">已按 IFPUG 初识，请人工复核类别与复杂度；企业母版按类别默认权重计算 UFP。</span></div>
           <div class="lt">
             <div class="item"><span data-i18n="review.dock.ok">已确认</span><b id="okCnt">0</b></div>
             <div class="item"><span data-i18n="review.dock.ufp">UFP 合计</span><b id="dockUfp">0</b></div>

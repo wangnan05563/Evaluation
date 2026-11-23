@@ -20,6 +20,75 @@ REUSE = {"低": 1.0, "中": 2 / 3, "高": 1 / 3}
 MODIFY = {"新增": 1.0, "修改": 0.80, "删除": 0.20}
 # 规模变更调整因子（估算时机），母版 H51-H54 / I51-I54
 SCALE_CHANGE = {"估算早期": 1.39, "估算中期": 1.21, "估算晚期": 1.10, "项目交付后及运维阶段": 1.00}
+# T06188：复杂度口径。企业母版（默认）沿用母版类别权重；标准 IFPUG 按 DET/RET/FTR
+# 判定低/中/高后取标准权重，仅标准模式改变 UFP，企业母版 US=105.07 不受影响。
+CX_MASTER = "企业母版"
+CX_STANDARD = "标准IFPUG"
+CX_MODES = (CX_MASTER, CX_STANDARD)
+STD_WEIGHT = {
+    "ILF": {"低": 7, "中": 10, "高": 15},
+    "EIF": {"低": 5, "中": 7, "高": 10},
+    "EI": {"低": 3, "中": 4, "高": 6},
+    "EO": {"低": 4, "中": 5, "高": 7},
+    "EQ": {"低": 3, "中": 4, "高": 6},
+}
+# 切到标准模式但历史明细还没有 DET/RET/FTR 时的默认值：中复杂度、UFP 与企业母版一致。
+DEFAULT_DET, DEFAULT_RET, DEFAULT_FTR = 20, 2, 1
+
+
+def default_det(type_):
+    """标准模式缺省 DET：ILF/EIF 用 20；事务类用 10，保证默认都落在中复杂度。"""
+    return DEFAULT_DET if type_ in ("ILF", "EIF") else 10
+
+
+def normalize_cx_mode(mode):
+    """接受中文 UI 值或英文别名，非法值抛 ValueError。"""
+    if not mode or mode in ("enterprise", "master", CX_MASTER):
+        return CX_MASTER
+    if mode in ("standard", "ifpug", CX_STANDARD):
+        return CX_STANDARD
+    raise ValueError(f"未知复杂度口径 {mode}")
+
+
+def _int_or(v, default):
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return default
+
+
+def complexity(type_: str, det=None, ret=None, ftr=None) -> str:
+    """标准 IFPUG DET/RET/FTR → 低/中/高（ILF/EIF 用 RET+DET；EI/EO/EQ 用 FTR+DET）。"""
+    if type_ not in STD_WEIGHT:
+        raise ValueError(f"未知类别 {type_}")
+    d = max(1, _int_or(det, default_det(type_)))
+    r = max(1, _int_or(ret, DEFAULT_RET))
+    f = max(0, _int_or(ftr, DEFAULT_FTR))
+    if type_ in ("ILF", "EIF"):
+        if r <= 1:
+            return "低" if d <= 50 else "中"
+        if r <= 5:
+            return "低" if d <= 19 else ("中" if d <= 50 else "高")
+        return "中" if d <= 19 else "高"
+    if type_ == "EI":
+        if f <= 2:
+            return "低" if d <= 4 else ("中" if d <= 15 else "高")
+        return "中" if d <= 4 else "高"
+    # EO / EQ
+    if f <= 3:
+        return "低" if d <= 5 else ("中" if d <= 19 else "高")
+    return "中" if d <= 5 else "高"
+
+
+def standard_weight(type_: str, det=None, ret=None, ftr=None) -> int:
+    return STD_WEIGHT[type_][complexity(type_, det, ret, ftr)]
+
+
+def item_ufp(it: dict, method: str = METHOD_ESTIMATE, cx_mode: str = CX_MASTER) -> int:
+    """单条明细 UFP：标准模式优先按 DET/RET/FTR，企业母版沿用类别权重。"""
+    if normalize_cx_mode(cx_mode) == CX_STANDARD and it.get("type") in STD_WEIGHT:
+        return standard_weight(it["type"], it.get("det"), it.get("ret"), it.get("ftr"))
+    return weight(it.get("type"), method)
 
 
 def weight(type_: str, method: str = METHOD_ESTIMATE) -> int:
@@ -32,20 +101,31 @@ def weight(type_: str, method: str = METHOD_ESTIMATE) -> int:
 
 
 def us(type_: str, reuse: str, modify: str, method: str = METHOD_ESTIMATE) -> float:
-    """US = 类别权重 × 重用系数 × 修改系数。"""
+    """US = 类别权重 × 重用系数 × 修改系数（企业母版口径）。"""
     if reuse not in REUSE or modify not in MODIFY:
         raise ValueError(f"非法取值 reuse={reuse}, modify={modify}")
     return weight(type_, method) * REUSE[reuse] * MODIFY[modify]
 
 
-def total_us(items: Iterable[dict], method: str = METHOD_ESTIMATE) -> float:
-    return round(sum(us(i["type"], i["reuse"], i["modify"], method) for i in items), 2)
+def item_us(it: dict, method: str = METHOD_ESTIMATE, cx_mode: str = CX_MASTER) -> float:
+    """单条明细 US；标准模式下 UFP 走 DET/RET/FTR 矩阵。"""
+    reuse, modify = it.get("reuse"), it.get("modify")
+    if reuse not in REUSE or modify not in MODIFY:
+        raise ValueError(f"非法取值 reuse={reuse}, modify={modify}")
+    return item_ufp(it, method, cx_mode) * REUSE[reuse] * MODIFY[modify]
 
 
-def summary(items: Iterable[dict], timing: str = "估算中期", method: str = METHOD_ESTIMATE) -> dict:
+def total_us(items: Iterable[dict], method: str = METHOD_ESTIMATE, cx_mode: str = CX_MASTER) -> float:
+    return round(sum(item_us(i, method, cx_mode) for i in items), 2)
+
+
+def summary(items: Iterable[dict], timing: str = "估算中期", method: str = METHOD_ESTIMATE,
+            cx_mode: str = CX_MASTER) -> dict:
     """返回与费用估算链路一致的汇总（工作量月 = 天/22；费用单位万元）。"""
-    ufp = sum(weight(i["type"], method) for i in items)
-    us_sum = total_us(items, method)
+    items = list(items)
+    cx_mode = normalize_cx_mode(cx_mode)
+    ufp = sum(item_ufp(i, method, cx_mode) for i in items)
+    us_sum = total_us(items, method, cx_mode)
     adjusted = round(us_sum * SCALE_CHANGE[timing], 2)  # 调整后规模 = US × 规模变更因子
     eff_mid = 10.67  # 中值生产率(人时/FP)
     work_mid = adjusted * eff_mid / 8            # 未调整工作量(人天)
@@ -54,7 +134,7 @@ def summary(items: Iterable[dict], timing: str = "估算中期", method: str = M
     perf = 22
     price = 2.57
     return {
-        "ufp": ufp, "us": us_sum, "adjusted_fp": adjusted,
+        "ufp": ufp, "us": us_sum, "cx_mode": cx_mode, "adjusted_fp": adjusted,
         "work": {"low": round(work_low * factor, 2), "mid": round(work_mid * factor, 2),
                  "high": round(work_high * factor, 2)},
         "cost": {"low": round(work_low * factor / perf * price, 2),
