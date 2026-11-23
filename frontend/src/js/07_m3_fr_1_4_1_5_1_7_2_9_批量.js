@@ -1,15 +1,67 @@
 /* ===== M3/FR-1.4、1.5、1.7、2.9：批量操作 / 粘贴导入 / 驳回流 / 规则维护 ===== */
 /* T01556（批次6）：本模块动态文案 key 化。表单可编辑区（规则表行内输入）为数据+编辑态，
    绘制期现取 t()；纯展示驻留区（驳回徽标/规则元信息）注册 dyn 随语言重绘。 */
+/* T06175 / REQ-004：20 步撤销/重做（仅复核表数据域）
+   快照在每次数据变更前压栈；只浅拷贝 item 顶层字段（_ai 视为只读），
+   10k 行批量操作也不至于把整表深拷贝 20 份。撤销后 render() 重算 UFP/US，公式不被破坏。 */
+const UNDO_LIMIT=20;
+let undoStack=[], redoStack=[];
+function cloneReviewItems(){return items.map(it=>({...it}));}
+function reviewSnapshot(label){
+  return {label,items:cloneReviewItems(),rej:rejQueue.map(r=>({...r})),curSeq};
+}
+function pushUndo(label){
+  if(!Array.isArray(items))return;
+  undoStack.push(reviewSnapshot(label||"编辑"));
+  while(undoStack.length>UNDO_LIMIT)undoStack.shift();
+  redoStack.length=0;
+  updateUndoUI();
+}
+function applyReviewSnapshot(s){
+  items=s.items.map(it=>({...it}));
+  rejQueue=s.rej.map(r=>({...r}));
+  curSeq=s.curSeq;
+  updateRejBadge();
+  render();
+  saveFormState();
+  updateUndoUI();
+}
+function undoEdit(){
+  if(!undoStack.length)return false;
+  redoStack.push(reviewSnapshot("撤销点"));
+  applyReviewSnapshot(undoStack.pop());
+  return true;
+}
+function redoEdit(){
+  if(!redoStack.length)return false;
+  undoStack.push(reviewSnapshot("重做点"));
+  while(undoStack.length>UNDO_LIMIT)undoStack.shift();
+  applyReviewSnapshot(redoStack.pop());
+  return true;
+}
+function updateUndoUI(){
+  const u=$("#undoBtn"),r=$("#redoBtn");
+  if(u){u.disabled=!undoStack.length;u.title=`撤销（Ctrl+Z，${undoStack.length}/${UNDO_LIMIT}）`;}
+  if(r){r.disabled=!redoStack.length;r.title=`重做（Ctrl+Y，${redoStack.length}/${UNDO_LIMIT}）`;}
+}
+document.addEventListener("keydown",e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+  if(document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
+  const k=String(e.key||"").toLowerCase();
+  if(k!=="z"&&k!=="y")return;
+  if(k==="z"&&!e.shiftKey){if(undoEdit())e.preventDefault();return;}
+  if(k==="y"||(k==="z"&&e.shiftKey)){if(redoEdit())e.preventDefault();}
+});
 function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const ops=[["bReuse","reuse"],["bModify","modify"],["bCx","cx"]].filter(([id])=>$("#"+id).value);
   if(!ops.length){toast(t("batch.need_attr"));return;}
-  const arr=visibleItems();let n=0;
+  const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function batchConfirm(){const arr=visibleItems();arr.forEach(it=>it.ok=true);render();saveFormState();toast(tf("batch.confirmed",{n:arr.length}));}
+function batchConfirm(){const arr=visibleItems();pushUndo("批量确认");arr.forEach(it=>it.ok=true);render();saveFormState();toast(tf("batch.confirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
+  pushUndo("批量删除");
   const del=new Set(arr.map(x=>x.seq));items=items.filter(x=>!del.has(x.seq));
   render();saveFormState();toast(tf("batch.deleted",{n:arr.length}));}
 /* FR-1.5：AI 建议采纳/驳回（驳回偏离 _ai 才记录，供 FR-2.9 沉淀） */
@@ -63,6 +115,7 @@ function pasteParse(){
   $("#pasteApplyBtn").disabled=!pasteRows.length;
   toast(tf("batch.paste_parsed",{n:pasteRows.length}));}
 function pasteApply(){
+  pushUndo("粘贴导入");
   let seq=items.length?Math.max(...items.map(x=>x.seq)):0;
   pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
   const n=pasteRows.length;pasteClose();render();saveFormState();
@@ -91,7 +144,8 @@ function moveRow(delta,e){
 function toggleCurrentRow(){
   if(!curSeq)return;
   const it=items.find(x=>x.seq===curSeq);if(!it)return;
-  it.ok=!it.ok;render();highlightRow();
+  pushUndo("确认状态");
+  it.ok=!it.ok;render();highlightRow();saveFormState();updateUndoUI();
 }
 function expandCurrentRow(){
   if(!curSeq)return;

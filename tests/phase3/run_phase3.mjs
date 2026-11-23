@@ -24,6 +24,7 @@ const suites = [
   // 会在同一 profile 遗留视口状态，使后续 200% 度量稳定偏宽（doc=796、4 控件裁切）。
   { id: 'a11y-wcag22', script: 'tests/phase3/ui_a11y_wcag22.mjs', timeout: 180000 },
   { id: '10k-grid', script: 'tests/phase3/ui_10k_grid.mjs', timeout: 180000 },
+  { id: 'edit-resilience', script: 'tests/phase3/ui_edit_resilience.mjs', timeout: 120000 },
   { id: 'i18n-pseudo', script: 'tests/phase3/ui_i18n_pseudo.mjs', timeout: 120000 },
   { id: 'single-machine', script: 'tests/phase3/ui_single_machine.mjs', timeout: 120000 },
   { id: 'empty-error', script: 'tests/phase3/ui_empty_error.mjs', timeout: 120000 },

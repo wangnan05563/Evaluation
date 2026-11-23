@@ -726,6 +726,8 @@ body.cmdk-lock{overflow:hidden}
           <button class="btn btn-ghost" onclick="clearFilters()" data-i18n="title=review.filter.clear|aria-label=review.filter.clear" title="清除全部筛选与排序" aria-label="清除全部筛选与排序"><i aria-hidden="true" data-lucide="x" style="width:15px;height:15px"></i></button>
           <span class="tcount" id="listCnt">0 条候选</span>
           <button class="btn btn-ghost" onclick="pasteOpen()" data-i18n="title=review.paste_title" title="粘贴 Excel 复制的明细批量导入"><i aria-hidden="true" data-lucide="clipboard-paste" style="width:15px;height:15px"></i><span data-i18n="review.paste">粘贴导入</span></button>
+          <button class="btn btn-ghost" id="undoBtn" onclick="undoEdit()" disabled title="撤销（Ctrl+Z）" aria-label="撤销"><i aria-hidden="true" data-lucide="undo-2" style="width:15px;height:15px"></i></button>
+          <button class="btn btn-ghost" id="redoBtn" onclick="redoEdit()" disabled title="重做（Ctrl+Y）" aria-label="重做"><i aria-hidden="true" data-lucide="redo-2" style="width:15px;height:15px"></i></button>
           <button class="btn btn-ghost" onclick="showAllBasis()" data-i18n="title=review.basis_all" title="展开全部判定依据" aria-label="展开全部判定依据"><i aria-hidden="true" data-lucide="eye" style="width:15px;height:15px"></i></button>
         </div>
         <div class="mark" id="batchBar" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
@@ -1625,11 +1627,17 @@ function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/�
 $("#tbody").addEventListener("change",e=>{
   const ck=e.target.closest(".ck");
   if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+    if(!it)return;
+    if(it.ok===ck.checked)return;
+    pushUndo("确认状态");
     it.ok=ck.checked;row.classList.toggle("done",ck.checked);
     const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();return;}
+    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();return;}
   const s=e.target;if(!s.dataset.k)return;
-  const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
+  const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
+  if(String(it[s.dataset.k])===String(s.value))return;
+  pushUndo("编辑 "+(s.dataset.k||""));
+  recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -1666,8 +1674,10 @@ function filterSys(node){
 // 全选/全不选：同步每行勾选态、状态徽标与底部统计（render 内部会刷新）
 function toggleAllCk(v){
   if(!items.length)return;
+  pushUndo("批量确认");
   items.forEach(it=>it.ok=!!v);
   render();
+  saveFormState();updateUndoUI();
   toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
 }
 function goStep(s){document.body.dataset.step=s;
@@ -2537,7 +2547,9 @@ $("#startBtn").addEventListener("click",async ()=>{
       body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
     const res=await resp.json();
     if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
+    if(items.length)pushUndo("重新识别");
     items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
+    redoStack.length=0;updateUndoUI();
     dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
     render();goStep("review");
   }catch(err){dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
@@ -3225,15 +3237,67 @@ applyTheme.brand=function(hex){if(applyBrand(hex)){localStorage.setItem('wl_bran
 /* ===== M3/FR-1.4、1.5、1.7、2.9：批量操作 / 粘贴导入 / 驳回流 / 规则维护 ===== */
 /* T01556（批次6）：本模块动态文案 key 化。表单可编辑区（规则表行内输入）为数据+编辑态，
    绘制期现取 t()；纯展示驻留区（驳回徽标/规则元信息）注册 dyn 随语言重绘。 */
+/* T06175 / REQ-004：20 步撤销/重做（仅复核表数据域）
+   快照在每次数据变更前压栈；只浅拷贝 item 顶层字段（_ai 视为只读），
+   10k 行批量操作也不至于把整表深拷贝 20 份。撤销后 render() 重算 UFP/US，公式不被破坏。 */
+const UNDO_LIMIT=20;
+let undoStack=[], redoStack=[];
+function cloneReviewItems(){return items.map(it=>({...it}));}
+function reviewSnapshot(label){
+  return {label,items:cloneReviewItems(),rej:rejQueue.map(r=>({...r})),curSeq};
+}
+function pushUndo(label){
+  if(!Array.isArray(items))return;
+  undoStack.push(reviewSnapshot(label||"编辑"));
+  while(undoStack.length>UNDO_LIMIT)undoStack.shift();
+  redoStack.length=0;
+  updateUndoUI();
+}
+function applyReviewSnapshot(s){
+  items=s.items.map(it=>({...it}));
+  rejQueue=s.rej.map(r=>({...r}));
+  curSeq=s.curSeq;
+  updateRejBadge();
+  render();
+  saveFormState();
+  updateUndoUI();
+}
+function undoEdit(){
+  if(!undoStack.length)return false;
+  redoStack.push(reviewSnapshot("撤销点"));
+  applyReviewSnapshot(undoStack.pop());
+  return true;
+}
+function redoEdit(){
+  if(!redoStack.length)return false;
+  undoStack.push(reviewSnapshot("重做点"));
+  while(undoStack.length>UNDO_LIMIT)undoStack.shift();
+  applyReviewSnapshot(redoStack.pop());
+  return true;
+}
+function updateUndoUI(){
+  const u=$("#undoBtn"),r=$("#redoBtn");
+  if(u){u.disabled=!undoStack.length;u.title=`撤销（Ctrl+Z，${undoStack.length}/${UNDO_LIMIT}）`;}
+  if(r){r.disabled=!redoStack.length;r.title=`重做（Ctrl+Y，${redoStack.length}/${UNDO_LIMIT}）`;}
+}
+document.addEventListener("keydown",e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+  if(document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
+  const k=String(e.key||"").toLowerCase();
+  if(k!=="z"&&k!=="y")return;
+  if(k==="z"&&!e.shiftKey){if(undoEdit())e.preventDefault();return;}
+  if(k==="y"||(k==="z"&&e.shiftKey)){if(redoEdit())e.preventDefault();}
+});
 function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const ops=[["bReuse","reuse"],["bModify","modify"],["bCx","cx"]].filter(([id])=>$("#"+id).value);
   if(!ops.length){toast(t("batch.need_attr"));return;}
-  const arr=visibleItems();let n=0;
+  const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function batchConfirm(){const arr=visibleItems();arr.forEach(it=>it.ok=true);render();saveFormState();toast(tf("batch.confirmed",{n:arr.length}));}
+function batchConfirm(){const arr=visibleItems();pushUndo("批量确认");arr.forEach(it=>it.ok=true);render();saveFormState();toast(tf("batch.confirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
+  pushUndo("批量删除");
   const del=new Set(arr.map(x=>x.seq));items=items.filter(x=>!del.has(x.seq));
   render();saveFormState();toast(tf("batch.deleted",{n:arr.length}));}
 /* FR-1.5：AI 建议采纳/驳回（驳回偏离 _ai 才记录，供 FR-2.9 沉淀） */
@@ -3287,6 +3351,7 @@ function pasteParse(){
   $("#pasteApplyBtn").disabled=!pasteRows.length;
   toast(tf("batch.paste_parsed",{n:pasteRows.length}));}
 function pasteApply(){
+  pushUndo("粘贴导入");
   let seq=items.length?Math.max(...items.map(x=>x.seq)):0;
   pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
   const n=pasteRows.length;pasteClose();render();saveFormState();
@@ -3315,7 +3380,8 @@ function moveRow(delta,e){
 function toggleCurrentRow(){
   if(!curSeq)return;
   const it=items.find(x=>x.seq===curSeq);if(!it)return;
-  it.ok=!it.ok;render();highlightRow();
+  pushUndo("确认状态");
+  it.ok=!it.ok;render();highlightRow();saveFormState();updateUndoUI();
 }
 function expandCurrentRow(){
   if(!curSeq)return;

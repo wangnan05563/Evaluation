@@ -195,11 +195,17 @@ function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/�
 $("#tbody").addEventListener("change",e=>{
   const ck=e.target.closest(".ck");
   if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+    if(!it)return;
+    if(it.ok===ck.checked)return;
+    pushUndo("确认状态");
     it.ok=ck.checked;row.classList.toggle("done",ck.checked);
     const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();return;}
+    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();return;}
   const s=e.target;if(!s.dataset.k)return;
-  const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
+  const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
+  if(String(it[s.dataset.k])===String(s.value))return;
+  pushUndo("编辑 "+(s.dataset.k||""));
+  recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -236,8 +242,10 @@ function filterSys(node){
 // 全选/全不选：同步每行勾选态、状态徽标与底部统计（render 内部会刷新）
 function toggleAllCk(v){
   if(!items.length)return;
+  pushUndo("批量确认");
   items.forEach(it=>it.ok=!!v);
   render();
+  saveFormState();updateUndoUI();
   toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
 }
 function goStep(s){document.body.dataset.step=s;
@@ -1107,7 +1115,9 @@ $("#startBtn").addEventListener("click",async ()=>{
       body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
     const res=await resp.json();
     if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
+    if(items.length)pushUndo("重新识别");
     items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
+    redoStack.length=0;updateUndoUI();
     dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
     render();goStep("review");
   }catch(err){dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}

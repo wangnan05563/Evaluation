@@ -1,0 +1,111 @@
+{
+  "suite": "edit-resilience",
+  "at": "2026-11-23T17:16:32.648Z",
+  "checks": [
+    {
+      "title": "30 行复核数据已装载",
+      "ok": true,
+      "detail": "n=30"
+    },
+    {
+      "title": "复核行可编辑（cx 下拉存在）",
+      "ok": true,
+      "detail": "selects=30, target=1"
+    },
+    {
+      "title": "初始 UFP 已计算",
+      "ok": true,
+      "detail": "ufp=180"
+    },
+    {
+      "title": "初始无撤销栈（按钮禁用）",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "title": "25 次编辑均触发撤销入栈",
+      "ok": true,
+      "detail": "undo=20"
+    },
+    {
+      "title": "撤销按钮在可撤销时启用",
+      "ok": true,
+      "detail": "disabled=false"
+    },
+    {
+      "title": "每次编辑后自动保存（即时落盘）",
+      "ok": true,
+      "detail": "saved=低 live=低"
+    },
+    {
+      "title": "20 步撤销回到第 5 次编辑后的状态",
+      "ok": true,
+      "detail": "cx=中 expect=中"
+    },
+    {
+      "title": "20 步撤销后撤销栈耗尽、重做栈 20",
+      "ok": true,
+      "detail": "undo=0 redo=20"
+    },
+    {
+      "title": "撤销后 UFP 公式结果一致",
+      "ok": true,
+      "detail": "before=180 after=180"
+    },
+    {
+      "title": "20 步重做回到最后编辑状态",
+      "ok": true,
+      "detail": "cx=低 expect=低"
+    },
+    {
+      "title": "重做后撤销栈恢复 20",
+      "ok": true,
+      "detail": "undo=20"
+    },
+    {
+      "title": "类型变更会改变 UFP（公式确实参与）",
+      "ok": true,
+      "detail": "before=180 changed=186"
+    },
+    {
+      "title": "撤销类型变更后 UFP 恢复",
+      "ok": true,
+      "detail": "{\"before\":\"180\",\"changed\":\"186\",\"after\":\"180\",\"type\":\"EI\"}"
+    },
+    {
+      "title": "勾选变更即时自动保存",
+      "ok": true,
+      "detail": "saved=true"
+    },
+    {
+      "title": "撤销勾选后状态与落盘一致",
+      "ok": true,
+      "detail": "{\"seq2\":2,\"saved\":true,\"after\":false,\"ok\":false}"
+    },
+    {
+      "title": "刷新/崩溃重开恢复到 30 行与最后编辑值",
+      "ok": true,
+      "detail": "{\"n\":30,\"cx\":\"低\",\"ok2\":false,\"step\":\"review\",\"hasBtn\":true,\"undoDisabled\":true}"
+    },
+    {
+      "title": "恢复后进入复核页（最后编辑点）",
+      "ok": true,
+      "detail": "step=review"
+    },
+    {
+      "title": "恢复后撤销栈清空且按钮禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "title": "无页面异常",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 20,
+  "total": 20,
+  "edits": 25,
+  "undoLimit": 20,
+  "restored": true
+}

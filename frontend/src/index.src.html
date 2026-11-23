@@ -129,6 +129,8 @@
           <button class="btn btn-ghost" onclick="clearFilters()" data-i18n="title=review.filter.clear|aria-label=review.filter.clear" title="清除全部筛选与排序" aria-label="清除全部筛选与排序"><i aria-hidden="true" data-lucide="x" style="width:15px;height:15px"></i></button>
           <span class="tcount" id="listCnt">0 条候选</span>
           <button class="btn btn-ghost" onclick="pasteOpen()" data-i18n="title=review.paste_title" title="粘贴 Excel 复制的明细批量导入"><i aria-hidden="true" data-lucide="clipboard-paste" style="width:15px;height:15px"></i><span data-i18n="review.paste">粘贴导入</span></button>
+          <button class="btn btn-ghost" id="undoBtn" onclick="undoEdit()" disabled title="撤销（Ctrl+Z）" aria-label="撤销"><i aria-hidden="true" data-lucide="undo-2" style="width:15px;height:15px"></i></button>
+          <button class="btn btn-ghost" id="redoBtn" onclick="redoEdit()" disabled title="重做（Ctrl+Y）" aria-label="重做"><i aria-hidden="true" data-lucide="redo-2" style="width:15px;height:15px"></i></button>
           <button class="btn btn-ghost" onclick="showAllBasis()" data-i18n="title=review.basis_all" title="展开全部判定依据" aria-label="展开全部判定依据"><i aria-hidden="true" data-lucide="eye" style="width:15px;height:15px"></i></button>
         </div>
         <div class="mark" id="batchBar" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
