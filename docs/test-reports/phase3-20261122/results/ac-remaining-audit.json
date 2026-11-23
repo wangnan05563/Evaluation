@@ -1,0 +1,195 @@
+{
+ "task": "T06207",
+ "generated_by": "tests/phase3/ac_remaining_audit.py",
+ "AC-26": {
+  "title": "单机版功能隔离",
+  "verdict": "PASS",
+  "evidence": {
+   "file": "docs/test-reports/phase3-20261122/results/ui-single-machine.json",
+   "pass": 4,
+   "total": 4,
+   "checks": [
+    "导航与四页面均无协作/工作组/SSO 入口",
+    "未注册团队协作 API（/api/team 非 200）",
+    "单机主流程上传入口完整",
+    "源码无协作功能残留（白名单排除估算因子）"
+   ]
+  }
+ },
+ "AC-31": {
+  "title": "白标配置生效",
+  "verdict": "NOT_IMPLEMENTED",
+  "evidence": {
+   "brand_package_hits": [],
+   "note": "现有仅有 --brand 主色与 xlsx 表头联动，无品牌包/Logo/安装器/报告抬头配置面"
+  }
+ },
+ "AC-32": {
+  "title": "主题对比度阻断",
+  "verdict": "NOT_IMPLEMENTED",
+  "evidence": {
+   "theme_contrast_hits": [
+    {
+     "file": "frontend/src/js/00_vendor_lucide.js",
+     "line": 9,
+     "text": "(function(a,n){typeof exports==\"object\"&&typeof module<\"u\"?n(exports):typeof define==\"function\"&&define.amd?define([\"exports\"],n):(a=typeof globalThis<\"u\"?globa"
+    },
+    {
+     "file": "frontend/src/js/00_vendor_lucide.js",
+     "line": 12,
+     "text": "lucide.createIcons({icons});\\``);if(typeof document>\"u\")throw new Error(\"`createIcons()` only works in a browser environment.\");const p=document.querySelectorAl"
+    },
+    {
+     "file": "frontend/src/js/06_m5_fr_4_1_4_2_4_3_主题系统_四.js",
+     "line": 26,
+     "text": "if(eff==='dark'||eff==='contrast')document.documentElement.dataset.theme=eff;"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 347,
+     "text": "<button class=\"btn btn-ghost tm\" data-m=\"contrast\" onclick=\"setThemeMode('contrast')\" data-i18n=\"theme.contrast\">高对比</button>"
+    }
+   ],
+   "note": "applyBrand 仅做 hex 格式校验；无对比度计算、无保存主题入口、无阻断提示"
+  }
+ },
+ "AC-33": {
+  "title": "组合看板加载",
+  "verdict": "NOT_IMPLEMENTED",
+  "evidence": {
+   "portfolio_hits": [],
+   "note": "PRD 列为 V2.1；当前无组合看板页面与 100 项目数据源"
+  }
+ },
+ "AC-34": {
+  "title": "费率切换追溯",
+  "verdict": "PARTIAL",
+  "evidence": {
+   "rate_switch_hits": [
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 17,
+     "text": "if(!__rates||force) __rates=await(await fetch(API+\"/api/rates\",{cache:\"no-store\"})).json();"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 22,
+     "text": "function ratesVers(){  // T03956：后端降级时 /api/rates 返回 {ok:false,msgKey} 而无 versions 字段，"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 24,
+     "text": "function ratesReady(){return !!Object.keys(ratesVers()).length;}"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 86,
+     "text": "const vers=ratesVers();"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 152,
+     "text": "dynHtml(\"#gbRatesVer\",()=>t(\"gb.ver_label\")+`<select id=\"gbVerSel\" style=\"max-width:130px;font-size:12px\" onchange=\"gbVerChange()\">${Object.keys(__rates.version"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 160,
+     "text": "async function gbVerChange(){  // FR-2.3：结果页切换基准版本（服务端持久化 selected，估算记录在结果中）"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 162,
+     "text": "const r=await(await fetch(API+\"/api/rates/save\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify(doc)})).json();"
+    },
+    {
+     "file": "frontend/src/js/05_m6_fr_2_1_2_2_2_3_2_7_ne.js",
+     "line": 179,
+     "text": "const vers=ratesVers();"
+    }
+   ],
+   "rate_ui_hits": [
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 168,
+     "text": "<span style=\"flex:1\"></span><span class=\"tcount\" id=\"gbRatesVer\">—</span></div>"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 386,
+     "text": "<button class=\"btn btn-ghost\" onclick=\"dataExport()\" data-i18n=\"title=config.ops.export_title\" title=\"pert.db+规则+费率+版本号打包\"><i data-lucide=\"download\" style=\"widt"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 402,
+     "text": "<div class=\"glass pad\" style=\"margin-top:16px\" id=\"ratesCard\">"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 403,
+     "text": "<div class=\"card-title\"><i aria-hidden=\"true\" data-lucide=\"coins\"></i><span data-i18n=\"config.rates.title\">费率与基准（M6/FR-2.3）</span>"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 404,
+     "text": "<span style=\"flex:1\"></span><span class=\"tcount\" id=\"ratesVer\">—</span>"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 405,
+     "text": "<select id=\"ratesSel\" onchange=\"ratesPick()\" style=\"max-width:150px;font-size:12px\"></select>"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 406,
+     "text": "<button class=\"btn btn-ghost\" onclick=\"ratesAdd()\" data-i18n=\"title=config.rates.add_title\" title=\"新增年度版本\"><span data-i18n=\"config.common.add_ver\">+版本</span></b"
+    },
+    {
+     "file": "frontend/src/index.src.html",
+     "line": 407,
+     "text": "<button class=\"btn btn-ghost\" onclick=\"ratesDel()\" data-i18n=\"title=config.rates.del_title\" title=\"删除当前版本\"><span data-i18n=\"config.common.delete\">删除</span></but"
+    }
+   ],
+   "note": "已有费率版本选择与 gbVerChange 重算，结果带版本名；缺多费率卡/币种/逐项追溯矩阵"
+  }
+ },
+ "AC-35": {
+  "title": "报价版本锁定",
+  "verdict": "NOT_IMPLEMENTED",
+  "evidence": {
+   "quote_lock_hits": [],
+   "note": "PRD 列为 V2.1；当前无报价单/锁定/版本生成入口"
+  }
+ },
+ "scope_note": {
+  "task_description_acs": [
+   "AC-26",
+   "AC-36",
+   "AC-37"
+  ],
+  "matrix_acs_for_T06207": [
+   "AC-26",
+   "AC-31",
+   "AC-32",
+   "AC-33",
+   "AC-34",
+   "AC-35"
+  ],
+  "finding": "AC-36/37 不在三期矩阵（矩阵仅 AC-01~AC-35）；T06207 按实际关联的 6 项审计。"
+ },
+ "summary": {
+  "pass": [
+   "AC-26"
+  ],
+  "partial": [
+   "AC-34"
+  ],
+  "not_implemented": [
+   "AC-31",
+   "AC-32",
+   "AC-33",
+   "AC-35"
+  ],
+  "all_acs_have_evidence": true,
+  "all_acs_pass": false
+ }
+}
