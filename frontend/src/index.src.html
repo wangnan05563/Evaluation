@@ -112,7 +112,7 @@
       <div class="glass pad">
         <div class="card-title"><i aria-hidden="true" data-lucide="settings-2"></i>项目参数</div>
         <div class="fields">
-          <div class="fill"><div class="f-w">规模计数时机</div><select aria-label="规模计数时机"><option>估算早期</option><option selected>估算中期</option><option>估算晚期</option><option>交付后及运维</option></select></div>
+          <div class="fill"><div class="f-w">规模计数时机</div><select id="timingSel" aria-label="规模计数时机"><option>估算早期</option><option selected>估算中期</option><option>估算晚期</option><option>交付后及运维</option></select></div>
           <div class="fill"><div class="f-w">规模估算方法</div><select id="methodSel" aria-label="规模估算方法" onchange="onMethodChange()"><option selected>估算功能点</option><option>预估功能点</option></select></div>
           <div class="fill"><div class="f-w">复杂度口径</div><select id="cxModeSel" aria-label="复杂度口径" onchange="onCxModeChange()"><option selected>企业母版</option><option>标准IFPUG</option></select></div>
           <div class="fill"><div class="f-w">应用类型</div><select aria-label="应用类型"><option selected>业务处理</option><option>应用集成</option><option>科技</option><option>智能信息</option></select></div>
@@ -265,6 +265,7 @@
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expCsv()" data-i18n="title=result.export.csv_title" title="全字段功能点明细（Excel 可直开）"><span data-i18n="result.export.csv">功能点明细（CSV）</span></button>
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expMd()" data-i18n="title=result.export.md_title" title="KPI+分布表格+Top10 明细"><span data-i18n="result.export.md">Markdown 摘要</span></button>
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expPdf()" data-i18n="title=result.export.pdf_title" title="打印管线，目标选择另存为 PDF"><span data-i18n="result.export.pdf">评估报告（PDF/打印）</span></button>
+              <button class="btn btn-ghost" id="auditBtn" style="display:block;width:100%;text-align:left" onclick="auditPackage()" data-i18n="title=result.export.audit_title" title="生成七部分审计包（PDF）"><i data-lucide="file-check-2" style="width:15px;height:15px"></i><span data-i18n="result.export.audit">七部分审计包（PDF）</span></button>
             </span>
           </span>
         </div>

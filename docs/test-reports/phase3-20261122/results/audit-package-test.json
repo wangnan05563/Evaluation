@@ -1,0 +1,37 @@
+{
+  "suite": "audit-package",
+  "generated_at": "2026-11-24T05:29:15",
+  "ok": true,
+  "checks": 18,
+  "fails": [],
+  "direct": {
+    "ok": true,
+    "elapsed_ms": 9729,
+    "budget_ok": true,
+    "pages": 10,
+    "detail_rows": 17,
+    "trace_rows": 17,
+    "trace_links": 51,
+    "toc_ok": true,
+    "watermark_pages": 10,
+    "footer_page_number_pages": 10,
+    "font_embedded": true,
+    "version_hash": "8f12b9a4597b7c41"
+  },
+  "wall_ms": 9855,
+  "api": {
+    "ok": true,
+    "file": "audit_20261124-052907_e2e85c58.pdf",
+    "download": "/api/audit/download?f=audit_20261124-052907_e2e85c58.pdf",
+    "pages": 10,
+    "elapsed_ms": 7903,
+    "budget_ms": 30000,
+    "budget_ok": true,
+    "toc_ok": true,
+    "font_embedded": true,
+    "trace_rows": 17,
+    "trace_links": 51,
+    "version_hash": "8f12b9a4597b7c41",
+    "pdf_sha256": "f03234edccea560143bd78d0160ac29c71714a0e4266c6e052337736519a6d1f"
+  }
+}

@@ -97,8 +97,12 @@ def _migrate_legacy_data():
 _migrate_legacy_data()
 UPLOAD = APP_DATA / "uploads"
 OUTDIR = APP_DATA / "generated"
+AUDIT_DIR = APP_DATA / "audit_packages"      # T06181：七部分审计包（PDF）
+AUDIT_LOCK = threading.Lock()                # 单进程串行渲染，避免两个 Chrome 抢 profile/端口
+AUDIT_NAME_RE = re.compile(r"^audit_[A-Za-z0-9_.-]{1,96}\.pdf$")
 UPLOAD.mkdir(parents=True, exist_ok=True)
 OUTDIR.mkdir(parents=True, exist_ok=True)
+AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------- 生成进度上报（T00927） ----------------
 # /api/generate 是同步接口且耗时集中在引擎填充 + Excel 公式重算，前端拿不到中间态。
@@ -2214,6 +2218,27 @@ class Handler(BaseHTTPRequestHandler):
             # 前端静态资源（引导脚本等）：仅允许 frontend 根下的 .js/.css，防目录穿越
             self._serve_static(u)
             return True
+        if u.path == "/api/audit/download":
+            # T06181：审计包 PDF 下载。文件名白名单 + 只读 AUDIT_DIR，防目录穿越。
+            q = parse_qs(u.query)
+            name = (q.get("f") or [""])[0]
+            if not AUDIT_NAME_RE.fullmatch(name):
+                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
+                return True
+            f = AUDIT_DIR / name
+            if not f.is_file():
+                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
+                return True
+            data = f.read_bytes()
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return True
         if u.path == "/api/download":
             q = parse_qs(u.query)
             s = (q.get("s") or [""])[0]
@@ -2272,6 +2297,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/recognize/jobs": "_post_recognize_jobs",
         "/api/recognize/cancel": "_post_recognize_cancel",
         "/api/recognize/resume": "_post_recognize_resume",
+        "/api/audit/package": "_post_audit_package",
         API_CONFIG: "_post_config",
         "/api/story/push": "_post_story_push",
         "/api/templates/save": "_post_template_save",
@@ -2684,6 +2710,31 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError) as e:
             return self._json(400, {"ok": False, "msg": str(e)})
         return self._json(200, {"ok": True, "cx_mode": cx_mode, "summary": summary, "items": detail})
+
+    def _post_audit_package(self, raw):
+        """T06181：生成七部分审计包 PDF（同步，单进程串行）。"""
+        if len(raw) > 3_000_000:
+            return self._json(413, {"ok": False, "msg": "审计包请求体超过 3 MB"})
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        try:
+            import audit_package
+            with AUDIT_LOCK:
+                result = audit_package.generate(payload, AUDIT_DIR)
+        except ValueError as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        except Exception as e:
+            return self._json(500, {"ok": False, "msg": f"审计包生成失败：{e}"})
+        brief = {k: result.get(k) for k in ("ok", "pages", "elapsed_ms", "budget_ms", "budget_ok",
+                                           "toc_ok", "font_embedded", "trace_rows", "trace_links",
+                                           "version_hash", "pdf_sha256")}
+        if not result.get("ok"):
+            return self._json(500, {"ok": False, "msg": "审计包未通过验收检查", "result": brief})
+        return self._json(200, {"ok": True, "file": result["download_name"],
+                                "download": "/api/audit/download?f=" + quote(result["download_name"]),
+                                **brief})
 
     def _post_generate(self, path, raw):
         payload = json.loads(raw.decode("utf-8"))

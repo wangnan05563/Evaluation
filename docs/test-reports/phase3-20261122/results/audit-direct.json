@@ -1,0 +1,94 @@
+{
+ "ok": true,
+ "engine": "chromium-printToPDF + PyMuPDF links",
+ "pdf": "docs\\test-reports\\phase3-20261122\\audit\\audit_t06181.pdf",
+ "pages": 10,
+ "size_bytes": 433842,
+ "elapsed_ms": 10442,
+ "budget_ms": 30000,
+ "budget_ok": true,
+ "render_ms_pass1": 405,
+ "render_ms_pass2": 405,
+ "detail_rows": 17,
+ "trace_rows": 17,
+ "trace_links": 51,
+ "parts_present": true,
+ "toc_ok": true,
+ "toc_rows": [
+  {
+   "part": 1,
+   "title": "封面",
+   "expected": 1,
+   "in_toc": 1,
+   "ok": true
+  },
+  {
+   "part": 2,
+   "title": "执行摘要",
+   "expected": 3,
+   "in_toc": 3,
+   "ok": true
+  },
+  {
+   "part": 3,
+   "title": "方法与口径",
+   "expected": 4,
+   "in_toc": 4,
+   "ok": true
+  },
+  {
+   "part": 4,
+   "title": "估算明细",
+   "expected": 5,
+   "in_toc": 5,
+   "ok": true
+  },
+  {
+   "part": 5,
+   "title": "追溯矩阵",
+   "expected": 7,
+   "in_toc": 7,
+   "ok": true
+  },
+  {
+   "part": 6,
+   "title": "变更与 AI 审计",
+   "expected": 9,
+   "in_toc": 9,
+   "ok": true
+  },
+  {
+   "part": 7,
+   "title": "签收页",
+   "expected": 10,
+   "in_toc": 10,
+   "ok": true
+  }
+ ],
+ "watermark_pages": 10,
+ "footer_page_number_pages": 10,
+ "fonts": [
+  "BAAAAA+MicrosoftYaHei-Bold",
+  "CAAAAA+MicrosoftYaHei",
+  "DAAAAA+ArialMT",
+  "AAAAAA+MicrosoftYaHei-Bold"
+ ],
+ "font_embedded": true,
+ "classification": "内部",
+ "version_hash": "8f12b9a4597b7c41",
+ "pdf_sha256": "379928698ec9a4aed622d107a45624994478f67e7e8b507a302740d1a5d4c206",
+ "trace_target_page": 7,
+ "detail_page": 5,
+ "section_pages": {
+  "1": 1,
+  "2": 3,
+  "3": 4,
+  "4": 5,
+  "5": 7,
+  "6": 9,
+  "7": 10
+ },
+ "warnings": [],
+ "html": "docs\\test-reports\\phase3-20261122\\audit\\audit_t06181.html",
+ "download_name": "audit_t06181.pdf"
+}
