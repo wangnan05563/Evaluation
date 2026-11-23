@@ -962,6 +962,55 @@ body.pz-open { overflow: hidden; }
   .pz-item small { display: none; }
 }
 
+/* ===== T06183：首次启动角色化引导 ===== */
+.rw{position:fixed;inset:0;z-index:1400;display:grid;place-items:center;padding:24px}
+.rw[hidden]{display:none!important}
+.rw-scrim{position:absolute;inset:0;background:rgba(8,17,34,.56);backdrop-filter:blur(7px)}
+.rw-card{position:relative;width:min(790px,100%);max-height:calc(100vh - 48px);overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:26px;padding:30px 32px 24px;box-shadow:0 30px 90px rgba(8,17,34,.35)}
+body.rw-open{overflow:hidden}
+.rw-x{position:absolute;top:16px;right:16px;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.rw-x:hover{background:var(--line-2);color:var(--ink)}
+.rw-x [data-lucide]{width:17px;height:17px}
+.rw-head{display:flex;align-items:flex-start;gap:14px;padding-right:32px}
+.rw-icon{width:46px;height:46px;flex:none;border-radius:14px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center}
+.rw-icon [data-lucide]{width:25px;height:25px}
+.rw-kicker{font-size:11px;letter-spacing:.12em;color:var(--brand-ink);font-weight:800;text-transform:uppercase;margin:2px 0 4px}
+.rw-card h2{font-size:clamp(20px,2.2vw,28px);line-height:1.2;margin:0;letter-spacing:-.01em}
+.rw-desc{font-size:13.5px;line-height:1.75;color:var(--muted);margin:14px 0 18px;max-width:700px}
+.rw-roles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rw-role{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;min-height:136px;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--ink);padding:15px 14px 13px;cursor:pointer;font-family:var(--ff);transition:border-color .15s,background .15s,transform .15s}
+.rw-role:hover{border-color:var(--brand);transform:translateY(-1px)}
+.rw-role.on{border-color:var(--brand);background:var(--brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+.rw-role .rw-ico{width:34px;height:34px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--brand);display:grid;place-items:center;margin-bottom:2px}
+.rw-role .rw-ico [data-lucide]{width:18px;height:18px}
+.rw-role b{font-size:14px;line-height:1.3}
+.rw-role small{font-size:11.5px;color:var(--muted);line-height:1.5;min-height:34px}
+.rw-tag{align-self:flex-start;justify-self:start;width:max-content;max-width:100%;margin-top:auto;font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 8px}
+.rw-role.on .rw-tag{color:var(--brand-ink);border-color:var(--brand)}
+.rw-actions{display:flex;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+.rw-go{min-width:220px;justify-content:center}
+.rw-go:disabled{opacity:.6;cursor:wait}
+.rw-progress{height:7px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:16px}
+.rw-progress[hidden]{display:none!important}
+.rw-bar-fill,.rw-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--cyan));transition:width .25s ease}
+.rw-status{min-height:20px;margin-top:10px;font-size:12px;line-height:1.6;color:var(--brand-ink)}
+.rw-foot{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6}
+@media (max-width:820px){
+  .rw{padding:12px}
+  .rw-card{padding:24px 18px 18px;border-radius:20px;max-height:calc(100vh - 24px)}
+  .rw-roles{grid-template-columns:1fr}
+  .rw-role{min-height:0;display:grid;grid-template-columns:40px 1fr;grid-template-areas:"ico title" "ico desc" "tag tag";column-gap:8px;row-gap:3px}
+  .rw-role .rw-ico{grid-area:ico;align-self:center}
+  .rw-role b{grid-area:title}
+  .rw-role small{grid-area:desc;min-height:0}
+  .rw-tag{grid-area:tag}
+  .rw-go{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .rw-role,.rw-bar-fill,.rw-progress i{transition:none}
+  .rw-role:hover{transform:none}
+}
+
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
@@ -983,6 +1032,48 @@ body.pz-open { overflow: hidden; }
       <span><span class="cmdk-kbd">Ctrl + Enter</span> 收藏</span>
       <span class="cmdk-latency" id="cmdkLatency">0 ms</span>
     </div>
+  </div>
+</div>
+<!-- T06183：首次启动角色化引导。?welcome=0 供既有 UI 回归跳过；?welcome=1 强制打开。 -->
+<div id="roleWelcome" class="rw" hidden aria-hidden="true">
+  <div class="rw-scrim" data-rw-close></div>
+  <div class="rw-card" role="dialog" aria-modal="true" aria-labelledby="rwTitle" aria-describedby="rwDesc">
+    <button type="button" class="rw-x" id="rwX" data-i18n="title=onboard.close|aria-label=onboard.close" title="关闭角色选择" aria-label="关闭角色选择"><i aria-hidden="true" data-lucide="x"></i></button>
+    <div class="rw-head">
+      <div class="rw-icon"><i aria-hidden="true" data-lucide="compass"></i></div>
+      <div>
+        <div class="rw-kicker" data-i18n="onboard.kicker">首次使用 · 选择角色</div>
+        <h2 id="rwTitle" data-i18n="onboard.title">先选角色，5 分钟跑通一次完整估算</h2>
+      </div>
+    </div>
+    <p class="rw-desc" id="rwDesc" data-i18n="onboard.desc">选“评估师”可直接使用内置样例：识别 → 全部确认 → 生成结果，无需上传真实文档；其他角色跳过样例，进入对应工作区。</p>
+    <div class="rw-roles" role="radiogroup" aria-label="选择角色">
+      <button type="button" class="rw-role on" data-role="evaluator" role="radio" aria-checked="true">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="calculator"></i></span>
+        <b data-i18n="onboard.role.evaluator">评估师</b>
+        <small data-i18n="onboard.role.evaluator.desc">导入文档、复核功能点、生成成品表</small>
+        <span class="rw-tag" data-i18n="onboard.role.recommended">推荐 · 含 5 分钟样例</span>
+      </button>
+      <button type="button" class="rw-role" data-role="pmo" role="radio" aria-checked="false">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="clipboard-list"></i></span>
+        <b data-i18n="onboard.role.pmo">项目经理 / PMO</b>
+        <small data-i18n="onboard.role.pmo.desc">查看组合、进度与实际值</small>
+        <span class="rw-tag" data-i18n="onboard.role.skip">跳过样例 · 进入工作台</span>
+      </button>
+      <button type="button" class="rw-role" data-role="finance" role="radio" aria-checked="false">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="wallet"></i></span>
+        <b data-i18n="onboard.role.finance">财务 / 商务</b>
+        <small data-i18n="onboard.role.finance.desc">费率、报价与审计交付</small>
+        <span class="rw-tag" data-i18n="onboard.role.skip">跳过样例 · 进入工作台</span>
+      </button>
+    </div>
+    <div class="rw-actions">
+      <button type="button" class="btn btn-primary rw-go" id="rwGo"><span id="rwGoTxt">用样例 5 分钟跑通</span><i aria-hidden="true" data-lucide="arrow-right" style="width:15px;height:15px"></i></button>
+      <button type="button" class="btn btn-ghost" id="rwLater" data-i18n="onboard.later">稍后，先自己上传</button>
+    </div>
+    <div class="rw-progress" id="rwProgress" hidden><i id="rwBarFill"></i></div>
+    <div class="rw-status" id="rwStatus" role="status" aria-live="polite"></div>
+    <div class="rw-foot" data-i18n="onboard.foot">样例只在本机生成，不含客户数据；完成耗时仅写入本地匿名记录，不上传。</div>
   </div>
 </div>
 <div class="wrap">
@@ -6699,6 +6790,263 @@ document.addEventListener('DOMContentLoaded', () => {
   window.presenterClose = close;
 })();
 
+
+/* ===== T06183：首次启动角色化引导（评估师 5 分钟样例） =====
+ * 目标：首次启动选择“评估师”后，用内置样例走完「识别 → 全确认 → 生成结果」，
+ * 在 5 分钟内拿到一次完整估算结果；不提供高级功能引导。
+ * 设计约束：
+ * - 覆盖层只在首次启动出现；既有 UI 测试通过 ?welcome=0 跳过，不污染回归。
+ * - 样例由 /api/onboarding/sample 内存生成，走正常 /api/recognize 链路，不直填结果。
+ * - 角色与首次样例耗时只写 localStorage（本地匿名埋点），不上传。
+ */
+(function(){
+  const ROLE_KEY = 'wl_role_v1';
+  const DISMISS_KEY = 'wl_onboard_dismissed_v1';
+  const METRIC_KEY = 'wl_onboard_metrics_v1';
+  const ROLES = ['evaluator', 'pmo', 'finance'];
+  const CTA = {
+    evaluator: '用样例 5 分钟跑通',
+    pmo: '查看历史估算',
+    finance: '打开费率配置',
+  };
+  const LABEL = { evaluator: '评估师', pmo: '项目经理 / PMO', finance: '财务 / 商务' };
+  let current = 'evaluator';
+  let running = false;
+  let lastFocus = null;
+  let startedAt = 0;
+
+  const $rw = () => document.querySelector('#roleWelcome');
+  const byId = id => document.getElementById(id);
+
+  function readRole(){
+    try{
+      const v = JSON.parse(localStorage.getItem(ROLE_KEY) || 'null');
+      return v && ROLES.includes(v.id) ? v : null;
+    }catch(e){ return null; }
+  }
+  function saveRole(id){
+    try{ localStorage.setItem(ROLE_KEY, JSON.stringify({ id, at: new Date().toISOString() })); }catch(e){}
+  }
+  function dismissed(){
+    try{ return localStorage.getItem(DISMISS_KEY) === '1'; }catch(e){ return false; }
+  }
+  function message(key, fallback){
+    return (typeof tl === 'function' && tl(key, fallback)) || fallback;
+  }
+  function statusText(key, fallback, vars){
+    const has = typeof __I18N !== 'undefined' && __I18N && __I18N[key];
+    if(!has) return fallback;
+    return typeof tf === 'function' ? tf(key, vars) : __I18N[key];
+  }
+  function setStatus(key, fallback, vars){
+    const el = byId('rwStatus');
+    if(!el) return;
+    if(typeof dynText === 'function') dynText(el, () => statusText(key, fallback, vars));
+    else el.textContent = statusText(key, fallback, vars);
+  }
+  function setProgress(pct){
+    const box = byId('rwProgress');
+    if(!box) return;
+    box.hidden = pct <= 0;
+    const fill = byId('rwBarFill');
+    if(fill) fill.style.width = Math.max(0, Math.min(100, Math.round(pct))) + '%';
+  }
+  function paintCta(){
+    const btn = byId('rwGo');
+    if(!btn) return;
+    const txt = byId('rwGoTxt');
+    if(txt){
+      if(typeof dynText === 'function') dynText(txt, () => message('onboard.cta.' + current, CTA[current]));
+      else txt.textContent = message('onboard.cta.' + current, CTA[current]);
+    }
+    btn.disabled = running;
+    btn.setAttribute('aria-label', message('onboard.cta.' + current, CTA[current]));
+    const status = byId('rwStatus');
+    if(status && !running && !status.textContent) status.textContent = '';
+  }
+  function selectRole(id){
+    if(!ROLES.includes(id) || running) return;
+    current = id;
+    const root = $rw();
+    if(root){
+      root.querySelectorAll('.rw-role').forEach(btn => {
+        const on = btn.dataset.role === id;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+    }
+    paintCta();
+    const status = byId('rwStatus');
+    if(status) status.textContent = '';
+  }
+  function open(force){
+    const root = $rw();
+    if(!root || running) return;
+    const role = readRole();
+    if(role) selectRole(role.id);
+    lastFocus = document.activeElement;
+    root.hidden = false;
+    root.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('rw-open');
+    setProgress(0);
+    const focus = root.querySelector('.rw-role.on') || byId('rwX');
+    if(focus) setTimeout(() => focus.focus(), 30);
+    paintCta();
+  }
+  function close(){
+    const root = $rw();
+    if(!root || running) return;
+    root.hidden = true;
+    root.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('rw-open');
+    const focus = lastFocus && document.body.contains(lastFocus) ? lastFocus : byId('drop');
+    if(focus && focus.focus) setTimeout(() => focus.focus(), 20);
+  }
+  function later(){
+    if(running) return;
+    try{ localStorage.setItem(DISMISS_KEY, '1'); }catch(e){}
+    close();
+  }
+  function saveMetric(ok, items, elapsed, error){
+    try{
+      const arr = JSON.parse(localStorage.getItem(METRIC_KEY) || '[]');
+      arr.push({ role: 'evaluator', started_at: new Date(startedAt).toISOString(), result_at: new Date().toISOString(),
+        elapsed_ms: elapsed, items: items || 0, success: !!ok, source: 'builtin_sample', error: error || '' });
+      localStorage.setItem(METRIC_KEY, JSON.stringify(arr.slice(-5)));
+    }catch(e){}
+  }
+  function waitFor(fn, timeout){
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      const tick = () => {
+        try{ if(fn()) return resolve(true); }catch(e){ return reject(e); }
+        if(Date.now() - t0 > timeout) return reject(new Error('样例生成超时（5 分钟）'));
+        setTimeout(tick, 200);
+      };
+      tick();
+    });
+  }
+
+  async function runSample(){
+    if(running) return;
+    running = true;
+    startedAt = Date.now();
+    paintCta();
+    setProgress(5);
+    setStatus('onboard.status.recognizing', '正在识别内置样例…');
+    try{
+      const sampleResp = await fetch(API + '/api/onboarding/sample', { cache: 'no-store' });
+      const sample = await sampleResp.json();
+      if(!sample.ok) throw new Error(sample.msg || '样例不可用');
+      setProgress(15);
+      const bytes = Uint8Array.from(atob(sample.b64), c => c.charCodeAt(0));
+      curFile = new File([bytes], sample.name || '评估师样例.docx',
+        { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const rec = await fetch(API + '/api/recognize', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: curFile.name, b64: sample.b64, params: { llm_enabled: false } }),
+      });
+      const res = await rec.json();
+      if(!res.ok) throw new Error(res.msg || '样例识别失败');
+      if(!res.items || !res.items.length) throw new Error('样例未识别出功能点');
+      setProgress(40);
+      setStatus('onboard.status.recognized', '已识别样例功能点，正在全部确认…');
+      applyRecognitionResult(res, byId('progressMark'));
+      items.forEach(it => { it.ok = true; });
+      render();
+      gSummary = null; gSid = null;
+      setProgress(60);
+      setStatus('onboard.status.generating', '正在生成完整结果…');
+      const go = byId('goRes');
+      if(!go || go.disabled) throw new Error('确认状态未就绪，无法生成');
+      go.click();
+      await waitFor(() => document.body.dataset.step === 'result' && gSummary, 300000);
+      setProgress(100);
+      setStatus('onboard.status.done', '样例完成：已生成一次完整估算结果。');
+      saveRole('evaluator');
+      saveMetric(true, items.length, Date.now() - startedAt, '');
+      closeAfterResult();
+    }catch(err){
+      const msg = err && err.message ? err.message : '未知错误';
+      setProgress(100);
+      setStatus('onboard.status.failed', '样例未完成：' + msg, { msg });
+      saveMetric(false, items.length, Date.now() - startedAt, msg);
+      running = false;
+      paintCta();
+      return;
+    }
+    running = false;
+    paintCta();
+  }
+
+  function closeAfterResult(){
+    running = false;
+    const root = $rw();
+    if(root){
+      root.hidden = true;
+      root.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('rw-open');
+    }
+    if(typeof toast === 'function') toast(message('onboard.toast.done', '样例已完成：已生成一次完整估算结果，可继续导出或换真实文档。'));
+    const focus = byId('drop') || byId('startBtn');
+    if(focus && focus.focus) setTimeout(() => focus.focus(), 20);
+  }
+
+  function finishRole(id){
+    if(running) return;
+    saveRole(id);
+    close();
+    if(typeof toast === 'function'){
+      toast(message('onboard.toast.' + id, id === 'pmo' ? '已按项目经理角色精简引导，可查看历史估算或上传需求。' : '已按财务/商务角色精简引导，可配置费率或上传需求。'));
+    }
+    if(id === 'pmo' && typeof histOpen === 'function') histOpen();
+    if(id === 'finance' && typeof goPage === 'function') goPage('config');
+  }
+
+  function onClick(){
+    const root = $rw();
+    if(!root) return;
+    root.addEventListener('click', e => {
+      const role = e.target.closest('.rw-role');
+      if(role){ selectRole(role.dataset.role); return; }
+      const id = e.target.id;
+      if(id === 'rwGo'){
+        if(current === 'evaluator') runSample();
+        else finishRole(current);
+        return;
+      }
+      if(id === 'rwLater' || id === 'rwX'){ later(); return; }
+      if(e.target.closest('[data-rw-close]')) later();
+    });
+    root.addEventListener('keydown', e => {
+      if(e.key === 'Escape' && !running){ e.preventDefault(); later(); return; }
+      if(e.key !== 'Tab') return;
+      const nodes = [...root.querySelectorAll('button:not([disabled]), [href], input:not([disabled])')]
+        .filter(n => n.offsetParent !== null);
+      if(!nodes.length) return;
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    });
+  }
+
+  function init(){
+    const root = $rw();
+    if(!root) return;
+    const role = readRole();
+    if(role) selectRole(role.id);
+    paintCta();
+    onClick();
+    const query = new URLSearchParams(location.search).get('welcome');
+    if(query === '0') return;
+    if(query === '1'){ setTimeout(() => open(true), 80); return; }
+    if(!role && !dismissed()) setTimeout(() => open(), 260);
+  }
+
+  window.RoleOnboard = { open, close, select: selectRole, runSample, get selected(){ return current; }, get running(){ return running; } };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
 
 </script>
 <div id="pasteModal" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:60;align-items:center;justify-content:center">

@@ -1319,6 +1319,38 @@ def _doc_full_text(doc):
                      if p.tag.rsplit("}", 1)[-1] == "p")
 
 
+def _onboarding_sample_docx():
+    """T06183：生成首次上手用的内置样例 docx（内存生成，不落盘）。
+
+    样例刻意使用「功能点清单表」这一最常用形态：本地识别无需大模型即可稳定命中，
+    并覆盖 EI/EO/EQ/ILF/EIF 五类；不包含任何内部备注或未确认数据。
+    """
+    doc = Document()
+    doc.add_heading("票据业务系统需求样例", 0)
+    doc.add_paragraph("首次上手样例：按 5 分钟路径完成一次完整估算；仅用于演示，不含真实客户数据。")
+    doc.add_heading("一、功能需求", level=1)
+    doc.add_paragraph("下表为票据业务系统的功能点清单样例，供识别、复核与生成结果使用。")
+    rows = [
+        ("1", "票据签发申请", "EI", "票据业务系统", "新增票据签发申请，校验出票人、收款人与金额。"),
+        ("2", "票据背书转让", "EI", "票据业务系统", "背书人发起转让，校验被背书人与背书连续性。"),
+        ("3", "票据贴现查询", "EQ", "票据业务系统", "按票号、出票日、状态查询贴现申请与利率。"),
+        ("4", "票据到期对账报表", "EO", "票据业务系统", "生成到期对账报表并汇总未兑付票据。"),
+        ("5", "票交所外部状态同步接口", "EIF", "票据业务系统", "对接票交所外部接口，同步票据状态。"),
+        ("6", "交易流水登记信息表", "ILF", "票据业务系统", "留存签发、背书、贴现、兑付全流程流水。"),
+    ]
+    tb = doc.add_table(rows=1, cols=5)
+    tb.style = "Table Grid"
+    for i, h in enumerate(("序号", "功能点名称", "功能类型", "所属系统", "功能描述")):
+        tb.rows[0].cells[i].text = h
+    for r in rows:
+        cells = tb.add_row().cells
+        for i, v in enumerate(r):
+            cells[i].text = v
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
 def _extract_doc_system(doc):
     """从文档提取主涉及系统名。
 
@@ -2005,6 +2037,12 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if u.path == "/health":
             self._json(200, {"ok": True, "engine": "ready", "us": "105.07 口径"})
+            return True
+        if u.path == "/api/onboarding/sample":
+            # T06183：首次上手样例 docx（内存生成，前端拿 base64 走正常识别链）
+            data = _onboarding_sample_docx()
+            self._json(200, {"ok": True, "name": "评估师样例-票据业务系统.docx",
+                             "size": len(data), "b64": base64.b64encode(data).decode("ascii")})
             return True
         if u.path == "/api/generate/progress":
             # T00927：生成进度轮询（无该 job 记录时返回 progress=null，前端自行降级）

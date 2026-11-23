@@ -31,6 +31,7 @@ const suites = [
   { id: 'long-task', script: 'tests/phase3/ui_long_task.mjs', timeout: 120000 },
   { id: 'audit-package', script: 'tests/phase3/ui_audit_package.mjs', timeout: 120000 },
   { id: 'present-share', script: 'tests/phase3/ui_present_share.mjs', timeout: 120000 },
+  { id: 'role-onboarding', script: 'tests/phase3/ui_role_onboard.mjs', timeout: 180000 },
   { id: 'calibration', script: 'tests/phase3/ui_calibration.mjs', timeout: 120000 },
   { id: 'montecarlo', script: 'tests/phase3/ui_montecarlo.mjs', timeout: 180000 },
   { id: 'ifpug-complexity', script: 'tests/phase3/ui_ifpug_complexity.mjs', timeout: 120000 },

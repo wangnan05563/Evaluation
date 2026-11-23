@@ -1,0 +1,107 @@
+{
+  "suite": "ui-role-onboarding",
+  "at": "2026-11-23T22:11:33.704Z",
+  "checks": [
+    {
+      "title": "首次启动显示角色选择",
+      "ok": true,
+      "detail": "{\"exists\":true,\"hidden\":false,\"dialog\":\"dialog\",\"modal\":\"true\",\"roles\":3,\"checked\":[[\"evaluator\",\"true\"],[\"pmo\",\"false\"],[\"finance\",\"false\"]],\"cta\":\"用样例 5 分钟跑通\",\"bodyLock\":true}"
+    },
+    {
+      "title": "角色弹窗语义正确",
+      "ok": true,
+      "detail": "dialog/true"
+    },
+    {
+      "title": "提供 3 个角色且默认评估师",
+      "ok": true,
+      "detail": "[[\"evaluator\",\"true\"],[\"pmo\",\"false\"],[\"finance\",\"false\"]]"
+    },
+    {
+      "title": "评估师 CTA 明确 5 分钟样例",
+      "ok": true,
+      "detail": "用样例 5 分钟跑通"
+    },
+    {
+      "title": "打开弹窗锁定背景滚动",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "角色引导 axe 无 serious/critical",
+      "ok": true,
+      "detail": "violations=0, passes=24"
+    },
+    {
+      "title": "切换项目经理角色生效",
+      "ok": true,
+      "detail": "{\"checked\":\"true\",\"cta\":\"查看历史估算\"}"
+    },
+    {
+      "title": "切回评估师角色生效",
+      "ok": true,
+      "detail": "{\"checked\":\"true\",\"cta\":\"用样例 5 分钟跑通\"}"
+    },
+    {
+      "title": "样例流程在 5 分钟内到达结果页",
+      "ok": true,
+      "detail": "3568 ms / {\"hidden\":true,\"step\":\"result\",\"fp\":\"34\",\"scale\":\"27.43\",\"rows\":6,\"status\":\"样例完成：已生成一次完整估算结果。\"}"
+    },
+    {
+      "title": "样例结果摘要非零",
+      "ok": true,
+      "detail": "FP=34 调整后=27.43"
+    },
+    {
+      "title": "样例 6 项全部确认",
+      "ok": true,
+      "detail": "result rows=6"
+    },
+    {
+      "title": "角色持久化为评估师",
+      "ok": true,
+      "detail": "{\"id\":\"evaluator\",\"at\":\"2026-11-23T22:11:31.890Z\"}"
+    },
+    {
+      "title": "本地匿名耗时记录成功且 ≤5 分钟",
+      "ok": true,
+      "detail": "{\"role\":\"evaluator\",\"started_at\":\"2026-11-23T22:11:30.733Z\",\"result_at\":\"2026-11-23T22:11:31.891Z\",\"elapsed_ms\":1157,\"items\":6,\"success\":true,\"source\":\"builtin_sample\",\"error\":\"\"}"
+    },
+    {
+      "title": "匿名记录含 6 项且无上传字段",
+      "ok": true,
+      "detail": "{\"role\":\"evaluator\",\"started_at\":\"2026-11-23T22:11:30.733Z\",\"result_at\":\"2026-11-23T22:11:31.891Z\",\"elapsed_ms\":1157,\"items\":6,\"success\":true,\"source\":\"builtin_sample\",\"error\":\"\"}"
+    },
+    {
+      "title": "768px 角色弹窗不溢出且单列",
+      "ok": true,
+      "detail": "{\"w\":768,\"h\":900,\"card\":{\"l\":12,\"r\":756,\"w\":744,\"top\":132,\"bottom\":768},\"overflow\":false,\"single\":true}"
+    },
+    {
+      "title": "375px 角色弹窗不溢出且单列",
+      "ok": true,
+      "detail": "{\"w\":375,\"h\":812,\"card\":{\"l\":12,\"r\":363,\"w\":351,\"top\":56,\"bottom\":756},\"overflow\":false,\"single\":true}"
+    }
+  ],
+  "pass": 16,
+  "total": 16,
+  "elapsed_ms": 4868,
+  "summary_fp": 34,
+  "result_rows": 6,
+  "role": {
+    "id": "evaluator",
+    "at": "2026-11-23T22:11:31.890Z"
+  },
+  "metrics": [
+    {
+      "role": "evaluator",
+      "started_at": "2026-11-23T22:11:30.733Z",
+      "result_at": "2026-11-23T22:11:31.891Z",
+      "elapsed_ms": 1157,
+      "items": 6,
+      "success": true,
+      "source": "builtin_sample",
+      "error": ""
+    }
+  ]
+}

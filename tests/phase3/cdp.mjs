@@ -44,12 +44,21 @@ export async function openPage({ width = 1440, height = 900, cdp = CDP } = {}) {
     return r.result.value;
   };
   const nav = async (url = APP, ready = `typeof goPage === 'function'`) => {
-    await send('Page.navigate', { url }, S);
+    // T06183：既有回归默认跳过首次启动角色引导；角色引导套件显式传 ?welcome=1。
+    let targetUrl = url;
+    try {
+      const u = new URL(url);
+      if (u.origin === new URL(APP).origin && !u.searchParams.has('welcome')) {
+        u.searchParams.set('welcome', '0');
+        targetUrl = u.toString();
+      }
+    } catch (e) { /* 非绝对 URL 保持原样 */ }
+    await send('Page.navigate', { url: targetUrl }, S);
     for (let i = 0; i < 80; i++) {
       if (await ev(`document.readyState !== 'loading' && (${ready})`)) return;
       await sleep(250);
     }
-    throw new Error(`页面未就绪: ${url}`);
+    throw new Error(`页面未就绪: ${targetUrl}`);
   };
   const shot = async (file, fullPage = true) => {
     const data = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: fullPage }, S);

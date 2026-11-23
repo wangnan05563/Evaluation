@@ -327,6 +327,10 @@
   // ---------- 首访触发：进入某页时若未引导过且未关闭过则唤起一次 ----------
   function guideMaybe(page) {
     var menuId = menuOfPage(page);
+    // T06183：首次角色引导优先；已选角色的用户不再自动叠加旧菜单引导（评估师路径不含高级引导）。
+    var rw = document.querySelector('#roleWelcome');
+    if (rw && !rw.hidden) return;
+    try { if (localStorage.getItem('wl_role_v1')) return; } catch (e) {}
     if (isDone(menuId)) return;   // 该页已完成引导
     if (active) return;           // 已有引导在演示中，避免叠加
     // 延迟执行，等页面元素渲染完成（如 pertInit 异步填充）

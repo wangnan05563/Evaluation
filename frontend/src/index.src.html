@@ -33,6 +33,48 @@
     </div>
   </div>
 </div>
+<!-- T06183：首次启动角色化引导。?welcome=0 供既有 UI 回归跳过；?welcome=1 强制打开。 -->
+<div id="roleWelcome" class="rw" hidden aria-hidden="true">
+  <div class="rw-scrim" data-rw-close></div>
+  <div class="rw-card" role="dialog" aria-modal="true" aria-labelledby="rwTitle" aria-describedby="rwDesc">
+    <button type="button" class="rw-x" id="rwX" data-i18n="title=onboard.close|aria-label=onboard.close" title="关闭角色选择" aria-label="关闭角色选择"><i aria-hidden="true" data-lucide="x"></i></button>
+    <div class="rw-head">
+      <div class="rw-icon"><i aria-hidden="true" data-lucide="compass"></i></div>
+      <div>
+        <div class="rw-kicker" data-i18n="onboard.kicker">首次使用 · 选择角色</div>
+        <h2 id="rwTitle" data-i18n="onboard.title">先选角色，5 分钟跑通一次完整估算</h2>
+      </div>
+    </div>
+    <p class="rw-desc" id="rwDesc" data-i18n="onboard.desc">选“评估师”可直接使用内置样例：识别 → 全部确认 → 生成结果，无需上传真实文档；其他角色跳过样例，进入对应工作区。</p>
+    <div class="rw-roles" role="radiogroup" aria-label="选择角色">
+      <button type="button" class="rw-role on" data-role="evaluator" role="radio" aria-checked="true">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="calculator"></i></span>
+        <b data-i18n="onboard.role.evaluator">评估师</b>
+        <small data-i18n="onboard.role.evaluator.desc">导入文档、复核功能点、生成成品表</small>
+        <span class="rw-tag" data-i18n="onboard.role.recommended">推荐 · 含 5 分钟样例</span>
+      </button>
+      <button type="button" class="rw-role" data-role="pmo" role="radio" aria-checked="false">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="clipboard-list"></i></span>
+        <b data-i18n="onboard.role.pmo">项目经理 / PMO</b>
+        <small data-i18n="onboard.role.pmo.desc">查看组合、进度与实际值</small>
+        <span class="rw-tag" data-i18n="onboard.role.skip">跳过样例 · 进入工作台</span>
+      </button>
+      <button type="button" class="rw-role" data-role="finance" role="radio" aria-checked="false">
+        <span class="rw-ico"><i aria-hidden="true" data-lucide="wallet"></i></span>
+        <b data-i18n="onboard.role.finance">财务 / 商务</b>
+        <small data-i18n="onboard.role.finance.desc">费率、报价与审计交付</small>
+        <span class="rw-tag" data-i18n="onboard.role.skip">跳过样例 · 进入工作台</span>
+      </button>
+    </div>
+    <div class="rw-actions">
+      <button type="button" class="btn btn-primary rw-go" id="rwGo"><span id="rwGoTxt">用样例 5 分钟跑通</span><i aria-hidden="true" data-lucide="arrow-right" style="width:15px;height:15px"></i></button>
+      <button type="button" class="btn btn-ghost" id="rwLater" data-i18n="onboard.later">稍后，先自己上传</button>
+    </div>
+    <div class="rw-progress" id="rwProgress" hidden><i id="rwBarFill"></i></div>
+    <div class="rw-status" id="rwStatus" role="status" aria-live="polite"></div>
+    <div class="rw-foot" data-i18n="onboard.foot">样例只在本机生成，不含客户数据；完成耗时仅写入本地匿名记录，不上传。</div>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <div class="brand"><i aria-hidden="true" data-lucide="chart-spline" class="lic"></i><div><h1 data-i18n="app.title">工作量评估助手</h1></div></div>
