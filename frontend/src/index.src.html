@@ -129,13 +129,17 @@
 
   <section class="view" id="v-review">
     <div class="mark" id="reopenBanner" style="display:none;margin-bottom:12px"></div>
-    <div class="av">
-      <aside class="glass pad" style="padding:16px">
+    <div class="av rwb">
+      <aside class="glass pad rwb-left" style="padding:16px">
         <div class="cap" data-i18n="review.cap.module">功能模块</div>
         <div class="tree" id="tree"></div>
         <div class="total"><span data-i18n="review.side.ufp_unadj">未调整功能点 UFP</span><b id="treeUfp">0</b><span><span data-i18n="review.side.pending_pre">待确认</span> <b class="num" id="leftCnt">0</b> <span data-i18n="review.side.pending_post">项</span></span></div>
+        <div class="rwb-risk-box">
+          <div class="cap rwb-cap">风险大纲</div>
+          <div id="riskOutline" class="rwb-risk-list" aria-live="polite"></div>
+        </div>
       </aside>
-      <div class="glass pad">
+      <div class="glass pad rwb-center">
         <div class="toolbar">
           <div class="search"><i aria-hidden="true" data-lucide="search"></i><input id="q" data-i18n-ph="review.search.ph" placeholder="搜索描述或计数项…"></div>
           <select id="fSys" onchange="render()" data-i18n="title=review.filter.sys_title" title="按模块筛选"><option value="" data-i18n="review.filter.sys">全部模块</option></select>
@@ -188,7 +192,15 @@
           </div>
         </div>
       </div>
+      <aside class="glass pad rwb-evidence" id="evidenceDrawer" aria-label="证据抽屉" aria-live="polite">
+        <div class="rwb-ev-head">
+          <div class="cap rwb-cap">证据抽屉</div>
+          <button class="rwb-ev-close" id="rwbEvidenceClose" type="button" aria-label="关闭证据抽屉" title="关闭证据抽屉"><i aria-hidden="true" data-lucide="x"></i></button>
+        </div>
+        <div id="evidenceBody" class="rwb-ev-body"></div>
+      </aside>
     </div>
+    <div id="evidenceScrim" class="rwb-scrim" hidden></div>
   </section>
 
   <section class="view" id="v-result">

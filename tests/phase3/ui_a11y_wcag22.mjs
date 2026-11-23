@@ -49,13 +49,15 @@ try {
     await new Promise(r => setTimeout(r, 400));
     const z = JSON.parse(await page.ev(`(() => {
       const de=document.documentElement, b=document.body;
-      const focused=[...document.querySelectorAll('button,input,select,a[href],.step,[role="button"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.height&&r.bottom>0&&r.top<innerHeight;});
-      const clipped=focused.filter(e=>{const r=e.getBoundingClientRect();return r.left<-1||r.right>innerWidth+1;}).length;
-      return JSON.stringify({vw:innerWidth, docW:de.scrollWidth, bodyW:b.scrollWidth, visible:focused.length, clipped});
+      const focused=[...document.querySelectorAll('button,input,select,a[href],.step,[role="button"]')].filter(e=>{const r=e.getBoundingClientRect();const c=getComputedStyle(e);return r.width&&r.height&&c.visibility!=='hidden'&&c.display!=='none'&&!e.closest('[inert]')&&r.bottom>0&&r.top<innerHeight;});
+      const bad=focused.filter(e=>{const r=e.getBoundingClientRect();return r.left<-1||r.right>innerWidth+1;});
+      const clipped=bad.length;
+      const clippedEls=bad.map(e=>({tag:e.tagName,id:e.id,cls:String(e.className||'').slice(0,40),right:Math.round(e.getBoundingClientRect().right),left:Math.round(e.getBoundingClientRect().left)}));
+      return JSON.stringify({vw:innerWidth, docW:de.scrollWidth, bodyW:b.scrollWidth, visible:focused.length, clipped, clippedEls});
     })()`));
     zoomPages.push({ label, ...z });
     check(`200% 缩放 ${label} 无横向滚动`, z.docW <= z.vw + 2 && z.bodyW <= z.vw + 2, `vw=${z.vw} doc=${z.docW} body=${z.bodyW}`);
-    check(`200% 缩放 ${label} 可见控件未被横向裁切`, z.clipped === 0, `visible=${z.visible} clipped=${z.clipped}`);
+    check(`200% 缩放 ${label} 可见控件未被横向裁切`, z.clipped === 0, `visible=${z.visible} clipped=${z.clipped}${z.clippedEls&&z.clippedEls.length?' '+JSON.stringify(z.clippedEls):''}`);
   }
   await page.shot(path.join(OUT, 'screenshots', 'a11y_200pct_help_720.png'));
 

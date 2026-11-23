@@ -1,26 +1,26 @@
 {
   "suite": "ui-10k-grid",
-  "at": "2026-11-22T17:13:57.791Z",
+  "at": "2026-11-23T20:02:46.161Z",
   "checks": [
     {
       "title": "10k 数据已装载并进入复核页",
       "ok": true,
-      "detail": "{\"n\":10000,\"rows\":9,\"scrollHeight\":440000,\"clientHeight\":394,\"step\":\"block\"}"
+      "detail": "{\"n\":10000,\"rows\":7,\"scrollHeight\":440000,\"clientHeight\":300,\"step\":\"block\"}"
     },
     {
       "title": "虚拟窗口 DOM 行数受控（≤120）",
       "ok": true,
-      "detail": "rows=9"
+      "detail": "rows=7"
     },
     {
       "title": "滚动容器固定视口（300–900px）且总高覆盖 10000×44px",
       "ok": true,
-      "detail": "clientHeight=394, scrollHeight=440000"
+      "detail": "clientHeight=300, scrollHeight=440000"
     },
     {
       "title": "连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）",
       "ok": true,
-      "detail": "59.8fps / 3586 frames"
+      "detail": "60.0fps / 3603 frames"
     },
     {
       "title": "无白屏采样",
@@ -30,17 +30,17 @@
     {
       "title": "窗口行数始终受控（≤120）",
       "ok": true,
-      "detail": "min=9 max=9"
+      "detail": "min=7 max=7"
     },
     {
       "title": "可滚动至数据末尾",
       "ok": true,
-      "detail": "lastY=439606/439606"
+      "detail": "lastY=439700/439700"
     },
     {
       "title": "长帧（>20ms）占比 <10%",
       "ok": true,
-      "detail": "0.4% (13)"
+      "detail": "0.0% (0)"
     },
     {
       "title": "末尾窗口包含第 10000 行",
@@ -49,5 +49,11 @@
     }
   ],
   "pass": 9,
-  "total": 9
+  "total": 9,
+  "fps": 60.046,
+  "frames": 3603,
+  "elapsedMs": 60003.7,
+  "longFrames": 0,
+  "longPct": 0,
+  "rows": 7
 }

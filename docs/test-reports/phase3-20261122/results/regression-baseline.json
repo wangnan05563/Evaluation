@@ -1,56 +1,56 @@
 {
   "suite": "regression-baseline",
-  "at": "2026-11-23T16:33:35.469Z",
+  "at": "2026-11-23T20:00:34.893Z",
   "checks": [
     {
       "title": "首屏 FCP/DCL ≤2s（浏览器性能条目）",
       "ok": true,
-      "detail": "{\"dcl\":1040.7000000029802,\"load\":1049.300000011921,\"fcp\":1020}"
+      "detail": "{\"dcl\":463.6000000089407,\"load\":472.1000000089407,\"fcp\":444}"
     },
     {
       "title": "导航到可交互 ≤3s（采集耗时，非首屏口径）",
       "ok": true,
-      "detail": "1391ms"
+      "detail": "726ms"
     },
     {
       "title": "10k 复核页 render p95 ≤150ms",
       "ok": true,
-      "detail": "61.0ms (n=30)"
+      "detail": "45.7ms (n=30)"
     },
     {
       "title": "10k 复核页搜索输入 p95 ≤150ms",
       "ok": true,
-      "detail": "50.6ms (n=30)"
+      "detail": "39.2ms (n=30)"
     },
     {
       "title": "视觉基线一致：upload_light_zh.png",
       "ok": true,
-      "detail": "old=29880cfbe685 new=29880cfbe685"
+      "detail": "old=d37de011f80d new=d37de011f80d"
     },
     {
       "title": "视觉基线一致：upload_light_en.png",
       "ok": true,
-      "detail": "old=9193cbb100cc new=9193cbb100cc"
+      "detail": "old=c12964b4b8ee new=c12964b4b8ee"
     },
     {
       "title": "视觉基线一致：upload_dark_zh.png",
       "ok": true,
-      "detail": "old=22a384f47a1b new=22a384f47a1b"
+      "detail": "old=19d6aae9716b new=19d6aae9716b"
     },
     {
       "title": "视觉基线一致：upload_dark_en.png",
       "ok": true,
-      "detail": "old=2bd121534108 new=2bd121534108"
+      "detail": "old=18fdb28c2082 new=18fdb28c2082"
     },
     {
       "title": "视觉基线一致：upload_contrast_zh.png",
       "ok": true,
-      "detail": "old=7f0824a0797c new=7f0824a0797c"
+      "detail": "old=8166394a753d new=8166394a753d"
     },
     {
       "title": "视觉基线一致：upload_contrast_en.png",
       "ok": true,
-      "detail": "old=d66ae90563d3 new=d66ae90563d3"
+      "detail": "old=ff508eaecbd8 new=ff508eaecbd8"
     },
     {
       "title": "视觉基线覆盖 6 张（3 主题 × 中英）",
@@ -65,14 +65,14 @@
   ],
   "pass": 12,
   "total": 12,
-  "wallToReadyMs": 1391,
+  "wallToReadyMs": 726,
   "perf": {
-    "dcl": 1040.7000000029802,
-    "load": 1049.300000011921,
-    "fcp": 1020
+    "dcl": 463.6000000089407,
+    "load": 472.1000000089407,
+    "fcp": 444
   },
-  "p95Render": 61,
-  "p95Input": 50.599999994039536,
+  "p95Render": 45.70000000298023,
+  "p95Input": 39.20000000298023,
   "baselineCount": 6,
   "update": false
 }

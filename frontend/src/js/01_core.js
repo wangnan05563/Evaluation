@@ -159,9 +159,11 @@ function visibleItems(){  // 筛选（叠加 AND，仅隐藏不丢数据）+ 搜
     if(q&&!(String(it.desc||"")+String(it.count_item||"")+String(it.system||"")).toLowerCase().includes(q))return false;
     return true;
   });
+  if(window.RWB&&RWB.filter) arr=arr.filter(it=>RWB.match(it));
   if(sortState){const{key,dir}=sortState;
     arr=[...arr].sort((a,b)=>{const va=key==="us"?us(a):a[key],vb=key==="us"?us(b):b[key];
       return (va>vb?1:va<vb?-1:0)*dir;});}
+  else if(window.RWB&&RWB.riskSort) arr=[...arr].sort((a,b)=>RWB.score(b)-RWB.score(a));
   return arr;
 }
 function syncSysFilter(){const sel=$("#fSys");if(!sel)return;
@@ -215,6 +217,7 @@ function rowHTML(it,lite){
     </div>`;}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
+  if(!light&&window.RWB) setTimeout(()=>RWB.onRender(),0);
   if(!light){buildTree();syncSysFilter();updateSortInd();}
   const arr=light&&window.__ctArr?window.__ctArr:visibleItems();
   if(!light)window.__ctArr=arr;

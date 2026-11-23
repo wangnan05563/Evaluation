@@ -696,6 +696,111 @@ body.cmdk-lock{overflow:hidden}
 @media(prefers-reduced-motion:reduce){.uik-overlay,.uik-panel,.uik-overlay.is-closing,.uik-overlay.is-closing .uik-panel,.uik-bar{animation:none!important;transition:none!important}}
 @media print{.uik-overlay,.uik-gallery{display:none!important}}
 
+/* T06179 / REQ-005 / AC-06：三栏证据复核工作台 */
+.rwb-cap{font-size:11px;letter-spacing:1.5px;color:var(--muted);font-weight:700;padding:0 0 8px}
+.rwb-risk-box{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.rwb-risk-pills{display:flex;flex-wrap:wrap;gap:6px}
+.rwb-risk-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:999px;padding:5px 9px;font-family:var(--ff);font-size:11px;font-weight:600;cursor:pointer}
+.rwb-risk-pill b{font-size:11px;font-variant-numeric:tabular-nums}
+.rwb-risk-pill:hover{background:var(--line-2)}
+.rwb-risk-pill.high{color:var(--danger-ink);border-color:var(--danger-soft)}
+.rwb-risk-pill.medium{color:var(--warn-ink);border-color:var(--warn-soft)}
+.rwb-risk-pill.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.rwb-risk-pill:focus-visible,.rwb-risk-item:focus-visible,.rwb-sort-btn:focus-visible,.rwb-risk-clear:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.rwb-sort-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11px;color:var(--muted)}
+.rwb-sort-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer}
+.rwb-sort-btn.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.rwb-risk-list-items{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.rwb-risk-item{display:flex;align-items:center;gap:7px;width:100%;border:0;background:transparent;text-align:left;padding:7px 6px;border-radius:8px;cursor:pointer;font-family:var(--ff);font-size:12px;color:var(--ink-2)}
+.rwb-risk-item:hover{background:var(--line-2)}
+.rwb-risk-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--muted)}
+.rwb-risk-item.high .rwb-risk-dot{background:var(--danger)}
+.rwb-risk-item.medium .rwb-risk-dot{background:var(--warn)}
+.rwb-risk-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rwb-risk-score{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rwb-risk-clear{margin-top:8px;border:0;background:transparent;color:var(--brand);font-size:11px;cursor:pointer;padding:4px 6px}
+.rwb-empty{font-size:12px;color:var(--muted);padding:8px 4px}
+
+/* 三栏下压缩表格列宽（仅 ≥901px 的九列编辑表；≤900px 保持既有 4 列只读布局）。 */
+#v-review .rwb-center{min-width:0;padding:16px}
+#v-review .rwb-center .toolbar{flex-wrap:wrap}
+#v-review .rwb-center .toolbar .search{flex:1 1 220px;min-width:180px}
+#v-review .rwb-center .ct-scroll{max-height:max(300px,calc(100vh - 650px))}
+@media(min-width:901px){
+  #v-review .rwb-center .ct-body .ct-c{padding:6px 8px}
+  #v-review .rwb-center .ct-head,
+  #v-review .rwb-center .ct-body .rowr{
+    grid-template-columns:28px minmax(98px,1fr) 90px 90px 34px 44px 44px 44px 78px;
+  }
+  #v-review .rwb-center .ct-head,#v-review .rwb-center .ct-body{min-width:550px}
+}
+#v-review .rwb-center .ct-wrap{overflow-x:auto}
+#v-review .rwb-center .rowr.rwb-sel{box-shadow:inset 3px 0 0 var(--brand);background:var(--brand-soft)}
+#v-review .rwb-center .rowr.rwb-sel .desc{font-weight:600}
+#v-review .rwb-center .rowr.rwb-flash{animation:rwbFlash 1.2s ease}
+@keyframes rwbFlash{0%{background:var(--brand-soft);box-shadow:inset 0 0 0 2px var(--brand)}100%{background:var(--card)}}
+
+.rwb-evidence{display:flex;flex-direction:column;min-width:0}
+.rwb-ev-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.rwb-ev-close{display:none;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;width:30px;height:30px;align-items:center;justify-content:center;cursor:pointer}
+.rwb-ev-close .lic{width:15px;height:15px}
+.rwb-ev-body{padding-top:12px;font-size:13px;line-height:1.65}
+.rwb-ev-empty{text-align:center;color:var(--muted);padding:30px 12px}
+.rwb-ev-empty .lic{width:34px;height:34px;color:var(--brand);margin:0 auto 10px}
+.rwb-ev-empty h3{font-size:13px;color:var(--ink);margin:0 0 6px}
+.rwb-ev-empty p{font-size:11px;line-height:1.7;margin:0}
+.rwb-ev-title{font-size:15px;font-weight:700;color:var(--ink);line-height:1.5;margin-bottom:8px;overflow-wrap:anywhere}
+.rwb-ev-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rwb-risk-chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--line-2);color:var(--ink-2)}
+.rwb-risk-chip.high{background:var(--danger-soft);color:var(--danger-ink)}
+.rwb-risk-chip.medium{background:var(--warn-soft);color:var(--warn-ink)}
+.rwb-risk-chip.low{background:var(--ok-soft);color:var(--ok-ink)}
+.rwb-sid{font-size:10px;font-family:ui-monospace,Consolas,monospace;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:1px 6px;border-radius:5px}
+.rwb-state{font-size:11px;font-weight:600;margin-left:auto}
+.rwb-state.ok{color:var(--ok)}
+.rwb-state.pending{color:var(--warn)}
+.rwb-ev-sec{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}
+.rwb-ev-sec h3{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 8px}
+.rwb-ev-sec h3 .lic{width:14px;height:14px;color:var(--brand)}
+.rwb-quote{font-size:13px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-2);border-left:3px solid var(--brand);border-radius:0 8px 8px 0;padding:9px 10px;margin-bottom:8px;overflow-wrap:anywhere}
+.rwb-kv{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:4px 0;font-size:12px}
+.rwb-kv span{color:var(--muted);flex:none}
+.rwb-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.rwb-rule-line{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;margin-bottom:4px}
+.rwb-rule-line b{color:var(--brand-ink);font-variant-numeric:tabular-nums}
+.rwb-basis{font-size:11px;color:var(--muted);line-height:1.6;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:7px 8px;margin-top:6px}
+.rwb-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.rwb-ai-badge{font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);border-radius:5px;padding:2px 7px}
+.rwb-conf{font-size:11px;color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.rwb-ai-text{font-size:12px;line-height:1.7;margin:0 0 7px;color:var(--ink-2)}
+.rwb-ai-note{font-size:10px;color:var(--muted);line-height:1.6}
+.rwb-ev-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.rwb-scrim{position:fixed;inset:0;z-index:105;background:rgba(15,23,42,.42)}
+body.rwb-drawer-open{overflow:hidden}
+
+@media(min-width:1360px){
+  #v-review .av.rwb{grid-template-columns:200px minmax(0,1fr) 290px;gap:14px}
+  .rwb-evidence{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow:auto}
+}
+@media(max-width:1359px){
+  #v-review .av.rwb{grid-template-columns:200px minmax(0,1fr);gap:14px}
+  .rwb-evidence{position:fixed;top:0;right:0;height:100dvh;width:min(420px,94vw);z-index:110;overflow:auto;border-radius:0;transform:translateX(100%);visibility:hidden;transition:transform .2s ease,visibility .2s}
+  .rwb-evidence.open{transform:none;visibility:visible}
+  .rwb-ev-close{display:inline-flex}
+}
+@media(max-width:900px){
+  #v-review .av.rwb{grid-template-columns:1fr}
+  .rwb-left{order:1}
+  .rwb-center{order:2}
+  .rwb-risk-box{margin-top:12px}
+  .rwb-risk-list-items{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+}
+@media(max-width:600px){
+  .rwb-evidence{width:100vw}
+  .rwb-risk-list-items{grid-template-columns:1fr}
+}
+
+
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
@@ -815,13 +920,17 @@ body.cmdk-lock{overflow:hidden}
 
   <section class="view" id="v-review">
     <div class="mark" id="reopenBanner" style="display:none;margin-bottom:12px"></div>
-    <div class="av">
-      <aside class="glass pad" style="padding:16px">
+    <div class="av rwb">
+      <aside class="glass pad rwb-left" style="padding:16px">
         <div class="cap" data-i18n="review.cap.module">功能模块</div>
         <div class="tree" id="tree"></div>
         <div class="total"><span data-i18n="review.side.ufp_unadj">未调整功能点 UFP</span><b id="treeUfp">0</b><span><span data-i18n="review.side.pending_pre">待确认</span> <b class="num" id="leftCnt">0</b> <span data-i18n="review.side.pending_post">项</span></span></div>
+        <div class="rwb-risk-box">
+          <div class="cap rwb-cap">风险大纲</div>
+          <div id="riskOutline" class="rwb-risk-list" aria-live="polite"></div>
+        </div>
       </aside>
-      <div class="glass pad">
+      <div class="glass pad rwb-center">
         <div class="toolbar">
           <div class="search"><i aria-hidden="true" data-lucide="search"></i><input id="q" data-i18n-ph="review.search.ph" placeholder="搜索描述或计数项…"></div>
           <select id="fSys" onchange="render()" data-i18n="title=review.filter.sys_title" title="按模块筛选"><option value="" data-i18n="review.filter.sys">全部模块</option></select>
@@ -874,7 +983,15 @@ body.cmdk-lock{overflow:hidden}
           </div>
         </div>
       </div>
+      <aside class="glass pad rwb-evidence" id="evidenceDrawer" aria-label="证据抽屉" aria-live="polite">
+        <div class="rwb-ev-head">
+          <div class="cap rwb-cap">证据抽屉</div>
+          <button class="rwb-ev-close" id="rwbEvidenceClose" type="button" aria-label="关闭证据抽屉" title="关闭证据抽屉"><i aria-hidden="true" data-lucide="x"></i></button>
+        </div>
+        <div id="evidenceBody" class="rwb-ev-body"></div>
+      </aside>
     </div>
+    <div id="evidenceScrim" class="rwb-scrim" hidden></div>
   </section>
 
   <section class="view" id="v-result">
@@ -1696,9 +1813,11 @@ function visibleItems(){  // 筛选（叠加 AND，仅隐藏不丢数据）+ 搜
     if(q&&!(String(it.desc||"")+String(it.count_item||"")+String(it.system||"")).toLowerCase().includes(q))return false;
     return true;
   });
+  if(window.RWB&&RWB.filter) arr=arr.filter(it=>RWB.match(it));
   if(sortState){const{key,dir}=sortState;
     arr=[...arr].sort((a,b)=>{const va=key==="us"?us(a):a[key],vb=key==="us"?us(b):b[key];
       return (va>vb?1:va<vb?-1:0)*dir;});}
+  else if(window.RWB&&RWB.riskSort) arr=[...arr].sort((a,b)=>RWB.score(b)-RWB.score(a));
   return arr;
 }
 function syncSysFilter(){const sel=$("#fSys");if(!sel)return;
@@ -1752,6 +1871,7 @@ function rowHTML(it,lite){
     </div>`;}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
+  if(!light&&window.RWB) setTimeout(()=>RWB.onRender(),0);
   if(!light){buildTree();syncSysFilter();updateSortInd();}
   const arr=light&&window.__ctArr?window.__ctArr:visibleItems();
   if(!light)window.__ctArr=arr;
@@ -5600,6 +5720,255 @@ document.addEventListener('DOMContentLoaded', () => {
     version: "1.0.0", button: button, field: field, input: field, table: table, chart: chart,
     modal: modal, drawer: drawer, progress: progress, badge: badge, gallery: gallery, icon: icon,
     refreshIcons: icons
+  };
+})();
+
+/* T06179 / REQ-005 / AC-06：三栏证据复核工作台（左风险大纲 / 中表格 / 右证据抽屉）。
+   与 01_core.js 的 items/render 协作，不改复核逻辑；证据为同步渲染，点击行到抽屉可见 <300ms。 */
+(function () {
+  "use strict";
+  var selSeq = null, filter = "", riskSort = false, dupCache = null, dupSig = "";
+  var drawer = document.getElementById("evidenceDrawer");
+  var scrim = document.getElementById("evidenceScrim");
+  var outline = document.getElementById("riskOutline");
+  var body = document.getElementById("evidenceBody");
+
+  function esc(s) {
+    s = String(s == null ? "" : s);
+    if (window.escAttr) return escAttr(s);
+    return s.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; });
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function duplicateSet() {
+    var sig = items.length + "|" + (items[0] ? items[0].seq : "") + "|" + (items[items.length - 1] ? items[items.length - 1].seq : "");
+    if (dupCache && dupSig === sig) return dupCache;
+    var cnt = new Map();
+    items.forEach(function (it) { var d = String(it.desc || "").trim(); if (d) cnt.set(d, (cnt.get(d) || 0) + 1); });
+    dupCache = new Set();
+    cnt.forEach(function (n, d) { if (n > 1) dupCache.add(d); });
+    dupSig = sig;
+    return dupCache;
+  }
+  function score(it) {
+    if (!it) return 0;
+    var s = 0;
+    if (!String(it.desc || "").trim()) s += 28;
+    if (!String(it.count_item || "").trim()) s += 18;
+    if (!String(it.system || "").trim()) s += 10;
+    if (!it.type) s += 20;
+    if (!it.reuse) s += 5;
+    if (!it.modify) s += 5;
+    if (!it.ok) s += 8;
+    if (!it.basis) s += 8;
+    if (String(it.desc || "").length > 120) s += 5;
+    var d = String(it.desc || "").trim();
+    if (d && duplicateSet().has(d)) s += 15;
+    if (typeof cxMode !== "undefined" && cxMode === "标准IFPUG") {
+      if (it.det === "" || it.det == null) s += 5;
+      if ((it.type === "ILF" || it.type === "EIF") && (it.ret === "" || it.ret == null)) s += 5;
+      if (["EI", "EO", "EQ"].indexOf(it.type) >= 0 && (it.ftr === "" || it.ftr == null)) s += 5;
+    }
+    return clamp(Math.round(s), 0, 100);
+  }
+  function level(it) { var s = score(it); return s >= 50 ? "high" : s >= 25 ? "medium" : "low"; }
+  function levelText(l) { return l === "high" ? "高风险" : l === "medium" ? "中风险" : "低风险"; }
+  function match(it) {
+    if (!filter) return true;
+    var lv = level(it);
+    if (filter === "pending") return !it.ok;
+    if (filter === "done") return !!it.ok;
+    return lv === filter;
+  }
+  function sortRows(arr) { return arr.slice().sort(function (a, b) { return score(b) - score(a); }); }
+
+  function counts() {
+    var c = { high: 0, medium: 0, low: 0, pending: 0, done: 0 };
+    items.forEach(function (it) { c[level(it)]++; it.ok ? c.done++ : c.pending++; });
+    return c;
+  }
+
+  function riskPill(key, label, n) {
+    return '<button type="button" class="rwb-risk-pill ' + key + (filter === key ? " on" : "") + '" onclick="RWB.setFilter(\'' + key + '\')" aria-pressed="' + (filter === key) + '">' +
+      '<span>' + label + '</span><b>' + n + '</b></button>';
+  }
+
+  function renderOutline() {
+    if (!outline) return;
+    if (!items || !items.length) { outline.innerHTML = '<div class="rwb-empty">暂无待复核功能项</div>'; return; }
+    var c = counts();
+    var top = items.slice().sort(function (a, b) { return score(b) - score(a); }).slice(0, 5);
+    outline.innerHTML =
+      '<div class="rwb-risk-pills">' + riskPill("high", "高风险", c.high) + riskPill("medium", "中风险", c.medium) + riskPill("pending", "待复核", c.pending) + '</div>' +
+      '<div class="rwb-sort-row"><span>按风险优先</span><button type="button" class="rwb-sort-btn' + (riskSort ? " on" : "") + '" onclick="RWB.toggleSort()" aria-pressed="' + riskSort + '">风险排序 ' + (riskSort ? "开" : "关") + '</button></div>' +
+      '<div class="rwb-risk-list-items">' + top.map(function (it) {
+        var lv = level(it), s = score(it);
+        return '<button type="button" class="rwb-risk-item ' + lv + '" data-seq="' + it.seq + '" onclick="RWB.select(' + it.seq + ')" title="查看证据">' +
+          '<span class="rwb-risk-dot" aria-hidden="true"></span><span class="rwb-risk-name">' + esc(it.desc || it.count_item || "（无描述）") + '</span><span class="rwb-risk-score">' + s + '</span></button>';
+      }).join("") + '</div>' +
+      (filter ? '<button type="button" class="rwb-risk-clear" onclick="RWB.setFilter(\'' + filter + '\')">清除风险筛选</button>' : "");
+  }
+
+  function aiSuggestion(it) {
+    if (it.aiSuggestion || it.ai_suggestion) {
+      return { text: it.aiSuggestion || it.ai_suggestion, confidence: Number(it.confidence || it.aiConfidence || 0.8), source: it.aiSource || "AI 模型", model: it.aiModel || "" };
+    }
+    var conf = 0.55;
+    if (it.desc) conf += 0.1;
+    if (it.count_item) conf += 0.06;
+    if (it.system) conf += 0.05;
+    if (it.type) conf += 0.08;
+    if (it.basis) conf += 0.04;
+    conf = clamp(conf, 0.35, 0.92);
+    var text;
+    if (it.type === "ILF" || it.type === "EIF") {
+      text = "建议核对 RET 与 DET 是否覆盖全部记录/数据项；若为外部维护文件，确认 EIF 而非 ILF。";
+    } else if (it.type === "EI") {
+      text = "建议确认输入来自系统外或跨边界，FTR 是否准确；纯界面校验不应计为 EI。";
+    } else if (it.type === "EO" || it.type === "EQ") {
+      text = "建议确认输出含派生计算（EO）还是仅取数展示（EQ），并核对 DET 数量。";
+    } else {
+      text = "建议先确认功能类别（ILF/EIF/EI/EO/EQ），再核对计数项、重用度与修改类型。";
+    }
+    return { text: text, confidence: conf, source: "本地规则（占位）", model: "" };
+  }
+
+  function kv(k, v) { return '<div class="rwb-kv"><span>' + k + '</span><b>' + esc(v == null || v === "" ? "—" : v) + '</b></div>'; }
+
+  function evidenceHTML(it) {
+    var s = score(it), lv = level(it), ai = aiSuggestion(it), pct = Math.round(ai.confidence * 100);
+    var catClass = (typeof CATCOLOR !== "undefined" && CATCOLOR[it.type]) ? CATCOLOR[it.type] : "";
+    var rule = '<div class="rwb-rule-line"><span class="cat ' + catClass + '">' + esc(it.type || "未分类") + '</span>' +
+      '<span>复杂度 <b>' + esc(it.cx || "—") + '</b></span><span>UFP <b>' + (window.ufp ? ufp(it) : "—") + '</b></span><span>US <b>' + (window.us ? us(it).toFixed(2) : "—") + '</b></span></div>';
+    if (typeof cxMode !== "undefined" && cxMode === "标准IFPUG") {
+      rule += '<div class="rwb-kv"><span>DET / RET / FTR</span><b>' + esc(it.det || "—") + ' / ' + esc((it.type === "ILF" || it.type === "EIF") ? (it.ret || "—") : "—") + ' / ' + esc(["EI", "EO", "EQ"].indexOf(it.type) >= 0 ? (it.ftr || "—") : "—") + '</b></div>';
+    }
+    if (it.basis) rule += '<div class="rwb-basis">' + it.basis + '</div>';
+    return '<div class="rwb-ev-title">' + esc(it.desc || it.count_item || "（无描述）") + '</div>' +
+      '<div class="rwb-ev-meta"><span class="rwb-risk-chip ' + lv + '">' + levelText(lv) + ' ' + s + '/100</span>' +
+      (it.stable_id ? '<span class="rwb-sid">' + esc(it.stable_id) + '</span>' : '') +
+      '<span class="rwb-state ' + (it.ok ? "ok" : "pending") + '">' + (it.ok ? "已确认" : "待复核") + '</span></div>' +
+      '<section class="rwb-ev-sec" id="rwbSecRaw"><h3><i data-lucide="file-text" aria-hidden="true"></i>原文</h3>' +
+      '<div class="rwb-quote">' + esc(it.desc || "（无描述）") + '</div>' +
+      kv("所属模块", it.system) + kv("计数项", it.count_item) +
+      '</section>' +
+      '<section class="rwb-ev-sec" id="rwbSecRule"><h3><i data-lucide="ruler" aria-hidden="true"></i>规则</h3>' + rule +
+      kv("重用度 / 修改类型", (it.reuse || "—") + " / " + (it.modify || "—")) + '</section>' +
+      '<section class="rwb-ev-sec" id="rwbSecAi"><h3><i data-lucide="sparkles" aria-hidden="true"></i>AI 建议</h3>' +
+      '<div class="rwb-ai-head"><span class="rwb-ai-badge">' + esc(ai.source) + '</span><span class="rwb-conf">置信度 ' + pct + '%</span></div>' +
+      '<p class="rwb-ai-text">' + esc(ai.text) + '</p>' +
+      '<div class="rwb-ai-note">' + (ai.model ? '模型：' + esc(ai.model) + ' · ' : '') + '来源为本机规则占位，T06195 接入模型证据后替换；低置信度优先复核。</div></section>';
+  }
+
+  function renderEvidence(it) {
+    if (!body) return;
+    if (!it) {
+      body.innerHTML = '<div class="rwb-ev-empty"><i data-lucide="panel-right" aria-hidden="true"></i><h3>点击任一行查看证据</h3><p>左侧按风险排序，中间表格点击功能项，这里同步显示原文、规则、AI 建议与置信度。</p></div>';
+    } else {
+      body.innerHTML = evidenceHTML(it);
+      var acts = document.createElement("div"); acts.className = "rwb-ev-actions";
+      if (window.UIKIT) {
+        acts.appendChild(UIKIT.button({ label: "定位原文", icon: "crosshair", variant: "secondary", size: "sm", onClick: function () { locate(it.seq); } }));
+        acts.appendChild(UIKIT.button({ label: it.ok ? "取消确认" : "标记确认", icon: it.ok ? "rotate-ccw" : "check", variant: "primary", size: "sm", onClick: function () { toggleConfirm(it.seq); } }));
+      } else {
+        acts.innerHTML = '<button class="btn btn-ghost" onclick="RWB.locate(' + it.seq + ')">定位原文</button><button class="btn btn-primary" onclick="RWB.toggleConfirm(' + it.seq + ')">' + (it.ok ? "取消确认" : "标记确认") + '</button>';
+      }
+      body.appendChild(acts);
+    }
+    if (window.lucide) try { lucide.createIcons({ root: body }); } catch (e) { /* noop */ }
+  }
+
+  function openPanel() {
+    if (!drawer) return;
+    var narrow = window.matchMedia && matchMedia("(max-width: 1359px)").matches;
+    drawer.inert = false;
+    drawer.classList.add("open");
+    if (narrow && scrim) scrim.hidden = false;
+    if (narrow) document.body.classList.add("rwb-drawer-open");
+  }
+  function closePanel() {
+    if (!drawer) return;
+    if (window.matchMedia && matchMedia("(max-width: 1359px)").matches) {
+      drawer.classList.remove("open"); drawer.inert = true; if (scrim) scrim.hidden = true; document.body.classList.remove("rwb-drawer-open");
+    } else {
+      drawer.classList.remove("open"); drawer.inert = false; if (scrim) scrim.hidden = true; document.body.classList.remove("rwb-drawer-open");
+      selSeq = null; renderEvidence(null); hiRow(null);
+    }
+  }
+  function hiRow(seq) {
+    document.querySelectorAll("#tbody .rowr.rwb-sel").forEach(function (r) { r.classList.remove("rwb-sel"); });
+    if (seq != null) { var r = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]'); if (r) r.classList.add("rwb-sel"); }
+  }
+  function select(seq) {
+    var t0 = performance.now();
+    var it = items.find(function (x) { return x.seq === seq; });
+    if (!it) return;
+    selSeq = seq; openPanel(); renderEvidence(it); hiRow(seq);
+    var row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]');
+    if (row && !row.classList.contains("rwb-sel")) row.classList.add("rwb-sel");
+    window.__rwbLastMs = Math.round(performance.now() - t0);
+  }
+  function locate(seq) {
+    var row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]');
+    if (!row) { render(); row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]'); }
+    if (!row) return;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+    row.classList.add("rwb-flash");
+    setTimeout(function () { row.classList.remove("rwb-flash"); }, 1200);
+  }
+  function toggleConfirm(seq) {
+    var it = items.find(function (x) { return x.seq === seq; });
+    if (!it) return;
+    if (window.pushUndo) pushUndo("证据抽屉确认");
+    it.ok = !it.ok;
+    if (window.render) render();
+    if (window.toast) toast(it.ok ? "已确认" : "已取消确认");
+  }
+  function setFilter(k) { filter = filter === k ? "" : k; render(); }
+  function toggleSort() { riskSort = !riskSort; render(); }
+
+  function bindRows() {
+    document.querySelectorAll("#tbody .rowr").forEach(function (row) {
+      if (row.dataset.rwbBound) return;
+      row.dataset.rwbBound = "1"; row.tabIndex = 0;
+      row.setAttribute("aria-label", "查看证据：" + (row.querySelector(".desc") ? row.querySelector(".desc").textContent.trim() : "功能项"));
+      row.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(+row.dataset.seq); }
+      });
+    });
+  }
+
+  function onRender() {
+    dupCache = null;
+    renderOutline();
+    bindRows();
+    if (selSeq != null) {
+      var it = items.find(function (x) { return x.seq === selSeq; });
+      if (it) { renderEvidence(it); hiRow(selSeq); } else { selSeq = null; renderEvidence(null); }
+    } else if (!body.innerHTML.trim()) renderEvidence(null);
+  }
+
+  document.addEventListener("click", function (e) {
+    var row = e.target.closest ? e.target.closest("#tbody .rowr") : null;
+    if (!row) return;
+    if (e.target.closest("input,select,button,.toggle,.pick,.ck")) return;
+    select(+row.dataset.seq);
+  });
+  var closeBtn = document.getElementById("rwbEvidenceClose");
+  if (closeBtn) closeBtn.addEventListener("click", closePanel);
+  if (scrim) scrim.addEventListener("click", closePanel);
+  function syncInert() {
+    if (!drawer) return;
+    var narrow = window.matchMedia && matchMedia("(max-width: 1359px)").matches;
+    drawer.inert = narrow && !drawer.classList.contains("open");
+  }
+  syncInert();
+  window.addEventListener("resize", syncInert);
+
+  window.RWB = {
+    score: score, level: level, match: match, sortRows: sortRows, onRender: onRender,
+    renderOutline: renderOutline, select: select, locate: locate, toggleConfirm: toggleConfirm,
+    setFilter: setFilter, toggleSort: toggleSort, close: closePanel,
+    get filter() { return filter; }, get riskSort() { return riskSort; }, get selected() { return selSeq; }
   };
 })();
 
