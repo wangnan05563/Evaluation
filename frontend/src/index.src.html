@@ -313,6 +313,7 @@
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expPdf()" data-i18n="title=result.export.pdf_title" title="打印管线，目标选择另存为 PDF"><span data-i18n="result.export.pdf">评估报告（PDF/打印）</span></button>
               <button class="btn btn-ghost" id="auditBtn" style="display:block;width:100%;text-align:left" onclick="auditPackage()" data-i18n="title=result.export.audit_title" title="生成七部分审计包（PDF）"><i data-lucide="file-check-2" style="width:15px;height:15px"></i><span data-i18n="result.export.audit">七部分审计包（PDF）</span></button>
               <button class="btn btn-ghost" id="shareBtn" style="display:block;width:100%;text-align:left" onclick="sharePackage()" data-i18n="title=result.export.share_title" title="离线单文件，仅含已确认项，无外部链接"><i data-lucide="package-check" style="width:15px;height:15px"></i><span data-i18n="result.export.share">脱敏分享包（HTML）</span></button>
+              <button class="btn btn-ghost" id="enhBtn" style="display:block;width:100%;text-align:left" onclick="enhanceOpen()" data-i18n="title=result.export.enh_title" title="对比基线，自动建议 ADD/CHG/DEL/CFP，人工复核后输出 EFP"><i data-lucide="git-compare" style="width:15px;height:15px"></i><span data-i18n="result.export.enh">增强项目分类（EFP）</span></button>
             </span>
           </span>
         </div>
@@ -935,6 +936,54 @@
   </main>
 </div>
 <div id="toast" style="position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--ink);color:var(--on-brand);padding:10px 18px;border-radius:var(--r-full);font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:.3s;z-index:99;pointer-events:none"></div>
+
+<div id="enhOverlay" class="enh-overlay" hidden aria-hidden="true">
+  <div class="enh-dialog" role="dialog" aria-modal="true" aria-labelledby="enhTitle">
+    <div class="enh-head">
+      <div>
+        <h2 id="enhTitle" data-i18n="enh.title">增强项目分类</h2>
+        <p data-i18n="enh.subtitle">对比基线自动建议 ADD / CHG / DEL / CFP，逐项人工复核后输出 EFP。</p>
+      </div>
+      <button class="btn btn-ghost enh-close" id="enhClose" onclick="enhClose()" data-i18n="title=enh.close|aria-label=enh.close" title="关闭" aria-label="关闭"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="enh-basebar">
+      <label for="enhBase" data-i18n="enh.baseline.label">基线版本</label>
+      <select id="enhBase" onchange="enhBaseChange()" data-i18n="aria-label=enh.baseline.aria" aria-label="选择增强项目基线"></select>
+      <button class="btn btn-ghost" onclick="enhImport()" data-i18n="title=enh.import.title|aria-label=enh.import" title="导入基线 JSON" aria-label="导入基线 JSON"><i data-lucide="upload" style="width:15px;height:15px"></i><span data-i18n="enh.import">导入基线 JSON</span></button>
+      <input id="enhFile" type="file" accept=".json,application/json" hidden onchange="enhFilePick(this)">
+      <span id="enhBaseMeta" class="enh-meta"></span>
+    </div>
+    <div id="enhStatus" class="enh-status" role="status" aria-live="polite">正在载入基线…</div>
+    <div id="enhSummary" class="enh-summary"></div>
+    <div id="enhTableWrap" class="enh-table-wrap" hidden>
+      <table class="enh-table">
+        <thead><tr>
+          <th data-i18n="enh.th.item">功能项</th>
+          <th data-i18n="enh.th.system">系统</th>
+          <th data-i18n="enh.th.auto">自动建议</th>
+          <th data-i18n="enh.th.final">最终分类</th>
+          <th data-i18n="enh.th.conf">置信度</th>
+          <th data-i18n="enh.th.before">基线 UFP</th>
+          <th data-i18n="enh.th.after">当前 UFP</th>
+          <th data-i18n="enh.th.review">复核</th>
+        </tr></thead>
+        <tbody id="enhRows"></tbody>
+      </table>
+    </div>
+    <div id="enhEmpty" class="enh-empty" hidden>
+      <p data-i18n="enh.empty">没有可用的基线版本。请先在「历史估算」保存一个基线，或导入基线 JSON。</p>
+    </div>
+    <div class="enh-foot">
+      <span id="enhProgress" class="enh-progress">尚未复核</span>
+      <span class="enh-actions">
+        <button class="btn btn-ghost" id="enhAcceptAll" onclick="enhAcceptAll()" disabled data-i18n="enh.accept_all">全部标记已复核</button>
+        <button class="btn btn-primary" id="enhCsv" onclick="enhExportCsv()" disabled data-i18n="enh.export.csv">导出 EFP（CSV）</button>
+        <button class="btn btn-ghost" id="enhJson" onclick="enhExportJson()" disabled data-i18n="enh.export.json">JSON</button>
+        <button class="btn btn-ghost" onclick="enhClose()" data-i18n="enh.close">关闭</button>
+      </span>
+    </div>
+  </div>
+</div>
 
 <!--BUILD:JS-->
 <div id="pasteModal" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:60;align-items:center;justify-content:center">

@@ -178,9 +178,9 @@ body[data-page="pert"] #pg-pert{display:block}
 .m-item:hover{background:var(--line-2);color:var(--ink)}
 .m-item.on{background:var(--brand-soft);color:var(--brand-ink)}
 .m-item.on .lic{color:var(--brand)}
-.m-item .tip{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--on-brand);font-size:11px;font-weight:500;padding:5px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:.15s;box-shadow:var(--shadow-lg);z-index:50}
+.m-item .tip{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--on-brand);font-size:11px;font-weight:500;padding:5px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;display:none;transition:.15s;box-shadow:var(--shadow-lg);z-index:50}
 .m-item .tip::before{content:"";position:absolute;top:-4px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-bottom-color:var(--ink)}
-.m-item:hover .tip{opacity:1}
+.m-item:hover .tip{display:block;opacity:1}
 @media(max-width:820px){.menu{gap:2px}.m-item span.lbl{display:none}.m-item{padding:9px 10px}.m-item .tip{display:none}}
 .up-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px}
 .drop{border:2px dashed var(--drop-line);border-radius:var(--r-lg);background:var(--surface-2);padding:48px 22px;text-align:center;cursor:pointer;transition:.2s}
@@ -339,6 +339,7 @@ td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
 /* 响应式布局：桌面端 ≥1200 保持原布局；平板 768–1199 多栏收敛为单栏、KPI 降为两列；手机 <768 全面堆叠 */
 @media(max-width:1199px){
   .wrap{max-width:100%;padding:16px 18px 48px}
+  .top{flex-wrap:wrap;row-gap:10px}
   .up-grid,.av,.r-grid,.cfg-grid,.doc-grid{grid-template-columns:1fr}
   #pg-pert .cfg-grid{grid-template-columns:1fr !important}  /* PERT 上传/参数栏为内联列定义，需 !important 覆盖 */
   .kpis{grid-template-columns:1fr 1fr}
@@ -1023,6 +1024,68 @@ body.rw-open{overflow:hidden}
   .rwb-kbd-hint{display:none} /* 小屏优先保留批量按钮，键盘提示不占位 */
 }
 
+/* T06189 增强项目分类：弹层、KPI、分类表、复核态 */
+body.enh-open { overflow: hidden; }
+.enh-overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(10, 16, 26, .56); backdrop-filter: blur(3px); }
+.enh-overlay[hidden] { display: none; }
+.enh-dialog { width: min(1120px, 96vw); max-height: 92vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+.enh-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px 12px; border-bottom: 1px solid var(--line); }
+.enh-head h2 { margin: 0; font-size: 18px; color: var(--ink); }
+.enh-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.enh-close { margin-left: auto; flex: none; }
+.enh-basebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.enh-basebar label { font-size: 12px; color: var(--muted); }
+.enh-basebar select { max-width: 420px; min-width: 220px; padding: 8px 10px; font-family: var(--ff); font-size: 12px; background: var(--card); color: var(--ink); border: 1px solid var(--line-ctrl); border-radius: var(--r-sm); }
+.enh-meta { font-size: 11px; color: var(--muted); }
+.enh-status { padding: 8px 20px 0; font-size: 12px; color: var(--muted); min-height: 28px; }
+.enh-status.bad { color: var(--bad); }
+.enh-status.ok { color: var(--ok); }
+.enh-summary { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 10px 20px 12px; }
+.enh-kpi { border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; background: var(--bg); min-width: 0; }
+.enh-kpi span { display: block; font-size: 10px; color: var(--muted); letter-spacing: .02em; }
+.enh-kpi b { display: block; margin-top: 3px; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.enh-kpi small { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.enh-kpi.efp { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); background: color-mix(in srgb, var(--brand) 7%, var(--card)); }
+.enh-kpi.efp b { color: var(--brand); }
+.enh-table-wrap { flex: 1; min-height: 160px; overflow: auto; padding: 0 20px; }
+.enh-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 12px; }
+.enh-table th { position: sticky; top: 0; z-index: 2; background: var(--card); color: var(--muted); font-weight: 600; text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.enh-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: middle; }
+.enh-table tr.mismatch td { background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.enh-table tr.reviewed td { background: color-mix(in srgb, var(--ok) 7%, transparent); }
+.enh-table tr.reviewed.mismatch td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.enh-name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.enh-name small { display: block; color: var(--muted); font-size: 10px; }
+.enh-badge { display: inline-block; padding: 2px 7px; border-radius: var(--r-full); font-size: 10px; font-weight: 700; border: 1px solid var(--line); color: var(--muted); background: var(--bg); }
+.enh-badge.ADD { color: var(--ink); border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.enh-badge.CHG { color: var(--ink); border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.enh-badge.DEL { color: var(--ink); border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.enh-badge.CFP { color: var(--ink); border-color: color-mix(in srgb, #8b5cf6 55%, var(--line)); background: color-mix(in srgb, #8b5cf6 12%, transparent); }
+.enh-badge.UNCHANGED { color: var(--muted); }
+.enh-conf { font-size: 10px; }
+.enh-conf.high { color: var(--ok); }
+.enh-conf.medium { color: var(--warn); }
+.enh-conf.low { color: var(--bad); }
+.enh-final { padding: 5px 7px; font-family: var(--ff); font-size: 11px; border: 1px solid var(--line-ctrl); border-radius: var(--r-sm); background: var(--card); color: var(--ink); }
+.enh-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.enh-review { width: 16px; height: 16px; }
+.enh-empty { padding: 28px 20px; color: var(--muted); font-size: 13px; text-align: center; }
+.enh-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
+.enh-progress { font-size: 12px; color: var(--muted); }
+.enh-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.enh-actions .btn { padding: 7px 12px; font-size: 12px; }
+@media (max-width: 1024px) { .enh-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 768px) {
+  .enh-overlay { padding: 0; align-items: stretch; }
+  .enh-dialog { width: 100%; max-height: 100vh; border-radius: 0; border: 0; }
+  .enh-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .enh-table-wrap { padding: 0 10px; }
+  .enh-head, .enh-basebar, .enh-summary, .enh-foot { padding-left: 12px; padding-right: 12px; }
+  .enh-actions { margin-left: 0; width: 100%; }
+  .enh-actions .btn { flex: 1; }
+}
+@media (max-width: 420px) { .enh-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .enh-head h2 { font-size: 16px; } }
+
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
@@ -1326,6 +1389,7 @@ body.rw-open{overflow:hidden}
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expPdf()" data-i18n="title=result.export.pdf_title" title="打印管线，目标选择另存为 PDF"><span data-i18n="result.export.pdf">评估报告（PDF/打印）</span></button>
               <button class="btn btn-ghost" id="auditBtn" style="display:block;width:100%;text-align:left" onclick="auditPackage()" data-i18n="title=result.export.audit_title" title="生成七部分审计包（PDF）"><i data-lucide="file-check-2" style="width:15px;height:15px"></i><span data-i18n="result.export.audit">七部分审计包（PDF）</span></button>
               <button class="btn btn-ghost" id="shareBtn" style="display:block;width:100%;text-align:left" onclick="sharePackage()" data-i18n="title=result.export.share_title" title="离线单文件，仅含已确认项，无外部链接"><i data-lucide="package-check" style="width:15px;height:15px"></i><span data-i18n="result.export.share">脱敏分享包（HTML）</span></button>
+              <button class="btn btn-ghost" id="enhBtn" style="display:block;width:100%;text-align:left" onclick="enhanceOpen()" data-i18n="title=result.export.enh_title" title="对比基线，自动建议 ADD/CHG/DEL/CFP，人工复核后输出 EFP"><i data-lucide="git-compare" style="width:15px;height:15px"></i><span data-i18n="result.export.enh">增强项目分类（EFP）</span></button>
             </span>
           </span>
         </div>
@@ -1948,6 +2012,54 @@ body.rw-open{overflow:hidden}
   </main>
 </div>
 <div id="toast" style="position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--ink);color:var(--on-brand);padding:10px 18px;border-radius:var(--r-full);font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:.3s;z-index:99;pointer-events:none"></div>
+
+<div id="enhOverlay" class="enh-overlay" hidden aria-hidden="true">
+  <div class="enh-dialog" role="dialog" aria-modal="true" aria-labelledby="enhTitle">
+    <div class="enh-head">
+      <div>
+        <h2 id="enhTitle" data-i18n="enh.title">增强项目分类</h2>
+        <p data-i18n="enh.subtitle">对比基线自动建议 ADD / CHG / DEL / CFP，逐项人工复核后输出 EFP。</p>
+      </div>
+      <button class="btn btn-ghost enh-close" id="enhClose" onclick="enhClose()" data-i18n="title=enh.close|aria-label=enh.close" title="关闭" aria-label="关闭"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="enh-basebar">
+      <label for="enhBase" data-i18n="enh.baseline.label">基线版本</label>
+      <select id="enhBase" onchange="enhBaseChange()" data-i18n="aria-label=enh.baseline.aria" aria-label="选择增强项目基线"></select>
+      <button class="btn btn-ghost" onclick="enhImport()" data-i18n="title=enh.import.title|aria-label=enh.import" title="导入基线 JSON" aria-label="导入基线 JSON"><i data-lucide="upload" style="width:15px;height:15px"></i><span data-i18n="enh.import">导入基线 JSON</span></button>
+      <input id="enhFile" type="file" accept=".json,application/json" hidden onchange="enhFilePick(this)">
+      <span id="enhBaseMeta" class="enh-meta"></span>
+    </div>
+    <div id="enhStatus" class="enh-status" role="status" aria-live="polite">正在载入基线…</div>
+    <div id="enhSummary" class="enh-summary"></div>
+    <div id="enhTableWrap" class="enh-table-wrap" hidden>
+      <table class="enh-table">
+        <thead><tr>
+          <th data-i18n="enh.th.item">功能项</th>
+          <th data-i18n="enh.th.system">系统</th>
+          <th data-i18n="enh.th.auto">自动建议</th>
+          <th data-i18n="enh.th.final">最终分类</th>
+          <th data-i18n="enh.th.conf">置信度</th>
+          <th data-i18n="enh.th.before">基线 UFP</th>
+          <th data-i18n="enh.th.after">当前 UFP</th>
+          <th data-i18n="enh.th.review">复核</th>
+        </tr></thead>
+        <tbody id="enhRows"></tbody>
+      </table>
+    </div>
+    <div id="enhEmpty" class="enh-empty" hidden>
+      <p data-i18n="enh.empty">没有可用的基线版本。请先在「历史估算」保存一个基线，或导入基线 JSON。</p>
+    </div>
+    <div class="enh-foot">
+      <span id="enhProgress" class="enh-progress">尚未复核</span>
+      <span class="enh-actions">
+        <button class="btn btn-ghost" id="enhAcceptAll" onclick="enhAcceptAll()" disabled data-i18n="enh.accept_all">全部标记已复核</button>
+        <button class="btn btn-primary" id="enhCsv" onclick="enhExportCsv()" disabled data-i18n="enh.export.csv">导出 EFP（CSV）</button>
+        <button class="btn btn-ghost" id="enhJson" onclick="enhExportJson()" disabled data-i18n="enh.export.json">JSON</button>
+        <button class="btn btn-ghost" onclick="enhClose()" data-i18n="enh.close">关闭</button>
+      </span>
+    </div>
+  </div>
+</div>
 
 <script>
 // 后端专属端口 8020（8000 与 MorningBrief/20_News 冲突，见 README / dev-shell/main.js）。
@@ -7207,6 +7319,465 @@ document.addEventListener('DOMContentLoaded', () => {
     reset: function(){ try { localStorage.removeItem(PERF_KEY); } catch(e) {} lastReport = null; startedAt = 0; },
     get last(){ return lastReport; } };
   updateSmartBtn();
+})();
+
+/* T06189 增强项目分类：基线对比、ADD/CHG/DEL/CFP 建议、逐项人工复核、EFP 输出。
+   规则：只给建议，不自动确认；导出前必须每行勾选「复核」。 */
+(function () {
+  'use strict';
+
+  var ENH_CATS = ['ADD', 'CHG', 'DEL', 'CFP', 'UNCHANGED'];
+  var enhRows = [];
+  var enhData = null;
+  var enhImportedBaseline = null;
+  var enhBaseTotal = 0;
+  var enhBusy = false;
+  var enhLastFocus = null;
+
+  function E(id) { return document.getElementById(id); }
+  function enhT(key, fallback) {
+    var v = t(key);
+    return v === key ? fallback : v;
+  }
+  function enhReason(row) {
+    var out = [];
+    (row.reason_codes || []).forEach(function (c) {
+      out.push(enhT('enh.reason.' + c, c));
+    });
+    if (row.field_changes && row.field_changes.length) {
+      out.push(row.field_changes.map(function (x) { return x.label || x.field; }).join(' / '));
+    }
+    return out.join('；');
+  }
+  function enhCatLabel(c) { return enhT('enh.cat.' + String(c || '').toLowerCase(), c); }
+  function enhConfLabel(c) { return enhT('enh.conf.' + c, c); }
+  function enhAllReviewed() { return !!enhRows.length && enhRows.every(function (r) { return r.reviewed; }); }
+
+  function enhTotals() {
+    var rows = enhRows;
+    var sum = function (cat, field) {
+      return rows.reduce(function (a, r) {
+        return a + (r.final === cat ? (r[field] || 0) : 0);
+      }, 0);
+    };
+    var add = sum('ADD', 'current_ufp');
+    var chg = sum('CHG', 'current_ufp');
+    var chgb = sum('CHG', 'baseline_ufp');
+    var del = sum('DEL', 'baseline_ufp');
+    var cfp = rows.reduce(function (a, r) {
+      if (r.final !== 'CFP') return a;
+      return a + (r.current_ufp || r.baseline_ufp || 0);
+    }, 0);
+    var baseline = rows.reduce(function (a, r) { return a + (r.baseline_ufp || 0); }, 0);
+    var current = rows.reduce(function (a, r) { return a + (r.current_ufp || 0); }, 0);
+    return {
+      add: add, chg: chg, chgBefore: chgb, del: del, cfp: cfp,
+      baseline: baseline, current: current,
+      efp: add + chg + cfp + del,
+      updated: baseline + add + chg - chgb - del
+    };
+  }
+
+  function enhCounts() {
+    var c = { ADD: 0, CHG: 0, DEL: 0, CFP: 0, UNCHANGED: 0 };
+    enhRows.forEach(function (r) { if (c[r.final] != null) c[r.final]++; });
+    return c;
+  }
+
+  function enhStatus(text, kind) {
+    var el = E('enhStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'enh-status' + (kind ? ' ' + kind : '');
+  }
+
+  function enhRenderSummary() {
+    var box = E('enhSummary');
+    if (!box) return;
+    if (!enhRows.length) { box.innerHTML = ''; return; }
+    var c = enhCounts(), tt = enhTotals();
+    var kpi = function (cat, value, small, extra) {
+      return '<div class="enh-kpi ' + (extra || '') + '"><span>' + enhCatLabel(cat) + '</span><b>' + value + '</b><small>' + small + '</small></div>';
+    };
+    box.innerHTML =
+      kpi('ADD', c.ADD, '+' + tt.add + ' FP') +
+      kpi('CHG', c.CHG, '+' + tt.chg + ' / -' + tt.chgBefore + ' FP') +
+      kpi('DEL', c.DEL, '-' + tt.del + ' FP') +
+      kpi('CFP', c.CFP, '+' + tt.cfp + ' FP') +
+      kpi('UNCHANGED', c.UNCHANGED, enhT('enh.kpi.none', '—')) +
+      kpi('EFP', tt.efp, enhT('enh.kpi.updated', '更新后 UFP') + ' ' + tt.updated, 'efp');
+    if (box.querySelector('.enh-kpi.efp')) {
+      box.querySelector('.enh-kpi.efp small').textContent = enhT('enh.kpi.updated', '更新后 UFP') + ' ' + tt.updated;
+    }
+  }
+
+  function enhRowOptions(row) {
+    if (row.source === 'baseline' && !row.current_ufp) return ['DEL', 'UNCHANGED'];
+    if (row.source === 'current' && !row.baseline_ufp) return ['ADD', 'UNCHANGED'];
+    return ['CHG', 'DEL', 'CFP', 'UNCHANGED'];
+  }
+
+  function enhRenderRows() {
+    var tbody = E('enhRows');
+    if (!tbody) return;
+    tbody.innerHTML = enhRows.map(function (r) {
+      var opts = enhRowOptions(r);
+      var sel = opts.map(function (c) {
+        return '<option value="' + c + '"' + (r.final === c ? ' selected' : '') + '>' + enhCatLabel(c) + '</option>';
+      }).join('');
+      var mismatch = r.final !== r.auto;
+      var cls = [mismatch ? 'mismatch' : '', r.reviewed ? 'reviewed' : ''].filter(Boolean).join(' ');
+      return '<tr data-enh-row="' + r.id + '"' + (cls ? ' class="' + cls + '"' : '') + '>' +
+        '<td><div class="enh-name" title="' + escAttr(r.name + ' · ' + (r.stable_id || '')) + '">' + histEsc(r.name || '—') +
+        '<small>' + histEsc(r.stable_id || enhT('enh.no_id', '无稳定 ID')) + '</small></div></td>' +
+        '<td>' + histEsc(r.system || '—') + '</td>' +
+        '<td><span class="enh-badge ' + r.auto + '" title="' + escAttr(enhReason(r)) + '">' + enhCatLabel(r.auto) + '</span>' +
+        (mismatch ? ' <span class="enh-mismatch-mark" title="' + escAttr(enhT('enh.mismatch', '已改判')) + '">↺</span>' : '') + '</td>' +
+        '<td><select class="enh-final" data-enh-final="' + r.id + '" aria-label="' + escAttr(enhT('enh.th.final', '最终分类') + ' ' + r.name) + '" onchange="enhSetFinal(\'' + r.id + '\',this.value)">' + sel + '</select></td>' +
+        '<td><span class="enh-conf ' + r.confidence + '">' + enhConfLabel(r.confidence) + '</span></td>' +
+        '<td class="enh-num">' + (r.baseline_ufp || 0) + '</td>' +
+        '<td class="enh-num">' + (r.current_ufp || 0) + '</td>' +
+        '<td><input class="enh-review" type="checkbox" data-enh-review="' + r.id + '"' + (r.reviewed ? ' checked' : '') +
+        ' aria-label="' + escAttr(enhT('enh.th.review', '复核') + ' ' + r.name) + '" onchange="enhToggleReview(\'' + r.id + '\',this.checked)"></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function enhRefreshState() {
+    enhRenderSummary();
+    var all = enhAllReviewed();
+    var progress = E('enhProgress');
+    if (progress) {
+      progress.textContent = enhRows.length
+        ? tf('enh.progress.done', { done: enhRows.filter(function (r) { return r.reviewed; }).length, total: enhRows.length })
+        : enhT('enh.progress.none', '尚未复核');
+    }
+    ['enhCsv', 'enhJson'].forEach(function (id) {
+      var b = E(id);
+      if (b) b.disabled = !all;
+    });
+    var acc = E('enhAcceptAll');
+    if (acc) acc.disabled = !enhRows.length || all;
+    var table = E('enhTableWrap');
+    if (table) table.hidden = !enhRows.length;
+    var empty = E('enhEmpty');
+    if (empty) empty.hidden = !!enhRows.length || !!enhData || enhBusy;
+  }
+
+  function enhRender() {
+    enhRenderRows();
+    enhRefreshState();
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function enhSetFinal(id, value) {
+    var row = enhRows.find(function (r) { return r.id === id; });
+    if (!row || ENH_CATS.indexOf(value) < 0) return;
+    row.final = value;
+    row.reviewed = true;
+    var tr = document.querySelector('[data-enh-row="' + id + '"]');
+    if (tr) {
+      tr.classList.toggle('mismatch', row.final !== row.auto);
+      tr.classList.add('reviewed');
+      var cb = tr.querySelector('[data-enh-review]');
+      if (cb) cb.checked = true;
+    }
+    enhRefreshState();
+  }
+
+  function enhToggleReview(id, checked) {
+    var row = enhRows.find(function (r) { return r.id === id; });
+    if (!row) return;
+    row.reviewed = !!checked;
+    var tr = document.querySelector('[data-enh-row="' + id + '"]');
+    if (tr) tr.classList.toggle('reviewed', row.reviewed);
+    enhRefreshState();
+  }
+
+  function enhAcceptAll() {
+    if (!enhRows.length) return;
+    enhRows.forEach(function (r) { r.reviewed = true; });
+    enhRenderRows();
+    enhRefreshState();
+    toast(enhT('enh.toast.accepted', '已标记全部建议为已复核；导出前请确认改判项。'));
+  }
+
+  async function enhClassify(baseline, label) {
+    if (enhBusy) return;
+    if (!Array.isArray(baseline)) {
+      enhStatus(enhT('enh.status.no_baseline', '基线不可用。'), 'bad');
+      return;
+    }
+    enhBusy = true;
+    enhData = null;
+    enhRows = [];
+    enhBaseTotal = 0;
+    enhStatus(enhT('enh.status.classifying', '正在比较基线并生成建议…'));
+    if (E('enhTableWrap')) E('enhTableWrap').hidden = true;
+    if (E('enhAcceptAll')) E('enhAcceptAll').disabled = true;
+    if (E('enhCsv')) E('enhCsv').disabled = true;
+    if (E('enhJson')) E('enhJson').disabled = true;
+    try {
+      var cur = (items || []).map(function (it) { return Object.assign({}, it); });
+      var payload = {
+        baseline: baseline,
+        current: cur,
+        method: (E('methodSel') && E('methodSel').value) || '估算功能点',
+        cx_mode: (typeof cxMode === 'string' ? cxMode : '企业母版')
+      };
+      var r = await fetch(API + '/api/enhancement/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var j = await r.json();
+      if (!j.ok) throw new Error(lm(j));
+      enhData = j;
+      enhRows = j.rows || [];
+      enhBaseTotal = (j.totals && j.totals.baseline_ufp) || 0;
+      enhRender();
+      enhStatus((label ? label + ' · ' : '') + tf('enh.status.ready', {
+        n: enhRows.length, matched: (j.coverage || {}).matched || 0,
+        add: (j.suggested_counts || {}).add || 0, chg: (j.suggested_counts || {}).chg || 0,
+        del: (j.suggested_counts || {}).del || 0, cfp: (j.suggested_counts || {}).cfp || 0
+      }), 'ok');
+    } catch (e) {
+      enhStatus(enhT('enh.status.fail', '分类失败') + '：' + e.message, 'bad');
+      if (E('enhEmpty')) E('enhEmpty').hidden = false;
+    } finally {
+      enhBusy = false;
+      enhRefreshState();
+    }
+  }
+
+  async function enhFetchJSON(url) {
+    var r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  async function enhLoadBaselines() {
+    enhStatus(enhT('enh.status.loading', '正在载入基线…'));
+    var sel = E('enhBase');
+    if (sel) sel.innerHTML = '<option value="">' + enhT('enh.baseline.none', '（无）') + '</option>';
+    if (E('enhBaseMeta')) E('enhBaseMeta').textContent = '';
+    var j;
+    try { j = await enhFetchJSON(API + '/api/history?limit=200'); } catch (e) {
+      enhStatus(enhT('enh.status.history_fail', '历史版本不可用') + '：' + e.message, 'bad');
+      return;
+    }
+    var rows = (j.rows || []).filter(function (x) { return x.id; });
+    var curId = localStorage.getItem('wl_last_history') || '';
+    var options = rows.filter(function (x) { return x.id !== curId; });
+    var preferred = null;
+    if (curId) {
+      try {
+        var g = await enhFetchJSON(API + '/api/history/' + curId + '/group');
+        var versions = (g.versions || []).slice().sort(function (a, b) { return (a.version_no || 0) - (b.version_no || 0); });
+        var c = versions.filter(function (x) { return x.id === curId; })[0];
+        var before = versions.filter(function (x) { return !c || (x.version_no || 0) < (c.version_no || 0); });
+        if (before.length) preferred = before[before.length - 1].id;
+        versions.forEach(function (v) {
+          if (v.id === curId) return;
+          if (!options.some(function (x) { return x.id === v.id; })) {
+            options.push({ id: v.id, title: v.title, version_no: v.version_no, created_at: v.created_at, count: null });
+          }
+        });
+      } catch (e) { /* group 不可用不影响列表 */ }
+    }
+    options.sort(function (a, b) {
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    });
+    if (sel) {
+      sel.innerHTML = '<option value="">' + enhT('enh.baseline.choose', '选择基线版本') + '</option>' +
+        options.map(function (x) {
+          return '<option value="' + escAttr(x.id) + '">' + histEsc((x.version_no ? 'v' + x.version_no + ' · ' : '') +
+            (x.title || '未命名') + (x.count != null ? ' · ' + x.count + ' 项' : '') + ' · ' +
+            String(x.created_at || '').replace('T', ' ').slice(0, 16)) + '</option>';
+        }).join('');
+    }
+    if (!options.length) {
+      enhStatus(enhT('enh.status.no_baseline', '没有可用的基线版本；请先保存历史或导入基线 JSON。'), 'bad');
+      if (E('enhEmpty')) E('enhEmpty').hidden = false;
+      return;
+    }
+    var pick = preferred && options.some(function (x) { return x.id === preferred; }) ? preferred : options[0].id;
+    if (sel) sel.value = pick;
+    await enhBaseChange();
+  }
+
+  async function enhBaseChange() {
+    var sel = E('enhBase');
+    var id = sel && sel.value;
+    if (!id) {
+      enhStatus(enhT('enh.status.no_baseline', '请选择基线版本，或导入基线 JSON。'), 'bad');
+      return;
+    }
+    try {
+      var j = await enhFetchJSON(API + '/api/history/' + id);
+      if (!j.ok || !j.row) throw new Error(lm(j));
+      var row = j.row;
+      if (E('enhBaseMeta')) E('enhBaseMeta').textContent = (row.title || '') + ' · v' + (row.version_no || 1) + ' · ' + (row.items || []).length + ' 项';
+      enhImportedBaseline = null;
+      await enhClassify(row.items || [], enhT('enh.baseline.loaded', '已载入基线'));
+    } catch (e) {
+      enhStatus(enhT('enh.status.base_fail', '载入基线失败') + '：' + e.message, 'bad');
+    }
+  }
+
+  function enhanceOpen(baselineOverride) {
+    var root = E('enhOverlay');
+    if (!root) return;
+    if ((!items || !items.length) && localStorage.getItem('wl_last_history') && typeof histLoad === 'function') {
+      histLoad(localStorage.getItem('wl_last_history')).then(function () {
+        enhanceOpen(baselineOverride);
+      }).catch(function () {
+        toast(enhT('enh.toast.need_items', '请先完成复核并生成结果。'));
+      });
+      return;
+    }
+    if (!items || !items.length) {
+      toast(enhT('enh.toast.need_items', '请先完成复核并生成结果。'));
+      return;
+    }
+    enhLastFocus = document.activeElement;
+    root.hidden = false;
+    root.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('enh-open');
+    if (E('expMenu')) E('expMenu').style.display = 'none';
+    enhRows = [];
+    enhData = null;
+    enhImportedBaseline = null;
+    enhBaseTotal = 0;
+    if (E('enhSummary')) E('enhSummary').innerHTML = '';
+    if (E('enhTableWrap')) E('enhTableWrap').hidden = true;
+    if (E('enhEmpty')) E('enhEmpty').hidden = true;
+    if (E('enhAcceptAll')) E('enhAcceptAll').disabled = true;
+    if (E('enhCsv')) E('enhCsv').disabled = true;
+    if (E('enhJson')) E('enhJson').disabled = true;
+    if (E('enhProgress')) E('enhProgress').textContent = enhT('enh.progress.none', '尚未复核');
+    var sel = E('enhBase');
+    if (Array.isArray(baselineOverride)) {
+      enhImportedBaseline = baselineOverride;
+      if (sel) sel.innerHTML = '<option value="__imported">' + enhT('enh.baseline.imported', '已导入基线') + ' · ' + baselineOverride.length + '</option>';
+      if (E('enhBaseMeta')) E('enhBaseMeta').textContent = enhT('enh.baseline.imported_meta', '外部 JSON 基线');
+      enhClassify(baselineOverride, enhT('enh.baseline.imported', '已导入基线'));
+    } else {
+      enhLoadBaselines();
+    }
+    setTimeout(function () { var b = E('enhClose'); if (b) b.focus(); }, 30);
+  }
+
+  function enhImport() {
+    var f = E('enhFile');
+    if (f) { f.value = ''; f.click(); }
+  }
+
+  async function enhFilePick(input) {
+    var f = input && input.files && input.files[0];
+    if (!f) return;
+    try {
+      var text = await f.text();
+      var j = JSON.parse(text);
+      var arr = Array.isArray(j) ? j : (j.items || j.baseline);
+      if (!Array.isArray(arr) || !arr.length) throw new Error(enhT('enh.import.invalid', 'JSON 中没有 items/baseline 数组'));
+      enhImportedBaseline = arr;
+      var sel = E('enhBase');
+      if (sel) sel.innerHTML = '<option value="__imported">' + histEsc(f.name) + ' · ' + arr.length + '</option>';
+      if (E('enhBaseMeta')) E('enhBaseMeta').textContent = f.name;
+      await enhClassify(arr, f.name);
+    } catch (e) {
+      enhStatus(enhT('enh.status.import_fail', '导入失败') + '：' + e.message, 'bad');
+    } finally {
+      if (input) input.value = '';
+    }
+  }
+
+  function enhCsvField(v) {
+    var s = String(v == null ? '' : v);
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function enhContrib(row) {
+    if (row.final === 'ADD' || row.final === 'CHG') return row.current_ufp || 0;
+    if (row.final === 'DEL') return row.baseline_ufp || 0;
+    if (row.final === 'CFP') return row.current_ufp || row.baseline_ufp || 0;
+    return 0;
+  }
+
+  function enhFileName(ext) {
+    var base = (typeof baseName === 'function' ? baseName() : '工作量评估') || '工作量评估';
+    return base.replace(/[\\/:*?"<>|]/g, '_') + '_EFP.' + ext;
+  }
+
+  function enhExportCsv() {
+    if (!enhAllReviewed()) { toast(enhT('enh.toast.review_all', '请先逐项勾选复核（或点「全部标记已复核」）。')); return; }
+    var tt = enhTotals();
+    var lines = [
+      ['最终分类', '稳定ID', '功能项', '系统', '类型', '基线UFP', '当前UFP', 'EFP贡献', '置信度', '自动建议', '是否改判', '复核', '依据'].map(enhCsvField).join(',')
+    ];
+    enhRows.forEach(function (r) {
+      lines.push([
+        r.final, r.stable_id || '', r.name, r.system, r.type, r.baseline_ufp || 0, r.current_ufp || 0, enhContrib(r),
+        r.confidence, r.auto, r.final !== r.auto ? '是' : '否', r.reviewed ? '是' : '否', enhReason(r)
+      ].map(enhCsvField).join(','));
+    });
+    lines.push('');
+    lines.push(['合计', 'ADD', tt.add, 'CHG', tt.chg, 'CHGB', tt.chgBefore, 'DEL', tt.del, 'CFP', tt.cfp].map(enhCsvField).join(','));
+    lines.push(['合计', 'EFP', tt.efp, '更新后UFP', tt.updated, '基线UFP', tt.baseline, '当前UFP', tt.current].map(enhCsvField).join(','));
+    _dl(enhFileName('csv'), '\ufeff' + lines.join('\n'), 'text/csv');
+    toast(enhT('enh.toast.exported', 'EFP CSV 已导出。'));
+  }
+
+  function enhExportJson() {
+    if (!enhAllReviewed()) { toast(enhT('enh.toast.review_all', '请先逐项勾选复核（或点「全部标记已复核」）。')); return; }
+    var out = {
+      rules_version: enhData && enhData.rules_version,
+      method: enhData && enhData.method,
+      cx_mode: enhData && enhData.cx_mode,
+      formula: enhData && enhData.formula,
+      totals: enhTotals(),
+      rows: enhRows
+    };
+    _dl(enhFileName('json'), JSON.stringify(out, null, 2), 'application/json');
+    toast(enhT('enh.toast.exported', 'EFP JSON 已导出。'));
+  }
+
+  function enhClose() {
+    var root = E('enhOverlay');
+    if (!root) return;
+    root.hidden = true;
+    root.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('enh-open');
+    var f = enhLastFocus && document.body.contains(enhLastFocus) ? enhLastFocus : E('enhBtn');
+    if (f && f.focus) setTimeout(function () { f.focus(); }, 20);
+  }
+
+  (function enhBindKeys() {
+    var root = E('enhOverlay');
+    if (!root) return;
+    root.addEventListener('keydown', function (e) {
+      if (root.hidden) return;
+      if (e.key === 'Escape') { e.preventDefault(); enhClose(); return; }
+      if (e.key !== 'Tab') return;
+      var nodes = [].slice.call(root.querySelectorAll('button:not([disabled]), select:not([disabled]), input:not([disabled]), [href]'));
+      if (!nodes.length) return;
+      var first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+  })();
+
+  window.enhanceOpen = enhanceOpen;
+  window.enhClose = enhClose;
+  window.enhBaseChange = enhBaseChange;
+  window.enhSetFinal = enhSetFinal;
+  window.enhToggleReview = enhToggleReview;
+  window.enhAcceptAll = enhAcceptAll;
+  window.enhImport = enhImport;
+  window.enhFilePick = enhFilePick;
+  window.enhExportCsv = enhExportCsv;
+  window.enhExportJson = enhExportJson;
 })();
 
 </script>

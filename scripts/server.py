@@ -19,6 +19,7 @@ from docx import Document
 from docx.table import Table
 from docx.oxml.ns import qn
 import engine
+import enhancement
 import generate_xlsx as g
 from replay_recognize import guess_type
 import pert
@@ -2362,6 +2363,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/recognize/resume": "_post_recognize_resume",
         "/api/audit/package": "_post_audit_package",
         "/api/share/package": "_post_share_package",
+        "/api/enhancement/classify": "_post_enhancement_classify",
         API_CONFIG: "_post_config",
         "/api/story/push": "_post_story_push",
         "/api/templates/save": "_post_template_save",
@@ -2824,6 +2826,24 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(200, {"ok": True, "file": result["download_name"],
                                 "download": "/api/share/download?f=" + quote(result["download_name"]),
                                 **brief})
+
+    def _post_enhancement_classify(self, raw):
+        """T06189：增强项目 ADD/CHG/DEL/CFP 建议与 EFP（无状态，不写库）。"""
+        if len(raw) > 8_000_000:
+            return self._json(413, {"ok": False, "msg": "增强分类请求体超过 8 MB"})
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        try:
+            result = enhancement.classify(
+                payload.get("baseline"), payload.get("current"),
+                method=payload.get("method") or engine.METHOD_ESTIMATE,
+                cx_mode=payload.get("cx_mode") or engine.CX_MASTER,
+            )
+        except enhancement.EFPError as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        return self._json(200, result)
 
     def _post_generate(self, path, raw):
         payload = json.loads(raw.decode("utf-8"))

@@ -36,10 +36,11 @@ try {
       const de=document.documentElement;
       const clipped=[...document.querySelectorAll('.nav .lbl,.step span,.brand h1,.btn')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.height&&(r.right>innerWidth+1||r.left<-1);}).length;
       const overflow=[...document.querySelectorAll('.nav .lbl,.step span,.brand h1,.btn')].filter(e=>e.scrollWidth>e.clientWidth+2).length;
-      return JSON.stringify({vw:innerWidth, docW:de.scrollWidth, bodyW:document.body.scrollWidth, clipped, overflow, lang:document.documentElement.lang});
+      const wide=[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:(e.className&&e.className.baseVal!==undefined?e.className.baseVal:e.className)||'',id:e.id||'',right:Math.round(r.right),left:Math.round(r.left),w:Math.round(r.width),sw:e.scrollWidth,cw:e.clientWidth};}).filter(x=>x.w&&(x.right>innerWidth+1||x.left<-1||x.sw>x.cw+2)).slice(0,12);
+      return JSON.stringify({vw:innerWidth, docW:de.scrollWidth, bodyW:document.body.scrollWidth, clipped, overflow, wide, lang:document.documentElement.lang});
     })()`));
     widths.push({ width: w, ...z });
-    check(`伪本地化 ${w}px 无横向滚动`, z.docW <= z.vw + 2 && z.bodyW <= z.vw + 2, `vw=${z.vw} doc=${z.docW} body=${z.bodyW}`);
+    check(`伪本地化 ${w}px 无横向滚动`, z.docW <= z.vw + 2 && z.bodyW <= z.vw + 2, `vw=${z.vw} doc=${z.docW} body=${z.bodyW} wide=${JSON.stringify(z.wide)}`);
     check(`伪本地化 ${w}px 标签未裁切/溢出`, z.clipped === 0 && z.overflow === 0, `clipped=${z.clipped} overflow=${z.overflow}`);
     await page.shot(path.join(OUT, 'screenshots', `i18n_pseudo_${w}.png`));
   }
