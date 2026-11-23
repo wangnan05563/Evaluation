@@ -221,6 +221,7 @@
       <button class="btn btn-ghost" id="tabSum" onclick="gbTab('sum')" style="font-weight:700"><span data-i18n="result.tab.sum">评估汇总</span></button>
       <button class="btn btn-ghost" id="tabGb" onclick="gbTab('gb');gbRender()"><span data-i18n="result.tab.gb">国标造价</span></button>
       <span style="flex:1"></span>
+      <button class="btn btn-ghost" id="presentBtn" onclick="presenterOpen()" data-i18n="title=result.present_title" title="进入大字号投屏演示模式"><i aria-hidden="true" data-lucide="presentation" style="width:15px;height:15px"></i><span data-i18n="result.present">演示模式</span></button>
       <button class="btn btn-ghost r-anchor" data-anchor="kpisSec" onclick="rAnchor('kpisSec')"><span data-i18n="result.anchor.sum">结论摘要</span></button>
       <button class="btn btn-ghost r-anchor" data-anchor="rGridSec" onclick="rAnchor('rGridSec')"><span data-i18n="result.anchor.detail">明细</span></button>
       <button class="btn btn-ghost r-anchor" data-anchor="dlSec" onclick="rAnchor('dlSec')"><span data-i18n="result.anchor.export">导出</span></button>
@@ -266,6 +267,7 @@
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expMd()" data-i18n="title=result.export.md_title" title="KPI+分布表格+Top10 明细"><span data-i18n="result.export.md">Markdown 摘要</span></button>
               <button class="btn btn-ghost" style="display:block;width:100%;text-align:left" onclick="expPdf()" data-i18n="title=result.export.pdf_title" title="打印管线，目标选择另存为 PDF"><span data-i18n="result.export.pdf">评估报告（PDF/打印）</span></button>
               <button class="btn btn-ghost" id="auditBtn" style="display:block;width:100%;text-align:left" onclick="auditPackage()" data-i18n="title=result.export.audit_title" title="生成七部分审计包（PDF）"><i data-lucide="file-check-2" style="width:15px;height:15px"></i><span data-i18n="result.export.audit">七部分审计包（PDF）</span></button>
+              <button class="btn btn-ghost" id="shareBtn" style="display:block;width:100%;text-align:left" onclick="sharePackage()" data-i18n="title=result.export.share_title" title="离线单文件，仅含已确认项，无外部链接"><i data-lucide="package-check" style="width:15px;height:15px"></i><span data-i18n="result.export.share">脱敏分享包（HTML）</span></button>
             </span>
           </span>
         </div>
@@ -302,6 +304,21 @@
     </div>
   </section>
   </main>
+
+  <!-- T06182 / AC-10：大字号投屏演示模式；只展示已确认项，内部备注与未确认数据不进入投屏。 -->
+  <div id="presenter" class="presenter" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="工作量评估演示模式">
+    <div class="pz-top">
+      <span class="pz-brand">WORKLOAD EVALUATION · 演示模式</span>
+      <span class="pz-counter" id="presenterCounter">1 / 1</span>
+      <button class="pz-exit" id="presenterExit" onclick="presenterClose()" aria-label="退出演示模式">退出 Esc</button>
+    </div>
+    <div class="pz-stage" id="presenterStage" aria-live="polite"></div>
+    <div class="pz-nav">
+      <button id="presenterPrev" onclick="presenterPrev()" aria-label="上一页">上一页</button>
+      <button id="presenterNext" onclick="presenterNext()" aria-label="下一页">下一页</button>
+      <span>← / → 翻页 · Esc 退出 · 大字号投屏</span>
+    </div>
+  </div>
 
   <!-- ============ 页面二：配置中心 ============ -->
   <main class="page" id="pg-config">

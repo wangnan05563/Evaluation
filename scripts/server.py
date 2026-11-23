@@ -100,9 +100,13 @@ OUTDIR = APP_DATA / "generated"
 AUDIT_DIR = APP_DATA / "audit_packages"      # T06181：七部分审计包（PDF）
 AUDIT_LOCK = threading.Lock()                # 单进程串行渲染，避免两个 Chrome 抢 profile/端口
 AUDIT_NAME_RE = re.compile(r"^audit_[A-Za-z0-9_.-]{1,96}\.pdf$")
+SHARE_DIR = APP_DATA / "share_packages"      # T06182：离线脱敏分享包（单文件 HTML）
+SHARE_LOCK = threading.Lock()
+SHARE_NAME_RE = re.compile(r"^share_[A-Za-z0-9_.-]{1,96}\.html$")
 UPLOAD.mkdir(parents=True, exist_ok=True)
 OUTDIR.mkdir(parents=True, exist_ok=True)
 AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+SHARE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------- 生成进度上报（T00927） ----------------
 # /api/generate 是同步接口且耗时集中在引擎填充 + Excel 公式重算，前端拿不到中间态。
@@ -2239,6 +2243,27 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return True
+        if u.path == "/api/share/download":
+            # T06182：离线脱敏分享包下载。文件名白名单 + 只读 SHARE_DIR。
+            q = parse_qs(u.query)
+            name = (q.get("f") or [""])[0]
+            if not SHARE_NAME_RE.fullmatch(name):
+                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
+                return True
+            f = SHARE_DIR / name
+            if not f.is_file():
+                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
+                return True
+            data = f.read_bytes()
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return True
         if u.path == "/api/download":
             q = parse_qs(u.query)
             s = (q.get("s") or [""])[0]
@@ -2298,6 +2323,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/recognize/cancel": "_post_recognize_cancel",
         "/api/recognize/resume": "_post_recognize_resume",
         "/api/audit/package": "_post_audit_package",
+        "/api/share/package": "_post_share_package",
         API_CONFIG: "_post_config",
         "/api/story/push": "_post_story_push",
         "/api/templates/save": "_post_template_save",
@@ -2734,6 +2760,31 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(500, {"ok": False, "msg": "审计包未通过验收检查", "result": brief})
         return self._json(200, {"ok": True, "file": result["download_name"],
                                 "download": "/api/audit/download?f=" + quote(result["download_name"]),
+                                **brief})
+
+    def _post_share_package(self, raw):
+        """T06182：生成离线脱敏分享包（单文件 HTML，只含已确认项）。"""
+        if len(raw) > 3_000_000:
+            return self._json(413, {"ok": False, "msg": "分享包请求体超过 3 MB"})
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        try:
+            import share_package
+            with SHARE_LOCK:
+                result = share_package.generate(payload, SHARE_DIR)
+        except ValueError as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        except Exception as e:
+            return self._json(500, {"ok": False, "msg": f"分享包生成失败：{e}"})
+        brief = {k: result.get(k) for k in ("ok", "items", "excluded", "size", "sections",
+                                           "external_links", "font_stack", "html_sha256",
+                                           "elapsed_ms", "summary")}
+        if not result.get("ok"):
+            return self._json(500, {"ok": False, "msg": "分享包未通过离线自检", "result": brief})
+        return self._json(200, {"ok": True, "file": result["download_name"],
+                                "download": "/api/share/download?f=" + quote(result["download_name"]),
                                 **brief})
 
     def _post_generate(self, path, raw):
