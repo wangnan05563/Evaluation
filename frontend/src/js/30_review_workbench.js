@@ -196,6 +196,7 @@
     if (window.pushUndo) pushUndo("证据抽屉确认");
     it.ok = !it.ok;
     if (window.render) render();
+    if (window.ReviewPerf) ReviewPerf.action("toggle_confirm", { seq: it.seq, ok: it.ok });
     if (window.toast) toast(it.ok ? "已确认" : "已取消确认");
   }
   function setFilter(k) { filter = filter === k ? "" : k; render(); }

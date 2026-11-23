@@ -58,7 +58,10 @@ function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function batchConfirm(){const arr=visibleItems();pushUndo("批量确认");arr.forEach(it=>it.ok=true);render();saveFormState();toast(tf("batch.confirmed",{n:arr.length}));}
+function batchConfirm(){const arr=visibleItems();pushUndo("批量确认");arr.forEach(it=>it.ok=true);render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_confirm",{n:arr.length});toast(tf("batch.confirmed",{n:arr.length}));}
+function batchUnconfirm(){const arr=visibleItems();if(!arr.length)return;
+  if(!confirm(tf("batch.unconfirm_confirm",{n:arr.length})))return;
+  pushUndo("批量取消确认");arr.forEach(it=>it.ok=false);render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_unconfirm",{n:arr.length});toast(tf("batch.unconfirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
   pushUndo("批量删除");

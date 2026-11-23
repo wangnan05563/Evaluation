@@ -254,7 +254,9 @@ $("#tbody").addEventListener("change",e=>{
     pushUndo("确认状态");
     it.ok=ck.checked;row.classList.toggle("done",ck.checked);
     const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();return;}
+    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
+    if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
+    return;}
   const s=e.target;if(!s.dataset.k)return;
   const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
   if(String(it[s.dataset.k])===String(s.value))return;

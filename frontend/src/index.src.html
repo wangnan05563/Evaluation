@@ -208,13 +208,15 @@
           <button class="btn btn-ghost" id="redoBtn" onclick="redoEdit()" disabled title="重做（Ctrl+Y）" aria-label="重做"><i aria-hidden="true" data-lucide="redo-2" style="width:15px;height:15px"></i></button>
           <button class="btn btn-ghost" onclick="showAllBasis()" data-i18n="title=review.basis_all" title="展开全部判定依据" aria-label="展开全部判定依据"><i aria-hidden="true" data-lucide="eye" style="width:15px;height:15px"></i></button>
         </div>
-        <div class="mark" id="batchBar" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
+        <div class="mark" id="batchBar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <b><span data-i18n="review.batch.pre">对筛选出的</span> <span id="batchCnt">0</span> <span data-i18n="review.batch.post">行批量：</span></b>
           <select id="bReuse" aria-label="批量设置重用度"><option value="" data-i18n="review.batch.reuse">重用度…</option><option>高</option><option>中</option><option>低</option></select>
           <select id="bModify" aria-label="批量设置修改类型"><option value="" data-i18n="review.batch.modify">修改类型…</option><option>新增</option><option>修改</option><option>删除</option></select>
           <select id="bCx" aria-label="批量设置复杂度"><option value="" data-i18n="review.batch.cx">复杂度…</option><option>低</option><option>中</option><option>高</option></select>
           <button class="btn btn-ghost" onclick="batchApply()" data-i18n="title=review.batch.apply_title" title="应用到筛选出的全部行"><span data-i18n="review.batch.apply">应用</span></button>
           <button class="btn btn-ghost" onclick="batchConfirm()" data-i18n="title=review.batch.confirm_title" title="全部标记为已确认"><span data-i18n="review.batch.confirm">标记确认</span></button>
+          <button class="btn btn-ghost" id="smartReview" onclick="smartConfirm()" data-i18n="title=review.batch.smart_title" title="一键确认低风险待复核项；中高风险仍逐条复核"><i aria-hidden="true" data-lucide="zap" style="width:14px;height:14px"></i><span id="smartReviewTxt">确认低风险</span></button>
+          <button class="btn btn-ghost" id="batchUnconfirm" onclick="batchUnconfirm()" data-i18n="title=review.batch.unconfirm_title" title="将筛选出的行标记为未确认（批量驳回）"><span data-i18n="review.batch.unconfirm">取消确认</span></button>
           <button class="btn btn-ghost" onclick="batchDelete()" data-i18n="title=review.batch.del_title" title="删除筛选出的全部行（需确认）"><i aria-hidden="true" data-lucide="trash-2" style="width:14px;height:14px"></i><span data-i18n="review.batch.del">删除</span></button>
         </div>
         <div class="ct-wrap" role="table" aria-label="功能点复核表">
@@ -239,6 +241,7 @@
             <div class="gprog-track"><div class="gprog-fill" id="genProgFill"></div></div>
           </div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6"><span id="cxHint">已按 IFPUG 初识，请人工复核类别与复杂度；企业母版按类别默认权重计算 UFP。</span></div>
+          <div class="rwb-kbd-hint" aria-label="复核快捷键"><span data-i18n="review.kbd.nav">J / K 切换</span><span>·</span><span data-i18n="review.kbd.open">Enter 查看证据</span><span>·</span><span data-i18n="review.kbd.confirm">C 确认并下一条</span><span>·</span><span data-i18n="review.kbd.smart">A 确认低风险</span></div>
           <div class="lt">
             <div class="item"><span data-i18n="review.dock.ok">已确认</span><b id="okCnt">0</b></div>
             <div class="item"><span data-i18n="review.dock.ufp">UFP 合计</span><b id="dockUfp">0</b></div>

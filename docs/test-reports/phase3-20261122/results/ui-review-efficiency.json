@@ -1,0 +1,217 @@
+{
+  "suite": "ui-review-efficiency",
+  "at": "2026-11-23T22:24:00.126Z",
+  "checks": [
+    {
+      "title": "基线数据 100 条（80 低风险 / 20 高风险）",
+      "ok": true,
+      "detail": "{\"n\":100,\"low\":80,\"high\":20}"
+    },
+    {
+      "title": "批量条提供低风险一键确认",
+      "ok": true,
+      "detail": "{\"smart\":true,\"smartText\":\"确认低风险（80）\",\"smartDisabled\":false,\"unconfirm\":true,\"hint\":\"J / K 切换·Enter 查看证据·C 确认并下一条·A 确认低风险\"}"
+    },
+    {
+      "title": "批量条提供批量取消确认（驳回）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "复核页显示键盘路径提示",
+      "ok": true,
+      "detail": "J / K 切换·Enter 查看证据·C 确认并下一条·A 确认低风险"
+    },
+    {
+      "title": "快捷键 A 一键确认 80 条低风险",
+      "ok": true,
+      "detail": "{\"afterA\":{\"ok\":80,\"low\":0},\"selectedAfterJ\":81,\"afterC\":{\"ok\":81,\"selected\":82},\"drawerOpen\":true}"
+    },
+    {
+      "title": "快捷键 J 跳到下一条高风险",
+      "ok": true,
+      "detail": "{\"afterA\":{\"ok\":80,\"low\":0},\"selectedAfterJ\":81,\"afterC\":{\"ok\":81,\"selected\":82},\"drawerOpen\":true}"
+    },
+    {
+      "title": "快捷键 C 确认当前并自动下一条",
+      "ok": true,
+      "detail": "{\"afterA\":{\"ok\":80,\"low\":0},\"selectedAfterJ\":81,\"afterC\":{\"ok\":81,\"selected\":82},\"drawerOpen\":true}"
+    },
+    {
+      "title": "批量取消确认/批量确认往返生效",
+      "ok": true,
+      "detail": "{\"off\":100,\"on\":100}"
+    },
+    {
+      "title": "基线 100 条全部确认",
+      "ok": true,
+      "detail": "{\"ms\":8917.5,\"ok\":100,\"selected\":100}"
+    },
+    {
+      "title": "优化路径只自动确认 80 条低风险",
+      "ok": true,
+      "detail": "{\"ms\":1177.4,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}}"
+    },
+    {
+      "title": "优化路径 100 条全部确认",
+      "ok": true,
+      "detail": "{\"ms\":1177.4,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}}"
+    },
+    {
+      "title": "复核总用时较基线下降≥30%",
+      "ok": true,
+      "detail": "baseline=8917.5ms optimized=1177.4ms reduction=86.8% (13.2% of baseline)"
+    },
+    {
+      "title": "ReviewPerf 记录操作与耗时",
+      "ok": true,
+      "detail": "{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}"
+    }
+  ],
+  "pass": 13,
+  "total": 13,
+  "baseline_ms": 8917.5,
+  "optimized_ms": 1177.4,
+  "reduction_pct": 86.8,
+  "baseline_ok": 100,
+  "optimized_ok": 100,
+  "optimized_low": 80,
+  "perf": {
+    "started_at": "2026-11-23T22:23:58.641Z",
+    "duration_ms": 1177,
+    "items": 100,
+    "confirmed": 100,
+    "actions": 21,
+    "ops": [
+      {
+        "k": "review_start",
+        "t": 0
+      },
+      {
+        "k": "smart_confirm",
+        "t": 0,
+        "n": 80
+      },
+      {
+        "k": "row_toggle",
+        "t": 203,
+        "seq": 81,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 256,
+        "seq": 82,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 313,
+        "seq": 83,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 372,
+        "seq": 84,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 434,
+        "seq": 85,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 486,
+        "seq": 86,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 531,
+        "seq": 87,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 574,
+        "seq": 88,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 620,
+        "seq": 89,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 674,
+        "seq": 90,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 726,
+        "seq": 91,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 781,
+        "seq": 92,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 846,
+        "seq": 93,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 902,
+        "seq": 94,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 947,
+        "seq": 95,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 993,
+        "seq": 96,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 1038,
+        "seq": 97,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 1082,
+        "seq": 98,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 1134,
+        "seq": 99,
+        "ok": true
+      },
+      {
+        "k": "row_toggle",
+        "t": 1177,
+        "seq": 100,
+        "ok": true
+      }
+    ]
+  }
+}
