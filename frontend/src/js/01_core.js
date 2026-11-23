@@ -301,7 +301,7 @@ function pertStep(s){
   document.body.dataset.pertstep=s;
   const map={in:1,edit:2,gen:3};
   Object.keys(map).forEach(k=>{$("#pst"+map[k]).classList.toggle("on",k===s);});
-  if(s==="gen"&&typeof calibrationRender==="function")calibrationRender();   // T06191：实际值校准
+  if(s==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}   // T06191/T06192：实际值校准 + 蒙特卡洛
   window.lucide&&lucide.createIcons();
   saveFormState();
 }
@@ -357,7 +357,7 @@ async function pertRefresh(){
   pertItems=r.items;
   renderPert();
   applyPertSummary(r.summary);
-  if(document.body.dataset.pertstep==="gen"&&typeof calibrationRender==="function")calibrationRender();
+  if(document.body.dataset.pertstep==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}
 }
 async function pertAdd(){
   if(!pertPid){toast(t("pert.need_project"));return;}

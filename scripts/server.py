@@ -1924,6 +1924,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/pert/delete": "_post_pert_delete",
         "/api/pert/actual": "_post_pert_actual",
         "/api/pert/calibration": "_post_pert_calibration",
+        "/api/pert/montecarlo": "_post_pert_montecarlo",
         "/api/pert/import": "_post_pert_import",
         "/api/pert/import/confirm": "_post_pert_import_confirm",
         "/api/pert/generate": "_post_pert_generate",
@@ -2484,6 +2485,45 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             con.close()
         return self._json(200, {"ok": True, **result})
+
+    def _post_pert_montecarlo(self, raw):
+        # T06192：PERT-Beta 蒙特卡洛，固定种子复现；只读估算，不写任何历史数据。
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        if not pid:
+            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+        try:
+            sims = int(payload.get("simulations") or pert.MC_DEFAULT_SIMS)
+        except (TypeError, ValueError):
+            return self._json(400, {"ok": False, "msg": "模拟次数必须为整数"})
+        try:
+            seed = int(payload.get("seed", pert.MC_DEFAULT_SEED))
+        except (TypeError, ValueError):
+            return self._json(400, {"ok": False, "msg": "随机种子必须为整数"})
+        target = payload.get("target_days")
+        if target is None or (isinstance(target, str) and not target.strip()):
+            target = None
+        else:
+            try:
+                target = float(target)
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "msg": "目标人天必须为数字"})
+        con = _pert_connect()
+        try:
+            if not con.execute("SELECT id FROM projects WHERE id=?", (pid,)).fetchone():
+                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+            rows = con.execute(
+                "SELECT phase,system,module,desc,optimistic,most_likely,pessimistic "
+                "FROM pert_items WHERE project_id=? ORDER BY id", (pid,)).fetchall()
+        finally:
+            con.close()
+        items = [{"phase": r[0], "system": r[1], "module": r[2], "desc": r[3],
+                  "optimistic": r[4], "most_likely": r[5], "pessimistic": r[6]} for r in rows]
+        try:
+            result = pert.monte_carlo(items, simulations=sims, seed=seed, target_days=target)
+        except ValueError as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        return self._json(200, result)
 
     def _post_pert_delete(self, raw):
         payload = json.loads(raw.decode("utf-8"))

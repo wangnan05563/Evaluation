@@ -21,7 +21,7 @@ a = Analysis(
            (os.path.join(ROOT, 'data', 'i18n'), 'data/i18n'),
            (os.path.join(ROOT, 'data', 'recognition_rules.json'), 'data'),
            (os.path.join(ROOT, 'data', 'rates_versions.json'), 'data')],
-    hiddenimports=['engine', 'generate_xlsx', 'replay_recognize'],
+    hiddenimports=['engine', 'generate_xlsx', 'replay_recognize', 'numpy'],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],

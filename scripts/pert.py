@@ -2,7 +2,7 @@
 """PERT 三点估算：SQLite 数据层 + 计算引擎 + 阜新 V2.0 模板生成。
 所有自包含，不依赖 server.py；frozen(exe) 时一并收集。
 """
-import json, os, re, shutil, sqlite3, zipfile
+import json, os, re, shutil, sqlite3, time, zipfile
 from pathlib import Path
 
 # 空白母版随包分发（tpl/pert-template.xlsx）；环境 WE_TPL_PERT 可覆盖。
@@ -219,6 +219,111 @@ def calibration(con, min_samples=5):
         "mape": round(mape, 2), "bias_pct": round(bias, 2),
         "direction": direction, "factor": round(factor, 4),
         "suggested_factor": suggested, "message": message, "projects": samples,
+    }
+
+
+# ---------------- 蒙特卡洛（T06192 / REQ-014 / AC-14）----------------
+MC_DEFAULT_SIMS = 10000
+MC_MAX_SIMS = 50000
+MC_DEFAULT_SEED = 20261122
+MC_SCENARIOS = (("乐观", 0.9), ("基准", 1.0), ("保守", 1.1))
+
+
+def _mc_label(row):
+    """敏感性表用的可读任务名：系统·模块·描述，过长截断。"""
+    parts = [str(row.get(k) or "").strip() for k in ("system", "module", "desc")]
+    label = "·".join(p for p in parts if p)
+    return label[:100] or "未命名任务"
+
+
+def _mc_params(rows):
+    """把三点估算整理为 numpy 数组；非法顺序用 ValueError 截住。"""
+    o = [float(r.get("optimistic") or 0) for r in rows]
+    m = [float(r.get("most_likely") or 0) for r in rows]
+    p = [float(r.get("pessimistic") or 0) for r in rows]
+    for i, (a, b, c) in enumerate(zip(o, m, p)):
+        if a < 0 or b < 0 or c < 0 or not (a <= b <= c):
+            raise ValueError(f"第 {i + 1} 项三点估算非法：需 0 ≤ 乐观 ≤ 最可能 ≤ 悲观")
+    return o, m, p
+
+
+def monte_carlo(rows, simulations=MC_DEFAULT_SIMS, seed=MC_DEFAULT_SEED,
+                target_days=None, scenarios=None):
+    """PERT-Beta 蒙特卡洛：固定种子复现，输出 P50/P80/P95、达标概率与敏感性 Top5。
+
+    每个任务按 Beta-PERT（λ=4）独立采样，总量为逐任务样本和；敏感性用各任务
+    对总方差的贡献占比（独立随机变量方差可加），不依赖外部 AI。
+    """
+    import numpy as np
+
+    if not rows:
+        raise ValueError("没有可模拟的估算条目")
+    if simulations < 1000 or simulations > MC_MAX_SIMS:
+        raise ValueError(f"模拟次数需在 1000–{MC_MAX_SIMS} 之间")
+    if target_days is not None and target_days < 0:
+        raise ValueError("目标人天不能为负")
+
+    t0 = time.perf_counter()
+    o, m, p = _mc_params(rows)
+    o_a, m_a, p_a = np.asarray(o, float), np.asarray(m, float), np.asarray(p, float)
+    span = p_a - o_a
+    # Beta-PERT：均值=(O+4M+P)/6；span=0 时退化为常量。
+    alpha = np.where(span > 0, 1 + 4 * (m_a - o_a) / np.maximum(span, 1e-12), 1.0)
+    beta = np.where(span > 0, 1 + 4 * (p_a - m_a) / np.maximum(span, 1e-12), 1.0)
+    rng = np.random.default_rng(int(seed))
+    x = rng.beta(alpha, beta, size=(int(simulations), len(rows)))
+    totals = (o_a + span * x).sum(axis=1)
+
+    q = np.percentile(totals, [50, 80, 95], method="linear")
+    mean = float(totals.mean())
+    std = float(totals.std(ddof=1)) if simulations > 1 else 0.0
+    target = None if target_days is None else float(target_days)
+    prob = None if target is None else float((totals <= target).mean() * 100)
+
+    # 各任务方差贡献（Beta 方差公式按 span 缩放）；Top5 即不确定性的主要来源。
+    var = np.where(span > 0,
+                   span ** 2 * alpha * beta /
+                   ((alpha + beta) ** 2 * (alpha + beta + 1)), 0.0)
+    total_var = float(var.sum())
+    sens = []
+    for i in np.argsort(-var)[:5]:
+        if var[i] <= 0:
+            continue
+        sens.append({
+            "label": _mc_label(rows[int(i)]),
+            "expected_days": round(exp(o[int(i)], m[int(i)], p[int(i)]), 2),
+            "variance_days": round(float(var[int(i)]), 2),
+            "share_pct": round(float(var[int(i)] / total_var * 100), 1) if total_var else 0.0,
+        })
+
+    sc_in = scenarios if scenarios else [{"name": n, "factor": f} for n, f in MC_SCENARIOS]
+    scen = []
+    for s in sc_in:
+        try:
+            factor = float(s.get("factor", 1))
+        except (TypeError, ValueError):
+            raise ValueError("情景系数必须为数字")
+        if factor <= 0:
+            raise ValueError("情景系数必须大于 0")
+        scen.append({
+            "name": str(s.get("name") or f"×{factor}")[:20], "factor": factor,
+            "p50": round(float(q[0]) * factor, 2),
+            "p80": round(float(q[1]) * factor, 2),
+            "p95": round(float(q[2]) * factor, 2),
+            # 比例情景下 P(T×f ≤ target) = P(T ≤ target/f)
+            "probability_pct": None if target is None else
+            round(float((totals <= target / factor).mean() * 100), 1),
+        })
+
+    return {
+        "ok": True, "simulations": int(simulations), "seed": int(seed),
+        "tasks": len(rows), "p50": round(float(q[0]), 2),
+        "p80": round(float(q[1]), 2), "p95": round(float(q[2]), 2),
+        "mean": round(mean, 2), "std_dev": round(std, 2),
+        "target_days": target, "probability_pct": None if prob is None else round(prob, 1),
+        "sensitivity": sens, "scenarios": scen,
+        "sensitivity_method": "variance_share",
+        "duration_ms": int((__import__("time").perf_counter() - t0) * 1000),
     }
 
 
