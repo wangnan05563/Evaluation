@@ -65,7 +65,7 @@
 #v-review .ct-body .ct-ck { display: flex; align-items: center; justify-content: center; padding: 0; }
 #v-review .ct-empty { padding: 24px 12px; }
 #v-review .ct-body .rowr:hover { background: var(--surface-2); }
-#v-review .ct-body .rowr.done { opacity: .7; }
+#v-review .ct-body .rowr.done { background: var(--surface-2); }
 #v-review .ct-body .rowr.cur { outline: 2px solid var(--brand); outline-offset: -2px; z-index: 2; }
 /* 展开判定依据时行高不再固定；覆盖后续行并可读。 */
 #v-review .ct-body .rowr.showb {
@@ -81,4 +81,27 @@
   #v-review .ct-body .rowr {
     grid-template-columns: 34px minmax(180px, 1fr) 140px 170px 52px 76px 76px 56px 86px;
   }
+}
+
+/* T06173：200% 缩放（720 CSS px）下复核表改为 4 列只读布局，避免文档级横向滚动。
+   只保留勾选/描述/计数项类别/状态；其余列在窄视口隐藏，编辑走批量操作。 */
+@media (max-width: 900px) {
+  #v-review .ct-head,
+  #v-review .ct-body .rowr {
+    grid-template-columns: 32px minmax(0, 1fr) 96px 72px;
+  }
+  #v-review .ct-head .ct-h:nth-child(4),
+  #v-review .ct-head .ct-h:nth-child(5),
+  #v-review .ct-head .ct-h:nth-child(6),
+  #v-review .ct-head .ct-h:nth-child(7),
+  #v-review .ct-head .ct-h:nth-child(8),
+  #v-review .ct-body .rowr .ct-c:nth-child(4),
+  #v-review .ct-body .rowr .ct-c:nth-child(5),
+  #v-review .ct-body .rowr .ct-c:nth-child(6),
+  #v-review .ct-body .rowr .ct-c:nth-child(7),
+  #v-review .ct-body .rowr .ct-c:nth-child(8) {
+    display: none;
+  }
+  #v-review .ct-body .rowr .ct-c:nth-child(3) { padding-left: 6px; padding-right: 6px; }
+  #v-review .ct-body .rowr .ct-c:nth-child(9) { padding-left: 6px; padding-right: 6px; }
 }

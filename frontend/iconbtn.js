@@ -69,8 +69,12 @@
   // ---------- 无文字化：文本节点移入 dataset，图标保留 ----------
   function stripText(btn) {
     if (btn.dataset.ibDone) return;
-    btn.dataset.ibDone = '1';
     prep(btn);
+
+    // 无语义图标的按钮保留原文字：先前先删文字再判断图标，导致
+    // 主题/语言等纯文字按钮变成无名称空按钮（T06173 axe button-name）。
+    var hasIcon = btn.querySelector('svg, i, img');
+    if (!hasIcon) return;
 
     var name = '';
     for (var i = btn.childNodes.length - 1; i >= 0; i--) {
@@ -80,10 +84,9 @@
         btn.removeChild(n);
       }
     }
-    // 无语义图标的按钮不去文字（避免纯空白按钮），仅享受 tip/倾斜/遮罩增强
-    var hasIcon = btn.querySelector('svg, i, img');
-    if (!name || !hasIcon) return;
+    if (!name) return;
 
+    btn.dataset.ibDone = '1';
     btn.dataset.ibName = name;
     btn.classList.add('ib-ico');
     // 无障碍：读屏器朗读原按钮文字（约束：保留键盘导航与 ARIA）

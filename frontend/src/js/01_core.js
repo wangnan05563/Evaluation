@@ -30,15 +30,49 @@ function dynPaint(){let htmlPainted=false;for(const d of __dyn){if(!document.bod
 const LV={低:"low",中:"mid",高:"high",新增:"new",修改:"change",删除:"del"};
 // 属性转义：system 等字段可能含引号/尖括号，拼进 HTML 属性前必须转义
 const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+/* T06173/WCAG 4.1.2：配置页/表格内存在大量“视觉有标题、程序无名称”的输入控件。
+   统一按最近的表头、.f-w 字段名或卡片标题补 aria-label；已有 name 的控件不覆盖。 */
+function a11yLabelControls(root=document){
+  const scope=root&&root.querySelectorAll?root:document;
+  scope.querySelectorAll("input,select,textarea").forEach(el=>{
+    const type=(el.getAttribute("type")||"").toLowerCase();
+    if(type==="hidden"||type==="file")return;
+    if(el.getAttribute("aria-label")||el.getAttribute("aria-labelledby")||el.closest("label"))return;
+    let name="";
+    const tr=el.closest("tr");
+    if(tr){
+      const cell=el.closest("td,th"),table=tr.closest("table");
+      if(cell&&table){
+        const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
+        if(th)name=th.textContent.replace(/\s+/g," ").trim();
+      }
+    }
+    if(!name){
+      const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
+      const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
+      if(lab)name=lab.textContent.replace(/\s+/g," ").trim();
+    }
+    if(!name){
+      const card=el.closest(".glass.pad,.card");
+      const title=card&&card.querySelector(".card-title");
+      if(title)name=(title.querySelector("span")||title).textContent.replace(/\s+/g," ").trim();
+    }
+    if(!name&&el.getAttribute("placeholder"))name=el.getAttribute("placeholder").trim();
+    if(!name&&el.id)name=el.id;
+    if(name)el.setAttribute("aria-label",name.slice(0,96));
+  });
+}
+a11yLabelControls();
+document.addEventListener("DOMContentLoaded",()=>{a11yLabelControls();setTimeout(()=>a11yLabelControls(),600);});
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function us(it){return ufp(it)*REUSE[it.reuse]*MODIFY[it.modify];}
 function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
-function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
-function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
-function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
-function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
+function cxCellHTML(it){return `<select class="pick" aria-label="${t("review.th.cx")} ${it.seq}" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
+function reuseHTML(it){return `<select class="pick" aria-label="${t("review.th.reuse")} ${it.seq}" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
+function modHTML(it){return `<select class="pick" aria-label="${t("review.th.modify")} ${it.seq}" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
+function typeCell(it){return `<select class="pick" aria-label="${t("review.th.count_item")} ${it.seq}" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
 function refreshRow(it){const tr=document.querySelector(`#tbody .rowr[data-seq="${it.seq}"]`);if(!tr)return;
 tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
 function refreshTotals(){
@@ -591,12 +625,24 @@ async function bindConfig(){
     // 断点续录：无草稿时以后端已保存值为快照基线；有未提交草稿则按域覆盖恢复
     if(!cfgHasDraft())cfgWriteSnapAll();
     cfgRestoreDraft();
+    a11yLabelControls();
   }catch(e){toast(tf("config.load_failed",{msg:e.message}));}
 }
 /** 渲染大模型配置字段：开发商下拉 + 启用开关 + API/模型/Key。 */
-function renderConfigFields(){
+function providerLabel(k,fallback){
+  const key=`config.provider.${k}`;
+  return (__I18N&&__I18N[key])?t(key):(fallback||k);
+}
+function renderProviderOptions(){
   const sel=$("#providerSel");
-  sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${providerLabel(k,v.label)}</option>`).join("");
+  if(cur&&sel.querySelector(`option[value="${cur}"]`))sel.value=cur;
+}
+function renderConfigFields(){
+  renderProviderOptions();
+  const sel=$("#providerSel");
   sel.value=llmCfg.provider;
   $("#llmSwitch").classList.toggle("on",!!llmCfg.llm.enabled);
   $("#llmSwitch").setAttribute("aria-checked",llmCfg.llm.enabled?"true":"false");   // FR-UI05：程序化设值同步 aria-checked

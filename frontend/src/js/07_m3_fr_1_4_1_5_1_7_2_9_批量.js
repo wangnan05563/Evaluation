@@ -183,6 +183,7 @@ function rulesLoad(){
     <td><input data-ri="${i}" data-rk="enabled" type="checkbox" ${r.enabled!==false?"checked":""}></td>
     <td><textarea data-ri="${i}" data-rk="patterns" style="width:100%;height:36px" title="${escAttr(t("rules.pat_title"))}">${histEsc((r.patterns||[]).join(String.fromCodePoint(10)))}</textarea></td>
     <td><textarea data-ri="${i}" data-rk="exclude" style="width:110px;height:36px" title="${escAttr(t("rules.exc_title"))}">${histEsc((r.exclude||[]).join(String.fromCodePoint(10)))}</textarea></td></tr>`).join("");
+  if(typeof a11yLabelControls==="function")a11yLabelControls($("#rulesRows"));
   window.lucide&&lucide.createIcons();
 }).catch(e=>{$("#rulesRows").innerHTML=`<tr><td colspan="8">${errorBox(e.message,"rulesLoad()")}</td></tr>`;window.lucide&&lucide.createIcons();});}
 function rulesCollect(){

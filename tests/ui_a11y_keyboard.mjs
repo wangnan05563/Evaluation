@@ -56,8 +56,8 @@ check('步骤条 6 个节点均 role=button + tabindex=0 + keydown',
   a11y.steps.length === 6 && a11y.steps.every(s => s.role === 'button' && s.ti === '0' && s.kd), JSON.stringify(a11y.steps.map(s => s.id)));
 check('上传拖放区 role/tabindex/aria-label 齐备', a11y.drop.role === 'button' && a11y.drop.ti === '0' && a11y.drop.label, JSON.stringify(a11y.drop));
 check('开关 role=switch + aria-checked + aria-label 齐备', a11y.sw.role === 'switch' && a11y.sw.ti === '0' && a11y.sw.checked && a11y.sw.label, JSON.stringify(a11y.sw));
-check('3 个可排序表头 role=button + tabindex + aria-sort',
-  a11y.sortable.length === 3 && a11y.sortable.every(s => s.role === 'button' && s.ti === '0' && s.as === 'none'), JSON.stringify(a11y.sortable));
+check('3 个可排序表头 role=columnheader + tabindex + aria-sort',
+  a11y.sortable.length === 3 && a11y.sortable.every(s => s.role === 'columnheader' && s.ti === '0' && s.as === 'none'), JSON.stringify(a11y.sortable));
 check('PERT 拖放区 role/tabindex 齐备', a11y.pert.role === 'button' && a11y.pert.ti === '0', JSON.stringify(a11y.pert));
 
 // 树节点与模型芯片是运行时渲染的，须在有数据后校验
