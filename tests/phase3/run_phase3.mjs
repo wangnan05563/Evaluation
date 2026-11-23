@@ -2,7 +2,6 @@
  *  默认启用 GPU 合成（AC-03 帧率口径）；PHASE3_CPU=1 退回纯 CPU 对照，PHASE3_HEADED=1 用有头窗口。
  */
 import { spawn, spawnSync } from 'node:child_process';
-import net from 'node:net';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,8 +18,10 @@ const killTree = pid => { try { spawnSync('taskkill', ['/PID', String(pid), '/T'
 let server = null, chrome = null, log = '';
 
 const suites = [
-  { id: '10k-grid', script: 'tests/phase3/ui_10k_grid.mjs', timeout: 180000 },
+  // a11y 的 200% 缩放必须在 10k 全页截图之前跑：Chrome 157 在 44 万像素高截图后
+  // 会在同一 profile 遗留视口状态，使后续 200% 度量稳定偏宽（doc=796、4 控件裁切）。
   { id: 'a11y-wcag22', script: 'tests/phase3/ui_a11y_wcag22.mjs', timeout: 180000 },
+  { id: '10k-grid', script: 'tests/phase3/ui_10k_grid.mjs', timeout: 180000 },
   { id: 'i18n-pseudo', script: 'tests/phase3/ui_i18n_pseudo.mjs', timeout: 120000 },
   { id: 'single-machine', script: 'tests/phase3/ui_single_machine.mjs', timeout: 120000 },
   { id: 'empty-error', script: 'tests/phase3/ui_empty_error.mjs', timeout: 120000 },
