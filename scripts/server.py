@@ -24,6 +24,7 @@ from replay_recognize import guess_type
 import pert
 import diag_redact
 import secret_store
+import theme_tokens
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -1667,6 +1668,23 @@ class Handler(BaseHTTPRequestHandler):
             # M9/FR-2.8：母版目录（xlsx + meta.json 口径说明）
             self._json(200, {"ok": True, "templates": _list_templates()})
             return True
+        if u.path == "/api/theme":
+            # T06171：三层 Token 主题列表 + 当前生效主题（含解析后的 CSS 变量）
+            active = theme_tokens.load_active(APP_DATA)
+            self._json(200, {"ok": True, "themes": theme_tokens.builtin_names(), "active": active})
+            return True
+        if u.path == "/api/theme/export":
+            name = (parse_qs(u.query).get("name") or [""])[0]
+            try:
+                t = theme_tokens.load(name) if name else theme_tokens.load_active(APP_DATA)
+            except theme_tokens.ThemeError as e:
+                self._json(404, {"ok": False, "msg": str(e)})
+                return True
+            if not t:
+                self._json(404, {"ok": False, "msg": "当前没有生效的自定义主题"})
+            else:
+                self._json(200, {"ok": True, "theme": t})
+            return True
         if u.path == "/api/i18n":
             # FR-5.5：界面文案字典。lang 收敛为白名单值，不接受任意文件名，
             # 响应中的 lang 也用收敛后的值（不回显原始入参）。
@@ -1888,6 +1906,9 @@ class Handler(BaseHTTPRequestHandler):
         "/api/data/import": "_post_data_import",
         "/api/rates/save": "_post_rates_save",
         "/api/rules/save": "_post_rules_save",
+        "/api/theme/validate": "_post_theme_validate",
+        "/api/theme/apply": "_post_theme_apply",
+        "/api/theme/reset": "_post_theme_reset",
         "/api/context/config": "_post_context_config",
         "/api/update/config": "_post_update_config",
         "/api/update/download": "_post_update_download",
@@ -1911,6 +1932,7 @@ class Handler(BaseHTTPRequestHandler):
     POST_ARITY = {
         "_post_recognize": 2, "_post_generate": 2, "_post_update_install": 0,
         "_post_pickdir": 0, "_post_pert_projects": 0,
+        "_post_theme_reset": 0,
     }
 
     def do_POST(self):
@@ -1986,6 +2008,32 @@ class Handler(BaseHTTPRequestHandler):
         # 保存配置中心（大模型）配置
         cfg = save_config(json.loads(raw.decode("utf-8")))
         return self._json(200, {"ok": True, "config": cfg})
+
+    # ---------------- 三层 Token 主题（T06171） ----------------
+    def _post_theme_validate(self, raw):
+        try:
+            theme = json.loads(raw.decode("utf-8"))
+        except Exception:
+            return self._json(400, {"ok": False, "errors": ["请求体不是合法 JSON"]})
+        errors, normalized = theme_tokens.validate(theme)
+        return self._json(200, {"ok": not errors, "errors": errors,
+                                "theme": normalized if not errors else None})
+
+    def _post_theme_apply(self, raw):
+        try:
+            theme = json.loads(raw.decode("utf-8"))
+            normalized = theme_tokens.save_active(APP_DATA, theme)
+        except theme_tokens.ThemeError as e:
+            return self._json(400, {"ok": False, "errors": [str(e)]})
+        except Exception:
+            return self._json(400, {"ok": False, "errors": ["主题 JSON 不合法"]})
+        SLOG.info("theme", "apply", name=normalized["name"])
+        return self._json(200, {"ok": True, "active": normalized})
+
+    def _post_theme_reset(self):
+        theme_tokens.reset_active(APP_DATA)
+        SLOG.info("theme", "reset")
+        return self._json(200, {"ok": True, "active": None})
 
     def _post_history_delete(self, path):
         # M1：删除历史记录（不删成品文件）

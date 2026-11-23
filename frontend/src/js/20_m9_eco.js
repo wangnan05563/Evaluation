@@ -184,6 +184,8 @@ function applyI18n(root){
 window.addEventListener("DOMContentLoaded",async ()=>{
   await i18nLoad();          // 字典就绪后再刷文案，避免首屏闪中文
   applyI18n();
+  // T06171：三层 Token 主题在首绘/断点恢复前应用，避免主题闪变。
+  if(typeof themeTokensBoot==="function") await themeTokensBoot();
   tplLoad();
   if(typeof brandPaint==="function") brandPaint();   // 预置色名按新字典重绘（首绘在字典前，见 07）
   // T01556（批次6）：断点续录恢复必须在字典就绪后执行（见 07 bootRestoreChain 注释），

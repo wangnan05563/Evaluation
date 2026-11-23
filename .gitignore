@@ -44,6 +44,9 @@ data/*
 # 落空 → 安装版翻译整体失效。
 !data/i18n/
 !data/i18n/*.json
+# data/themes 是三层 Token 主题定义（源码级品牌资产，随构建分发给所有用户）。
+!data/themes/
+!data/themes/*.json
 # data/testdocs 是回归夹具（S3/S4/S5/S6/S7/S8/S9 硬依赖 t00928_req.docx，
 # 文件缺失时套件直接报错而非跳过）。不入库 = 新克隆与 CI 无法跑测试。
 !data/testdocs/

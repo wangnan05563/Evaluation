@@ -1,0 +1,42 @@
+{
+  "name": "lime",
+  "label": "青柠",
+  "version": 1,
+  "raw": {
+    "lime600": "#84CC16",
+    "lime700": "#4D7C0F",
+    "lime50": "#F7FEE7",
+    "white": "#FFFFFF",
+    "slate900": "#1A2E05",
+    "slate600": "#4B5563",
+    "slate200": "#D9F99D"
+  },
+  "semantic": {
+    "brand": "raw.lime600",
+    "brand-ink": "raw.lime700",
+    "brand-soft": "raw.lime50",
+    "bg": "#FCFEF5",
+    "card": "raw.white",
+    "ink": "raw.slate900",
+    "ink-2": "#365314",
+    "muted": "raw.slate600",
+    "line": "raw.slate200",
+    "ff": "\"Inter\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+    "fs-xs": "11px",
+    "fs-sm": "12px",
+    "fs-md": "14px",
+    "r-md": "12px",
+    "r-lg": "18px",
+    "shadow": "0 2px 6px rgba(77,124,15,.12),0 1px 2px rgba(16,24,40,.04)",
+    "motion-fast": "140ms",
+    "motion-ease": "cubic-bezier(.25,.8,.25,1)"
+  },
+  "component": {
+    "button.primary.background": "semantic.brand",
+    "button.primary.foreground": "raw.white",
+    "badge.brand.background": "semantic.brand-soft",
+    "badge.brand.foreground": "semantic.brand-ink",
+    "card.background": "semantic.card",
+    "card.radius": "semantic.r-lg"
+  }
+}

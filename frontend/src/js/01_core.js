@@ -279,6 +279,7 @@ function goPage(p){
   if(p==="config"&&typeof initWindowBehavior==="function")initWindowBehavior();   // T03779 窗口关闭行为
   if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
+  if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();
