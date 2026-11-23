@@ -62,7 +62,9 @@ class PertDB:
           estimator TEXT DEFAULT '',
           created_at TEXT DEFAULT (datetime('now','localtime')),
           doc_name TEXT DEFAULT '',
-          gen_count INTEGER DEFAULT 0
+          gen_count INTEGER DEFAULT 0,
+          actual_days REAL,
+          actual_note TEXT DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS pert_items(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,8 +78,16 @@ class PertDB:
           cfg TEXT DEFAULT '{}'
         );
         """)
+        # 已存在的库：ALTER 补列（CREATE IF NOT EXISTS 不会修改旧表）。
+        for ddl in ("ALTER TABLE projects ADD COLUMN actual_days REAL",
+                    "ALTER TABLE projects ADD COLUMN actual_note TEXT DEFAULT ''"):
+            try:
+                con.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
         con.commit()
         con.close()
+
 
 
 # ---------------- 计算 ----------------
@@ -154,6 +164,61 @@ def summarize(con, pid):
         "adjust_sum": round(adj_sum, 4),
         "actual_person_month": round(ideal_man * (1 + adj_sum), 2),
         "phases": phases, "cfg": cfg,
+    }
+
+
+def calibration(con, min_samples=5):
+    """T06191：按已结项的实际人天计算 MAPE/偏差/校准系数。
+
+    只读：不修改任何历史估算。样本=同时有「有效三点估算」与「实际人天」的项目。
+    """
+    rows = con.execute(
+        "SELECT id,name,actual_days,actual_note FROM projects "
+        "WHERE actual_days IS NOT NULL AND actual_days >= 0 ORDER BY id"
+    ).fetchall()
+    samples = []
+    for pid, name, actual, note in rows:
+        est = summarize(con, pid)
+        expected = float(est["total_days"])
+        if expected <= 0:
+            continue
+        err = float(actual) - expected
+        pct = err / expected
+        samples.append({
+            "id": pid, "name": name, "expected_days": round(expected, 2),
+            "actual_days": round(float(actual), 2),
+            "variance_days": round(err, 2),
+            "variance_pct": round(pct * 100, 2),
+            "abs_pct": round(abs(pct) * 100, 2),
+            "note": note or "",
+        })
+    n = len(samples)
+    if n == 0:
+        return {"ready": False, "sample_count": 0, "min_samples": min_samples,
+                "mape": None, "bias_pct": None, "direction": "no_data",
+                "factor": None, "suggested_factor": None,
+                "message": "暂无同时具备估算与实际人天的项目", "projects": []}
+    mape = sum(s["abs_pct"] for s in samples) / n
+    total_actual = sum(s["actual_days"] for s in samples)
+    total_expected = sum(s["expected_days"] for s in samples)
+    factor = total_actual / total_expected if total_expected else 0
+    bias = (factor - 1) * 100
+    if bias > 5:
+        direction = "underestimated"
+    elif bias < -5:
+        direction = "overestimated"
+    else:
+        direction = "balanced"
+    ready = n >= min_samples
+    suggested = max(0.7, min(1.3, round(factor, 2))) if ready else None
+    message = (f"样本 {n} 个：MAPE {mape:.1f}%，整体{'低估' if direction == 'underestimated' else ('高估' if direction == 'overestimated' else '基本准确')} "
+               f"{abs(bias):.1f}%；建议后续估算系数 ×{suggested:.2f}（不修改历史估算）") if ready else \
+              f"样本 {n}/{min_samples}，达到 {min_samples} 个结项项目后生成校准建议"
+    return {
+        "ready": ready, "sample_count": n, "min_samples": min_samples,
+        "mape": round(mape, 2), "bias_pct": round(bias, 2),
+        "direction": direction, "factor": round(factor, 4),
+        "suggested_factor": suggested, "message": message, "projects": samples,
     }
 
 

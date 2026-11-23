@@ -1922,6 +1922,8 @@ class Handler(BaseHTTPRequestHandler):
         "/api/pert/list": "_post_pert_list",
         "/api/pert/item": "_post_pert_item",
         "/api/pert/delete": "_post_pert_delete",
+        "/api/pert/actual": "_post_pert_actual",
+        "/api/pert/calibration": "_post_pert_calibration",
         "/api/pert/import": "_post_pert_import",
         "/api/pert/import/confirm": "_post_pert_import_confirm",
         "/api/pert/generate": "_post_pert_generate",
@@ -1932,7 +1934,7 @@ class Handler(BaseHTTPRequestHandler):
     POST_ARITY = {
         "_post_recognize": 2, "_post_generate": 2, "_post_update_install": 0,
         "_post_pickdir": 0, "_post_pert_projects": 0,
-        "_post_theme_reset": 0,
+        "_post_theme_reset": 0, "_post_pert_calibration": 0,
     }
 
     def do_POST(self):
@@ -2369,17 +2371,19 @@ class Handler(BaseHTTPRequestHandler):
         con = _pert_connect()
         try:
             rows = con.execute(
-                "SELECT id,name,estimator,created_at FROM projects ORDER BY id DESC").fetchall()
+                "SELECT id,name,estimator,created_at,actual_days,actual_note "
+                "FROM projects ORDER BY id DESC").fetchall()
         finally:
             con.close()
         return self._json(200, {"ok": True, "projects": [
-            {"id": r[0], "name": r[1], "estimator": r[2], "created_at": r[3]} for r in rows]})
+            {"id": r[0], "name": r[1], "estimator": r[2], "created_at": r[3],
+             "actual_days": r[4], "actual_note": r[5] or ""} for r in rows]})
 
     def _post_pert_list(self, raw):
         pid = json.loads(raw.decode("utf-8")).get("project_id")
         con = _pert_connect()
         try:
-            p = con.execute("SELECT id,name,estimator FROM projects WHERE id=?", (pid,)).fetchone()
+            p = con.execute("SELECT id,name,estimator,actual_days,actual_note FROM projects WHERE id=?", (pid,)).fetchone()
             if not p:
                 return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
             items = con.execute(
@@ -2389,7 +2393,8 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             con.close()
         return self._json(200, {
-            "ok": True, "project": {"id": p[0], "name": p[1], "estimator": p[2]},
+            "ok": True, "project": {"id": p[0], "name": p[1], "estimator": p[2],
+                                    "actual_days": p[3], "actual_note": p[4] or ""},
             "items": [{"id": i[0], "phase": i[1], "system": i[2], "module": i[3],
                        "desc": i[4], "optimistic": i[5], "most_likely": i[6],
                        "pessimistic": i[7]} for i in items],
@@ -2440,6 +2445,45 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "id": cur.lastrowid})
         finally:
             con.close()
+
+    def _post_pert_actual(self, raw):
+        # T06191：只写实际人天/偏差原因，绝不改动 pert_items 的历史估算。
+        payload = json.loads(raw.decode("utf-8"))
+        pid = payload.get("project_id")
+        if not pid:
+            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+        actual = payload.get("actual_days")
+        if actual is None or (isinstance(actual, str) and not actual.strip()):
+            actual = None
+        else:
+            try:
+                actual = float(actual)
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "msg": "实际人天必须为数字"})
+            if actual < 0:
+                return self._json(400, {"ok": False, "msg": "实际人天不能为负"})
+        note = str(payload.get("actual_note") or "").strip()[:500]
+        con = _pert_connect()
+        try:
+            exists = con.execute("SELECT id FROM projects WHERE id=?", (pid,)).fetchone()
+            if not exists:
+                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+            con.execute("UPDATE projects SET actual_days=?,actual_note=? WHERE id=?",
+                        (actual, note, pid))
+            con.commit()
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, "project_id": pid,
+                                "actual_days": actual, "actual_note": note})
+
+    def _post_pert_calibration(self):
+        # T06191：只读校准建议；建议系数不自动回写/篡改历史估算。
+        con = _pert_connect()
+        try:
+            result = pert.calibration(con, min_samples=5)
+        finally:
+            con.close()
+        return self._json(200, {"ok": True, **result})
 
     def _post_pert_delete(self, raw):
         payload = json.loads(raw.decode("utf-8"))
