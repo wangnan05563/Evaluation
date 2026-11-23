@@ -1,0 +1,108 @@
+{
+  "suite": "stable-ids",
+  "at": "2026-11-23T19:03:19.052Z",
+  "checks": [
+    {
+      "title": "第1版生成成功并分配稳定ID",
+      "ok": true,
+      "detail": "F-72949F6FAA,F-B5D1E414A9,F-6C66036FC1"
+    },
+    {
+      "title": "历史记录可读取版本组",
+      "ok": true,
+      "detail": "478de0a5d591414e962bba4b78587327"
+    },
+    {
+      "title": "第2版稳定ID不变",
+      "ok": true,
+      "detail": "F-72949F6FAA,F-B5D1E414A9,F-6C66036FC1"
+    },
+    {
+      "title": "第3版稳定ID不变",
+      "ok": true,
+      "detail": "F-72949F6FAA,F-B5D1E414A9,F-6C66036FC1"
+    },
+    {
+      "title": "3个版本 version_no 递增",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "描述改名但稳定ID不变",
+      "ok": true,
+      "detail": "F-72949F6FAA"
+    },
+    {
+      "title": "改名 diff 归为变更（不增不删）",
+      "ok": true,
+      "detail": "{\"added\":0,\"removed\":0,\"changed\":1}"
+    },
+    {
+      "title": "改名 diff 含 desc 字段",
+      "ok": true,
+      "detail": "[{\"field\":\"desc\",\"a\":\"内部文件\",\"b\":\"内部文件（改名）\"}]"
+    },
+    {
+      "title": "类型变更生成新稳定ID",
+      "ok": true,
+      "detail": "F-3517AF2ADF"
+    },
+    {
+      "title": "新ID通过 replaces_id 指向旧ID",
+      "ok": true,
+      "detail": "F-72949F6FAA"
+    },
+    {
+      "title": "类型变更 diff 归为变更",
+      "ok": true,
+      "detail": "{\"added\":0,\"removed\":0,\"changed\":1}"
+    },
+    {
+      "title": "类型变更字段含 type 与 stable_id",
+      "ok": true,
+      "detail": "[{\"field\":\"type\",\"a\":\"ILF\",\"b\":\"EI\"},{\"field\":\"count_item\",\"a\":\"内部文件\",\"b\":\"录入\"},{\"field\":\"stable_id\",\"a\":\"F-72949F6FAA\",\"b\":\"F-3517AF2ADF\"}]"
+    },
+    {
+      "title": "旧版本仍保留旧稳定ID",
+      "ok": true,
+      "detail": "F-72949F6FAA"
+    },
+    {
+      "title": "映射表校验通过",
+      "ok": true,
+      "detail": "{\"ok\":true,\"rows\":5,\"items\":15,\"mapped\":4,\"issues\":[]}"
+    },
+    {
+      "title": "另存新项目不沿用旧组ID",
+      "ok": true,
+      "detail": "[\"F-B229FBF12F\",\"F-8C62E10665\",\"F-1E87447388\"]"
+    },
+    {
+      "title": "另存后映射表仍通过",
+      "ok": true,
+      "detail": "validate after save-as"
+    },
+    {
+      "title": "数据导出成功（含估算库）",
+      "ok": true,
+      "detail": "C:\\PYFIX_~4\\we_phase3_Dye0wz\\data\\exports\\data_20261124-030317.zip"
+    },
+    {
+      "title": "导出后历史与稳定ID仍可读",
+      "ok": true,
+      "detail": "F-72949F6FAA"
+    },
+    {
+      "title": "复核页显示稳定功能ID",
+      "ok": true,
+      "detail": "{\"rows\":3,\"sidText\":\"\\n      \\n      内部文件（改名）F-3517AF2ADF\\n      EI录入\\n      ILFEIFEIEOEQ低中高\\n      4低中高新增修改删除4.00\\n      已确认\\n    \\n      \\n      外部接口F-B5D1E414A9\\n      EIF外部接口\\n      ILFEIFEIEOEQ低中"
+    },
+    {
+      "title": "无页面异常",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 20,
+  "total": 20
+}

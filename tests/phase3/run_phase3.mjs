@@ -29,6 +29,7 @@ const suites = [
   { id: 'calibration', script: 'tests/phase3/ui_calibration.mjs', timeout: 120000 },
   { id: 'montecarlo', script: 'tests/phase3/ui_montecarlo.mjs', timeout: 180000 },
   { id: 'ifpug-complexity', script: 'tests/phase3/ui_ifpug_complexity.mjs', timeout: 120000 },
+  { id: 'stable-ids', script: 'tests/phase3/ui_stable_ids.mjs', timeout: 180000 },
   { id: 'i18n-pseudo', script: 'tests/phase3/ui_i18n_pseudo.mjs', timeout: 120000 },
   { id: 'single-machine', script: 'tests/phase3/ui_single_machine.mjs', timeout: 120000 },
   { id: 'empty-error', script: 'tests/phase3/ui_empty_error.mjs', timeout: 120000 },

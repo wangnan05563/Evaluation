@@ -203,6 +203,10 @@ $("#goRes").addEventListener("click",async ()=>{
     // 服务端 msg 经 lm() 映射；缺 msg 时用字典兜底（不直写中文，防英文态漏中文）
     if(!res.ok)throw new Error(res.msg?lm(res):t("gen.fail"));
     gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
+    // T06187：把服务端落库分配的稳定功能ID回填到当前明细，后续重开/另存可原样回传
+    if(Array.isArray(res.items)&&res.items.length===items.length){
+      res.items.forEach((it,i)=>{if(it&&it.stable_id)items[i].stable_id=it.stable_id;});
+    }
     if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载

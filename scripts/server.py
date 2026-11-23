@@ -1726,6 +1726,13 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/history":
             self._history_list(u)
             return True
+        if u.path == "/api/history/ids/validate":
+            # T06187：稳定功能 ID 映射表校验（缺失/重复/未知映射/跨组/断链）
+            if HIST is None:
+                self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+            else:
+                self._json(200, {"ok": True, **HIST.validate_ids()})
+            return True
         m_hist = re.match(r"^/api/history/([0-9a-f]{32})$", u.path)
         if m_hist:
             self._history_item(m_hist.group(1))
@@ -1930,6 +1937,8 @@ class Handler(BaseHTTPRequestHandler):
         "/api/pert/import/confirm": "_post_pert_import_confirm",
         "/api/pert/generate": "_post_pert_generate",
         "/api/pert/savecfg": "_post_pert_savecfg",
+        "/api/history/ids/migrate": "_post_history_ids_migrate",
+        "/api/history/ids/rollback": "_post_history_ids_rollback",
     }
     HISTORY_DELETE_RE = re.compile(r"^/api/history/([0-9a-f]{32})$")
     # 处理器入参形态：2=(path, raw)，1=(raw)，0=()；未列出的默认 1
@@ -1937,6 +1946,7 @@ class Handler(BaseHTTPRequestHandler):
         "_post_recognize": 2, "_post_generate": 2, "_post_update_install": 0,
         "_post_pickdir": 0, "_post_pert_projects": 0,
         "_post_theme_reset": 0, "_post_pert_calibration": 0,
+        "_post_history_ids_migrate": 0, "_post_history_ids_rollback": 0,
     }
 
     def do_POST(self):
@@ -2050,6 +2060,18 @@ class Handler(BaseHTTPRequestHandler):
         if HIST is None:
             return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
         return self._json(200, {"ok": HIST.delete(self.HISTORY_DELETE_RE.match(path).group(1))})
+
+    def _post_history_ids_migrate(self):
+        # T06187：旧数据稳定 ID 显式迁移（首次打开已自动执行；回滚后可手动重跑）
+        if HIST is None:
+            return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+        return self._json(200, {"ok": True, **HIST.migrate_legacy()})
+
+    def _post_history_ids_rollback(self):
+        # T06187/T06190：迁移失败回滚（恢复备份 items_json，回滚后不再自动迁移）
+        if HIST is None:
+            return self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+        return self._json(200, HIST.rollback_migration())
 
     # ---------------- 生态（用户故事 / 母版 / 数据导入导出） ----------------
     def _post_story_push(self, raw):
@@ -2315,9 +2337,10 @@ class Handler(BaseHTTPRequestHandler):
         recalc_mode = recalc_info.get("mode", "off")
         _gen_progress_set(job, 100, "生成完成（公式缓存后台补算中）" if recalc_mode == "async" else "生成完成",
                           done=True)
-        history_id = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode)
-        return self._json(200, {"ok": True, "sid": sid, "items": items, "summary": summary,
-                                "recalc": recalc_mode, "history_id": history_id})
+        hist = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode)
+        return self._json(200, {"ok": True, "sid": sid, "items": (hist or {}).get("items") or items,
+                                "summary": summary, "recalc": recalc_mode,
+                                "history_id": (hist or {}).get("id")})
 
     @staticmethod
     def _normalize_gen_items(its):
@@ -2379,7 +2402,7 @@ class Handler(BaseHTTPRequestHandler):
                         "recalc_mode": recalc_mode},
                 items=hist_items,
                 summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)
-            return hist["id"]
+            return hist
         except Exception as e:
             print(f"[history] 落库失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
             return None
