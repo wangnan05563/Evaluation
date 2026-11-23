@@ -297,7 +297,7 @@ def import_zip(zip_path, data_dir):
                 if pkg_ver > SCHEMA_VER:
                     raise VImportErr(f"数据包 schema 版本 {pkg_ver} 高于当前 {SCHEMA_VER}，请先升级应用")
             backup_on_start(data_dir, keep=3)      # 导入前自动留档
-            for n in (F_PERT_DB, F_RECOGNITION_RULES, F_RATES_VERSIONS, F_SCHEMA_VER):
+            for n in (F_PERT_DB, F_ESTIMATION_DB, F_RECOGNITION_RULES, F_RATES_VERSIONS, F_SCHEMA_VER):
                 if n in names:
                     z.extract(n, data_dir)
             return names

@@ -1,0 +1,192 @@
+{
+  "suite": "migration-drill",
+  "pass": 36,
+  "total": 36,
+  "checks": [
+    {
+      "name": "旧库样本就位",
+      "ok": true,
+      "detail": "8038eb6346e9"
+    },
+    {
+      "name": "迁移前备份生成",
+      "ok": true,
+      "detail": "C:\\PYFIX_~4\\migration_drill_6mked23k\\data\\backups\\20261124-031833"
+    },
+    {
+      "name": "备份清单记录旧库哈希",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "备份记录 schema v1",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "datakeeper v1→v2 迁移执行",
+      "ok": true,
+      "detail": "ver=2 applied=[1]"
+    },
+    {
+      "name": "pert.db 旧库补列",
+      "ok": true,
+      "detail": "['created_at', 'doc_name', 'estimator', 'gen_count', 'id', 'name']"
+    },
+    {
+      "name": "schema_ver 写入 2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "稳定ID自动迁移完成",
+      "ok": true,
+      "detail": "{\"schema_ver\": 2, \"migration_state\": \"migrated\", \"migrated_at\": \"2026-11-24T03:18:33\", \"rows\": 6, \"items\": 13, \"mapped\": 7, \"schema_versions\": {\"2\": 5, \"1\": 1}, \"legacy_rows\": 1, \"missing_rows\": 0, \"missing_items\": 0, \"backups\": 5, \"can_rollback\": true, \"dual_read\": true}"
+    },
+    {
+      "name": "迁移行/项计数符合样本",
+      "ok": true,
+      "detail": "rows=6 items=13"
+    },
+    {
+      "name": "映射表登记全部可迁移 ID",
+      "ok": true,
+      "detail": "7"
+    },
+    {
+      "name": "损坏 JSON 行原样保留",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "已迁移行 schema 保持 v2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "同组三版本稳定 ID 一致",
+      "ok": true,
+      "detail": "['F-F40709BA64', 'F-B76A58BBA0', 'F-898EF3285F']"
+    },
+    {
+      "name": "版本内重复 ID 已拆分",
+      "ok": true,
+      "detail": "['F-AAAAAAAAAA', 'F-02957E0493', 'F-BA0367E7FA']"
+    },
+    {
+      "name": "迁移后映射校验通过",
+      "ok": true,
+      "detail": "{'ok': True, 'rows': 6, 'items': 13, 'mapped': 7, 'issues': []}"
+    },
+    {
+      "name": "迁移前后业务数据逻辑哈希一致",
+      "ok": true,
+      "detail": "8d7fa8b81c70"
+    },
+    {
+      "name": "迁移日志落盘",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "迁移日志含 start/done",
+      "ok": true,
+      "detail": "['migration_start', 'migration_done']"
+    },
+    {
+      "name": "回滚恢复 5 条旧记录",
+      "ok": true,
+      "detail": "{'ok': True, 'restored': 5}"
+    },
+    {
+      "name": "回滚后旧库逐字节哈希一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "回滚日志落盘",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "回滚后双读旧明细",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "回滚后重迁 5 条",
+      "ok": true,
+      "detail": "{'migrated': 5, 'started_at': '2026-11-24T03:18:33'}"
+    },
+    {
+      "name": "重迁后映射校验通过（含已迁移行补登记）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "重迁后库文件已变化",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "导出包包含 estimation.db",
+      "ok": true,
+      "detail": "['pert.db', 'estimation.db', 'recognition_rules.json', 'rates_versions.json', 'schema_ver']"
+    },
+    {
+      "name": "导入后历史库落盘",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "导入后无缺失稳定 ID",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "导出/导入后稳定 ID 不变",
+      "ok": true,
+      "detail": "['F-F40709BA64', 'F-B76A58BBA0', 'F-898EF3285F']"
+    },
+    {
+      "name": "备份还原成功",
+      "ok": true,
+      "detail": "{'ok': True, 'backup': '20261124-031833', 'created_at': '2026-11-24T03:18:33', 'restored': ['pert.db', 'estimation.db', 'recognition_rules.json', 'rates_versions.json', 'schema_ver'], 'removed': [], 'skipped': []}"
+    },
+    {
+      "name": "还原后旧库逐字节哈希一致",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rollback.jsonl 含完成记录",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "备份还原回旧 pert schema",
+      "ok": true,
+      "detail": "['created_at', 'estimator', 'id', 'name']"
+    },
+    {
+      "name": "坏备份被拒绝还原",
+      "ok": true,
+      "detail": "{'ok': False, 'backup': 'pre', 'created_at': '2026-11-01T00:00:00', 'restored': [], 'removed': [], 'skipped': [{'file': 'estimation.db', 'reason': '备份哈希不符，拒绝还原'}]}"
+    },
+    {
+      "name": "高版本数据包被拒绝",
+      "ok": true,
+      "detail": "数据包 schema 版本 99 高于当前 2，请先升级应用"
+    },
+    {
+      "name": "单行损坏不阻断迁移",
+      "ok": true,
+      "detail": "gBad 保留 / gA 已迁移"
+    }
+  ],
+  "sample": {
+    "rows": 5,
+    "items": 10,
+    "groups": 4
+  }
+}

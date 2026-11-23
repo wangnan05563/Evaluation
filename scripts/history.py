@@ -104,6 +104,18 @@ class HistStore:
     def _meta_set(c, key, value):
         c.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES(?,?)", (key, str(value)))
 
+    def _log_event(self, event, **fields):
+        """迁移/回滚审计日志：data/logs/migration.jsonl，一行一个事件。"""
+        try:
+            log_dir = os.path.join(os.path.dirname(self.db_path), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            rec = {"ts": self._now(), "event": event}
+            rec.update(fields)
+            with open(os.path.join(log_dir, "migration.jsonl"), "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
+
     @staticmethod
     def _new_id(con):
         """生成全局唯一稳定 ID：F- + 10 位十六进制。"""
@@ -202,17 +214,23 @@ class HistStore:
                 if self._meta_get(c, "migration_state") == "rolled_back" and not force:
                     return {"migrated": 0, "skipped": "rolled_back"}
                 rows = c.execute("SELECT id,version_group,items_json,schema_ver FROM estimation_history").fetchall()
+                mapped_ids = {r["stable_id"] for r in
+                              c.execute("SELECT stable_id FROM item_id_map").fetchall()}
                 todo = []
                 for r in rows:
                     try:
                         its = json.loads(r["items_json"] or "[]")
                     except Exception:
                         continue
-                    if any(not str(it.get("stable_id") or "").strip() for it in its):
+                    miss = any(not str(it.get("stable_id") or "").strip() for it in its)
+                    unmapped = any(str(it.get("stable_id") or "").strip() and str(it["stable_id"]) not in mapped_ids
+                                   for it in its)
+                    if miss or unmapped:
                         todo.append((r, its))
                 if not todo:
                     return {"migrated": 0, "skipped": "already"}
                 started = self._now()
+                self._log_event("migration_start", rows=len(todo), started_at=started)
                 self._meta_set(c, "migration_started_at", started)
                 for r, its in todo:
                     c.execute("INSERT OR IGNORE INTO history_items_backup(history_id,items_json,schema_ver,backed_up_at) "
@@ -238,6 +256,7 @@ class HistStore:
                 self._meta_set(c, "migration_state", "migrated")
                 self._meta_set(c, "migration_done_at", self._now())
                 c.commit()
+                self._log_event("migration_done", rows=len(todo), started_at=started)
                 return {"migrated": len(todo), "started_at": started}
             finally:
                 c.close()
@@ -261,6 +280,7 @@ class HistStore:
                 c.execute("DELETE FROM history_items_backup")
                 self._meta_set(c, "migration_state", "rolled_back")
                 c.commit()
+                self._log_event("migration_rollback", restored=len(backups))
                 return {"ok": True, "restored": len(backups)}
             finally:
                 c.close()

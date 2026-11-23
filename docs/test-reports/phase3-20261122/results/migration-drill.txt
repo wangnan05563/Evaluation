@@ -1,0 +1,38 @@
+  PASS  旧库样本就位 8038eb6346e9
+  PASS  迁移前备份生成 C:\PYFIX_~4\migration_drill_6mked23k\data\backups\20261124-031833
+  PASS  备份清单记录旧库哈希 
+  PASS  备份记录 schema v1 1
+  PASS  datakeeper v1→v2 迁移执行 ver=2 applied=[1]
+  PASS  pert.db 旧库补列 ['created_at', 'doc_name', 'estimator', 'gen_count', 'id', 'name']
+  PASS  schema_ver 写入 2 
+  PASS  稳定ID自动迁移完成 {"schema_ver": 2, "migration_state": "migrated", "migrated_at": "2026-11-24T03:18:33", "rows": 6, "items": 13, "mapped": 7, "schema_versions": {"2": 5, "1": 1}, "legacy_rows": 1, "missing_rows": 0, "missing_items": 0, "backups": 5, "can_rollback": true, "dual_read": true}
+  PASS  迁移行/项计数符合样本 rows=6 items=13
+  PASS  映射表登记全部可迁移 ID 7
+  PASS  损坏 JSON 行原样保留 
+  PASS  已迁移行 schema 保持 v2 
+  PASS  同组三版本稳定 ID 一致 ['F-F40709BA64', 'F-B76A58BBA0', 'F-898EF3285F']
+  PASS  版本内重复 ID 已拆分 ['F-AAAAAAAAAA', 'F-02957E0493', 'F-BA0367E7FA']
+  PASS  迁移后映射校验通过 {'ok': True, 'rows': 6, 'items': 13, 'mapped': 7, 'issues': []}
+  PASS  迁移前后业务数据逻辑哈希一致 8d7fa8b81c70
+  PASS  迁移日志落盘 
+  PASS  迁移日志含 start/done ['migration_start', 'migration_done']
+  PASS  回滚恢复 5 条旧记录 {'ok': True, 'restored': 5}
+  PASS  回滚后旧库逐字节哈希一致 
+  PASS  回滚日志落盘 
+  PASS  回滚后双读旧明细 
+  PASS  回滚后重迁 5 条 {'migrated': 5, 'started_at': '2026-11-24T03:18:33'}
+  PASS  重迁后映射校验通过（含已迁移行补登记） 
+  PASS  重迁后库文件已变化 
+  PASS  导出包包含 estimation.db ['pert.db', 'estimation.db', 'recognition_rules.json', 'rates_versions.json', 'schema_ver']
+  PASS  导入后历史库落盘 
+  PASS  导入后无缺失稳定 ID 
+  PASS  导出/导入后稳定 ID 不变 ['F-F40709BA64', 'F-B76A58BBA0', 'F-898EF3285F']
+  PASS  备份还原成功 {'ok': True, 'backup': '20261124-031833', 'created_at': '2026-11-24T03:18:33', 'restored': ['pert.db', 'estimation.db', 'recognition_rules.json', 'rates_versions.json', 'schema_ver'], 'removed': [], 'skipped': []}
+  PASS  还原后旧库逐字节哈希一致 
+  PASS  rollback.jsonl 含完成记录 
+  PASS  备份还原回旧 pert schema ['created_at', 'estimator', 'id', 'name']
+  PASS  坏备份被拒绝还原 {'ok': False, 'backup': 'pre', 'created_at': '2026-11-01T00:00:00', 'restored': [], 'removed': [], 'skipped': [{'file': 'estimation.db', 'reason': '备份哈希不符，拒绝还原'}]}
+  PASS  高版本数据包被拒绝 数据包 schema 版本 99 高于当前 2，请先升级应用
+  PASS  单行损坏不阻断迁移 gBad 保留 / gA 已迁移
+
+migration-drill: 36/36 checks passed
