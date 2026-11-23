@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { openPage, checker, OUT } from './cdp.mjs';
 
 const { check, finish } = checker('ui-10k-grid');
+let measured = {};
 const page = await openPage({ width: 1440, height: 900 });
 try {
   await page.nav();
@@ -65,6 +66,7 @@ try {
   })()`, 90000));
 
   const fps = run.frames / (run.elapsed / 1000);
+  measured = { fps: +fps.toFixed(3), frames: run.frames, elapsedMs: +run.elapsed.toFixed(1), longFrames: run.long, longPct: +(run.long / run.frames * 100).toFixed(2), rows: run.maxRows };
   check('连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）', fps >= 55, `${fps.toFixed(1)}fps / ${run.frames} frames`);
   check('无白屏采样', run.blank === 0, `blank=${run.blank}`);
   check('窗口行数始终受控（≤120）', run.minRows > 0 && run.maxRows <= 120, `min=${run.minRows} max=${run.maxRows}`);
@@ -162,6 +164,6 @@ try {
 } finally {
   await page.close();
 }
-const r = finish();
+const r = finish(measured);
 fs.writeFileSync(path.join(OUT, 'results', 'ui-10k-grid-summary.txt'), JSON.stringify(r, null, 2));
 process.exit(r.checks.every(c => c.ok) ? 0 : 1);

@@ -18,6 +18,8 @@ const killTree = pid => { try { spawnSync('taskkill', ['/PID', String(pid), '/T'
 let server = null, chrome = null, log = '';
 
 const suites = [
+  // T06177 性能与视觉回归基线：必须在共享实例仅有干净数据时先建立/比对，避免其他套件写入最近文档影响首屏截图。
+  { id: 'regression-baseline', script: 'tests/phase3/regression_baseline.mjs', timeout: 180000 },
   // a11y 的 200% 缩放必须在 10k 全页截图之前跑：Chrome 157 在 44 万像素高截图后
   // 会在同一 profile 遗留视口状态，使后续 200% 度量稳定偏宽（doc=796、4 控件裁切）。
   { id: 'a11y-wcag22', script: 'tests/phase3/ui_a11y_wcag22.mjs', timeout: 180000 },

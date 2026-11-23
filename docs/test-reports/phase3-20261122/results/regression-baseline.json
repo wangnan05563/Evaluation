@@ -1,0 +1,78 @@
+{
+  "suite": "regression-baseline",
+  "at": "2026-11-23T16:33:35.469Z",
+  "checks": [
+    {
+      "title": "首屏 FCP/DCL ≤2s（浏览器性能条目）",
+      "ok": true,
+      "detail": "{\"dcl\":1040.7000000029802,\"load\":1049.300000011921,\"fcp\":1020}"
+    },
+    {
+      "title": "导航到可交互 ≤3s（采集耗时，非首屏口径）",
+      "ok": true,
+      "detail": "1391ms"
+    },
+    {
+      "title": "10k 复核页 render p95 ≤150ms",
+      "ok": true,
+      "detail": "61.0ms (n=30)"
+    },
+    {
+      "title": "10k 复核页搜索输入 p95 ≤150ms",
+      "ok": true,
+      "detail": "50.6ms (n=30)"
+    },
+    {
+      "title": "视觉基线一致：upload_light_zh.png",
+      "ok": true,
+      "detail": "old=29880cfbe685 new=29880cfbe685"
+    },
+    {
+      "title": "视觉基线一致：upload_light_en.png",
+      "ok": true,
+      "detail": "old=9193cbb100cc new=9193cbb100cc"
+    },
+    {
+      "title": "视觉基线一致：upload_dark_zh.png",
+      "ok": true,
+      "detail": "old=22a384f47a1b new=22a384f47a1b"
+    },
+    {
+      "title": "视觉基线一致：upload_dark_en.png",
+      "ok": true,
+      "detail": "old=2bd121534108 new=2bd121534108"
+    },
+    {
+      "title": "视觉基线一致：upload_contrast_zh.png",
+      "ok": true,
+      "detail": "old=7f0824a0797c new=7f0824a0797c"
+    },
+    {
+      "title": "视觉基线一致：upload_contrast_en.png",
+      "ok": true,
+      "detail": "old=d66ae90563d3 new=d66ae90563d3"
+    },
+    {
+      "title": "视觉基线覆盖 6 张（3 主题 × 中英）",
+      "ok": true,
+      "detail": "6 张"
+    },
+    {
+      "title": "无页面异常",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 12,
+  "total": 12,
+  "wallToReadyMs": 1391,
+  "perf": {
+    "dcl": 1040.7000000029802,
+    "load": 1049.300000011921,
+    "fcp": 1020
+  },
+  "p95Render": 61,
+  "p95Input": 50.599999994039536,
+  "baselineCount": 6,
+  "update": false
+}
