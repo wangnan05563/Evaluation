@@ -1,0 +1,138 @@
+{
+  "suite": "ui-kit",
+  "at": "2026-11-23T19:31:26.105Z",
+  "checks": [
+    {
+      "title": "UIKIT 全局 API 已加载",
+      "ok": true,
+      "detail": "{\"t\":\"object\",\"v\":\"1.0.0\",\"fns\":[\"version\",\"button\",\"field\",\"input\",\"table\",\"chart\",\"modal\",\"drawer\",\"progress\",\"badge\",\"gallery\",\"icon\",\"refreshIcons\"]}"
+    },
+    {
+      "title": "组件 API 覆盖要求",
+      "ok": true,
+      "detail": "version,button,field,input,table,chart,modal,drawer,progress,badge,gallery,icon,refreshIcons"
+    },
+    {
+      "title": "按钮 4 变体 + 3 尺寸 + 禁用态",
+      "ok": true,
+      "detail": "{\"btn\":11,\"primary\":3,\"disabled\":1,\"sizes\":[1,9,1],\"fields\":4,\"selectOpts\":2,\"labelFor\":\"uik-field-1\",\"controlId\":\"uik-field-1\",\"errInvalid\":\"true\",\"errDesc\":\"uik-field-3-msg\",\"tableRows\":3,\"chartBars\":5,\"chartRole\":\"img\",\"chartAria\":\"各类型 UFP 分布：ILF 40UFP，EIF 28UFP，EI 24UFP，EO 16UFP，EQ 12UFP\"}"
+    },
+    {
+      "title": "输入/下拉/错误态渲染",
+      "ok": true,
+      "detail": "{\"btn\":11,\"primary\":3,\"disabled\":1,\"sizes\":[1,9,1],\"fields\":4,\"selectOpts\":2,\"labelFor\":\"uik-field-1\",\"controlId\":\"uik-field-1\",\"errInvalid\":\"true\",\"errDesc\":\"uik-field-3-msg\",\"tableRows\":3,\"chartBars\":5,\"chartRole\":\"img\",\"chartAria\":\"各类型 UFP 分布：ILF 40UFP，EIF 28UFP，EI 24UFP，EO 16UFP，EQ 12UFP\"}"
+    },
+    {
+      "title": "label 与控件 id 关联",
+      "ok": true,
+      "detail": "uik-field-1 / uik-field-1"
+    },
+    {
+      "title": "表格 3 行 + 图表 5 柱",
+      "ok": true,
+      "detail": "rows=3 bars=5"
+    },
+    {
+      "title": "图表 role=img 且有完整 aria 文本",
+      "ok": true,
+      "detail": "各类型 UFP 分布：ILF 40UFP，EIF 28UFP，EI 24UFP，EO 16UFP，EQ 12UFP"
+    },
+    {
+      "title": "表格点击行回调携带行数据",
+      "ok": true,
+      "detail": "{\"type\":\"ILF\",\"desc\":\"内部文件\",\"ufp\":10,\"status\":\"已确认\"}"
+    },
+    {
+      "title": "表格空态正确",
+      "ok": true,
+      "detail": "{\"text\":\"暂无功能点\",\"rows\":0}"
+    },
+    {
+      "title": "弹窗打开且有 dialog 语义/2 个动作",
+      "ok": true,
+      "detail": "{\"overlay\":true,\"dialog\":\"dialog\",\"modal\":\"true\",\"title\":\"确认生成审计包\",\"actions\":2,\"focusInside\":true,\"active\":\"uik-btn uik-btn-ghost uik-btn-sm uik-close\"}"
+    },
+    {
+      "title": "弹窗打开后焦点在弹窗内",
+      "ok": true,
+      "detail": "uik-btn uik-btn-ghost uik-btn-sm uik-close"
+    },
+    {
+      "title": "Esc 关闭弹窗并归还焦点",
+      "ok": true,
+      "detail": "{\"overlay\":false,\"focus\":\"打开弹窗\"}"
+    },
+    {
+      "title": "抽屉打开且含证据内容",
+      "ok": true,
+      "detail": "{\"open\":true,\"role\":\"dialog\",\"text\":true,\"width\":480,\"vw\":1440,\"focusInside\":true}"
+    },
+    {
+      "title": "抽屉不超出视口",
+      "ok": true,
+      "detail": "480/1440"
+    },
+    {
+      "title": "Esc 关闭抽屉",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "亮色按钮对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "5.17 {\"btnFg\":\"rgb(255, 255, 255)\",\"btnBg\":\"rgb(37, 99, 235)\",\"textFg\":\"rgb(91, 100, 114)\",\"textBg\":\"rgb(244, 246, 250)\"}"
+    },
+    {
+      "title": "亮色正文对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "5.53"
+    },
+    {
+      "title": "暗色按钮对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "7.02"
+    },
+    {
+      "title": "暗色正文对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "6.96"
+    },
+    {
+      "title": "高对比按钮对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "19.56"
+    },
+    {
+      "title": "高对比正文对比度 ≥ 4.5:1",
+      "ok": true,
+      "detail": "15.91"
+    },
+    {
+      "title": "1440 无横向溢出",
+      "ok": true,
+      "detail": "sw=1425"
+    },
+    {
+      "title": "1024 无横向溢出",
+      "ok": true,
+      "detail": "sw=1009"
+    },
+    {
+      "title": "768 无横向溢出",
+      "ok": true,
+      "detail": "sw=753"
+    },
+    {
+      "title": "768 表单单列且表格内部滚动",
+      "ok": true,
+      "detail": "{\"grid\":\"695px\",\"table\":693,\"body\":768}"
+    },
+    {
+      "title": "运行期无 JS 异常",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 26,
+  "total": 26
+}
