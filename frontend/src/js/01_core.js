@@ -1161,6 +1161,18 @@ document.querySelectorAll(".switch").forEach(s=>{
   s.addEventListener("click",()=>toggleSwitch(s));
   s.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleSwitch(s);}});
 });
+// T06180：识别结果落地从点击处理器抽出，供同步旧路径与长任务续跑共用。
+function applyRecognitionResult(res,mk){
+  if(items.length)pushUndo("重新识别");
+  items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
+  redoStack.length=0;updateUndoUI();
+  if(mk)dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
+  render();goStep("review");
+}
+window.LTASK_ON_RECOGNIZED=(res,meta)=>{
+  applyRecognitionResult(res,$("#progressMark"));
+  if(meta&&meta.restored)toast("已恢复上次识别结果");
+};
 $("#startBtn").addEventListener("click",async ()=>{
   if(!curFile)return;
   const b=$("#startBtn");b.disabled=true;const mk=$("#progressMark");dynText(mk,()=>t("work.uploading"));
@@ -1172,16 +1184,21 @@ $("#startBtn").addEventListener("click",async ()=>{
     }else{  // 尚未进入过配置中心：不传 params，后端回退读已存配置
       params={};
     }
-    const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
-    const res=await resp.json();
-    if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
-    if(items.length)pushUndo("重新识别");
-    items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
-    redoStack.length=0;updateUndoUI();
-    dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
-    render();goStep("review");
-  }catch(err){dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
+    if(window.LTASK){
+      // T06180：识别走长任务通道（真实阶段进度 + 取消 + 断点续跑）
+      const res=await LTASK.createAndRun(curFile,params);
+      applyRecognitionResult(res,mk);
+    }else{
+      const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
+      const res=await resp.json();
+      if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
+      applyRecognitionResult(res,mk);
+    }
+  }catch(err){
+    if(err&&err.code==="canceled")dynText(mk,()=>"已取消，可继续未完成任务");
+    else{dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
+  }
   b.disabled=false;b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';window.lucide&&lucide.createIcons();
 });
 

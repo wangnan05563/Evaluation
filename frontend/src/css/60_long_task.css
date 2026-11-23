@@ -1,0 +1,29 @@
+/* T06180：文档识别长任务进度 / 取消 / 断点续跑 */
+.ltask{
+  margin-top:12px;padding:12px 14px;border:1px solid var(--line-ctrl);border-radius:var(--r-md);
+  background:var(--surface-2);display:grid;gap:8px;
+}
+.ltask[hidden],.ltask-resume[hidden]{display:none}
+.ltask-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ltask-head b{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ltask-head span{font-variant-numeric:tabular-nums;font-weight:700;color:var(--brand-ink)}
+.ltask-track{height:8px;border-radius:var(--r-full);background:var(--line);overflow:hidden}
+.ltask-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--cyan));transition:width .2s linear}
+.ltask-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted)}
+.ltask-meta span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ltask-meta span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ltask-cancel{justify-self:start;min-height:32px}
+.ltask.canceled .ltask-track i{background:var(--muted)}
+.ltask.failed .ltask-track i{background:var(--danger)}
+.ltask-resume{
+  margin-top:12px;padding:12px 14px;border:1px dashed var(--warn-border);border-radius:var(--r-md);
+  background:var(--warn-soft);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.ltask-resume b{font-size:13px;color:var(--warn-ink)}
+.ltask-resume #ltaskResumeStage{font-size:12px;color:var(--muted);margin-top:2px}
+.ltask-resume-actions{display:flex;gap:8px}
+@media (max-width:600px){
+  .ltask-resume{align-items:flex-start;flex-direction:column}
+  .ltask-resume-actions{width:100%}
+  .ltask-resume-actions button{flex:1}
+}

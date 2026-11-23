@@ -1,0 +1,80 @@
+{
+  "suite": "long-task",
+  "generated_at": "2026-11-23T20:42:11.148Z",
+  "checks": [
+    {
+      "n": "S0 上传后开始识别按钮可用",
+      "ok": true
+    },
+    {
+      "n": "S1 识别请求进入长任务面板",
+      "ok": true
+    },
+    {
+      "n": "S1 面板显示真实阶段与百分比",
+      "ok": true
+    },
+    {
+      "n": "S1 面板显示剩余时间估算",
+      "ok": true
+    },
+    {
+      "n": "S1 运行中取消按钮可见",
+      "ok": true
+    },
+    {
+      "n": "S1 任务句柄已写入 localStorage",
+      "ok": true
+    },
+    {
+      "n": "S2 点击取消后 UI 立即停止（≤2s）",
+      "ok": true
+    },
+    {
+      "n": "S2 取消后展示已取消与续跑入口",
+      "ok": true
+    },
+    {
+      "n": "S2 取消断点保留完成百分比",
+      "ok": true
+    },
+    {
+      "n": "S3 刷新/重开后识别断点横幅出现",
+      "ok": true
+    },
+    {
+      "n": "S3 横幅标明上次停点",
+      "ok": true
+    },
+    {
+      "n": "S3 点击继续后面板重新运行",
+      "ok": true
+    },
+    {
+      "n": "S3 续跑完成后进入复核页并带回功能点",
+      "ok": true
+    },
+    {
+      "n": "S3 完成后任务面板收起",
+      "ok": true
+    },
+    {
+      "n": "S3 完成后本地断点清除",
+      "ok": true
+    },
+    {
+      "n": "全程无页面异常",
+      "ok": true
+    }
+  ],
+  "metrics": {
+    "job": "rmwtqeovx5jo3j",
+    "cancel_ui_ms": 0,
+    "cancel_wall_ms": 19,
+    "breakpoint_pct": "8%",
+    "resume_rows": 9,
+    "eta_before": "预计剩余约 14 秒",
+    "canceled_stage": "已取消",
+    "resume_ok": true
+  }
+}

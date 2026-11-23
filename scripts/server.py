@@ -141,6 +141,331 @@ def _gen_recalc_set(job, state):
         cur["ts"] = time.time()
 
 
+# ---------------- 文档识别长任务（T06180 / AC-07） ----------------
+# 识别是同步解析 + 可选 LLM 复核。为支持「进度/剩余时间/2 秒内取消/断点续跑」，
+# 这里在现有进程内维护任务记录：解析阶段每完成一步写一次进度，取消只置标记并在
+# 下一个检查点退出；已解析的本地候选（local_items）作为断点，续跑时跳过解析。
+# 不引入独立后台服务：线程仍在本进程；任务断点落盘到 recognize_jobs/，应用重开后
+# 可读取断点继续（running 状态在重启时改记为 canceled，由用户点击继续）。
+RECOG_JOBS = {}
+RECOG_JOBS_LOCK = threading.Lock()
+RECOG_JOB_TTL = 3600          # 秒；过期任务在下一次读写时惰性清理
+RECOG_JOB_DIR = APP_DATA / "recognize_jobs"   # 断点落盘：应用重开后仍可续跑
+
+
+def _recog_job_file(job_id):
+    return RECOG_JOB_DIR / (str(job_id) + ".json")
+
+
+def _recog_job_id_valid(job_id):
+    """任务 ID 只允许安全字符，防目录穿越/异常文件名。"""
+    return bool(re.fullmatch(r"[A-Za-z0-9_-]{4,48}", str(job_id or "")))
+
+
+def _recog_job_sanitize(job):
+    """落盘前去掉密钥：断点文件不应保存 LLM key（续跑时回读配置中心密钥）。"""
+    out = json.loads(json.dumps(job, ensure_ascii=False, default=str))
+    llm = out.get("llm") or {}
+    llm.pop("key", None)
+    params = out.get("params") or {}
+    params.pop("llm_key", None)
+    out["params"] = params
+    result = out.get("result") or {}
+    meta = result.get("meta") or {}
+    received = meta.get("params_received") or {}
+    received.pop("llm_key", None)
+    return out
+
+
+def _recog_job_save(job):
+    """原子写断点文件；调用方需持有 RECOG_JOBS_LOCK，避免旧快照覆盖新状态。"""
+    if not job or not job.get("id"):
+        return
+    try:
+        RECOG_JOB_DIR.mkdir(parents=True, exist_ok=True)
+        dst = _recog_job_file(job["id"])
+        tmp = dst.with_suffix(".tmp")
+        tmp.write_text(json.dumps(_recog_job_sanitize(job), ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, dst)
+    except Exception:
+        pass          # 断点写失败不阻断识别主流程；内存态仍可用
+
+
+def _recog_job_load(job_id):
+    """从磁盘恢复断点；上次退出时仍在 running 的任务改记为可续跑的 canceled。"""
+    p = _recog_job_file(job_id)
+    if not p.is_file():
+        return None
+    try:
+        job = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(job, dict) or job.get("id") != job_id:
+        return None
+    if job.get("status") == "running":
+        job["status"] = "canceled"
+        job["canceled"] = True
+        job["stage"] = "上次退出时中断"
+        job["eta_s"] = 0
+    llm = job.get("llm") or {}
+    if llm.get("enabled") and not llm.get("key"):
+        try:
+            llm["key"] = (load_config()["llm"].get("key") or "").strip()
+        except Exception:
+            llm["key"] = ""
+    return job
+
+
+class RecognizeCanceled(Exception):
+    """任务在检查点发现取消/已被新一次续跑接管。"""
+
+
+def _recog_job_public(job, include_result=False):
+    """任务快照：状态接口只返回小字段；done 时才附带结果。"""
+    if not job:
+        return None
+    out = {
+        "id": job["id"], "status": job.get("status", "queued"),
+        "pct": int(job.get("pct", 0)), "stage": job.get("stage", "准备识别"),
+        "eta_s": job.get("eta_s"), "elapsed_s": job.get("elapsed_s", 0),
+        "canceled": bool(job.get("canceled")),
+        "error": job.get("error"),
+        "created_at": job.get("created_at"),
+        "updated_at": job.get("updated_at"),
+    }
+    if include_result and job.get("status") == "done":
+        out["result"] = job.get("result")
+    return out
+
+
+def _recog_job_get(job_id):
+    if not _recog_job_id_valid(job_id):
+        return None
+    with RECOG_JOBS_LOCK:
+        now = time.time()
+        expired = [k for k, v in RECOG_JOBS.items() if now - v.get("updated_at", 0) > RECOG_JOB_TTL]
+        for k in expired:
+            RECOG_JOBS.pop(k, None)
+            try:
+                _recog_job_file(k).unlink(missing_ok=True)
+            except Exception:
+                pass
+        job = RECOG_JOBS.get(job_id)
+        if job:
+            return dict(job)
+    # 应用重开后内存为空：从断点文件恢复
+    job = _recog_job_load(job_id)
+    if not job:
+        return None
+    with RECOG_JOBS_LOCK:
+        RECOG_JOBS.setdefault(job_id, job)
+        return dict(RECOG_JOBS[job_id])
+
+
+def _recog_job_patch(job_id, **fields):
+    """更新任务字段并返回快照（含测试延迟），不持锁做 IO。"""
+    with RECOG_JOBS_LOCK:
+        job = RECOG_JOBS.get(job_id)
+        if not job:
+            return None
+        job.update(fields)
+        job["updated_at"] = time.time()
+        _recog_job_save(job)
+        return dict(job)
+
+
+def _recog_job_patch_current(job_id, run_id, **fields):
+    """只允许当前 run token 写终态：取消后旧线程不能覆盖续跑任务的状态。"""
+    with RECOG_JOBS_LOCK:
+        job = RECOG_JOBS.get(job_id)
+        if not job or job.get("run_id") != run_id:
+            return None
+        job.update(fields)
+        job["updated_at"] = time.time()
+        _recog_job_save(job)
+        return dict(job)
+
+
+def _recog_job_new(job_id, src, params, llm, delay_ms=0):
+    now = time.time()
+    job = {
+        "id": job_id, "src": str(src), "params": params, "llm": llm,
+        "status": "queued", "pct": 3, "stage": "准备识别", "eta_s": None, "elapsed_s": 0,
+        "canceled": False, "error": None, "local_items": None, "result": None,
+        "created_at": now, "updated_at": now, "started_at": None, "finished_at": None,
+        "stage_delay_ms": int(delay_ms or 0), "run_id": 0,
+    }
+    with RECOG_JOBS_LOCK:
+        RECOG_JOBS[job_id] = job
+        _recog_job_save(job)
+    return dict(job)
+
+
+def _recog_eta(job, pct, elapsed):
+    """剩余时间估算：按任务是否启用 LLM 给基准，进度过 10% 后按实测速率校正。
+    同一任务内不抬高既有估算值，避免阶段切换时出现「剩余时间变多」的跳变。"""
+    base = 75 if (job.get("llm") or {}).get("enabled") else 16
+    if pct >= 10 and elapsed >= 1:
+        by_rate = elapsed * (100 - pct) / max(pct, 1)
+        candidate = max(1, int(min(base * 3, by_rate)))
+    else:
+        candidate = max(1, int(base * (100 - pct) / 100))
+    prev = job.get("eta_s")
+    return min(candidate, int(prev)) if prev else candidate
+
+
+def _recog_check(job_id, run_id):
+    """检查点：取消或已被新一次续跑接管时抛出，保证旧线程不覆盖新结果。"""
+    with RECOG_JOBS_LOCK:
+        job = RECOG_JOBS.get(job_id)
+        if not job or job.get("run_id") != run_id or job.get("canceled"):
+            raise RecognizeCanceled()
+
+
+def _recog_job_progress(job_id, run_id, pct, stage):
+    """写进度；测试门（WE_LTASK_TEST=1 + stage_delay_ms）下按阶段停顿以复现长任务。"""
+    _recog_check(job_id, run_id)
+    job = _recog_job_get(job_id)
+    if not job:
+        raise RecognizeCanceled()
+    started = job.get("started_at") or time.time()
+    elapsed = max(0, time.time() - started)
+    pct = max(0, min(100, int(pct)))
+    job = _recog_job_patch(job_id, pct=pct, stage=stage, elapsed_s=round(elapsed, 1),
+                           eta_s=_recog_eta(job, pct, elapsed))
+    delay = (job or {}).get("stage_delay_ms", 0)
+    if delay:
+        time.sleep(min(delay, 5000) / 1000.0)
+    _recog_check(job_id, run_id)
+    return job
+
+
+def _recog_job_cancel(job_id):
+    """取消：立即返回（UI 侧 2 秒内可显示已取消），线程在下一检查点退出。"""
+    job = _recog_job_get(job_id)
+    if not job:
+        return None
+    if job.get("status") == "done":
+        return _recog_job_public(job)
+    return _recog_job_public(_recog_job_patch(
+        job_id, canceled=True, status="canceled", stage="已取消",
+        finished_at=time.time(), eta_s=0))
+
+
+def _recog_job_resume(job_id):
+    """续跑：保留 local_items 断点，重新启动线程；旧线程由 run_id 检查点自然退出。"""
+    job = _recog_job_get(job_id)
+    if not job:
+        return None
+    if job.get("status") == "done":
+        return _recog_job_public(job)
+    if job.get("status") == "running" and not job.get("canceled"):
+        return _recog_job_public(job)
+    patch = _recog_job_patch(job_id, canceled=False, status="queued", error=None,
+                             stage="等待续跑", finished_at=None)
+    if patch:
+        start_recog_job_thread(job_id)
+    return _recog_job_public(_recog_job_get(job_id))
+
+
+def start_recog_job_thread(job_id):
+    """启动线程并登记 run token；返回当前 token。"""
+    with RECOG_JOBS_LOCK:
+        job = RECOG_JOBS.get(job_id)
+        if not job:
+            return None
+        job["run_id"] = int(job.get("run_id", 0)) + 1
+        token = job["run_id"]
+        job["status"] = "running"
+        job["stage"] = "开始识别"
+        job["started_at"] = job.get("started_at") or time.time()
+        job["updated_at"] = time.time()
+        _recog_job_save(job)
+    threading.Thread(target=_recog_job_run, args=(job_id, token), daemon=True).start()
+    return token
+
+
+def _recog_job_run(job_id, run_id):
+    """识别任务线程：解析（可断点）→ 本地候选 → LLM 复核 → 汇总。"""
+    with _recognize_active():
+        job = _recog_job_get(job_id)
+        if not job:
+            return
+        try:
+            _recog_job_progress(job_id, run_id, 8, "解析文档结构")
+            parsed = job.get("local_items")
+            if parsed is None:
+                parsed, _sys_name, _base_mod = recognize_local(
+                    Path(job["src"]),
+                    lambda pct, stage: _recog_job_progress(job_id, run_id, pct, stage))
+                _recog_check(job_id, run_id)
+                _recog_job_patch(job_id, local_items=parsed, pct=55, stage="本地候选已就绪")
+            _recog_job_progress(job_id, run_id, 56, "本地候选已就绪，准备 AI 复核")
+            local_items = [dict(x) for x in (parsed or [])]
+            llm_meta = None
+            if (job.get("llm") or {}).get("enabled"):
+                _recog_job_progress(job_id, run_id, 60, "AI 复核与补全")
+                llm_meta = _llm_enhance(job["src"], local_items, job["llm"])
+                _recog_check(job_id, run_id)     # 取消后丢弃本次 LLM 结果，续跑重做该阶段
+            for i, it in enumerate(local_items, 1):
+                it["seq"] = i
+            _recog_job_progress(job_id, run_id, 90, "汇总候选清单")
+            params = job.get("params") or {}
+            try:
+                cx_mode = engine.normalize_cx_mode(params.get("cx_mode"))
+            except ValueError:
+                raise ValueError("未知复杂度口径")
+            summary = engine.summary(
+                [{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"],
+                  "det": i.get("det"), "ret": i.get("ret"), "ftr": i.get("ftr")} for i in local_items],
+                cx_mode=cx_mode)
+            source = "request" if ("llm_enabled" in params or params.get("enabled")) else "saved"
+            meta = {"params_received": params, "llm": llm_meta, "llm_source": source,
+                    "llm_enabled_effective": bool((job.get("llm") or {}).get("enabled")),
+                    "rules": (RULES.version() if RULES else {"rules_version": 0})}
+            _recog_job_progress(job_id, run_id, 100, "识别完成")
+            _recog_job_patch_current(job_id, run_id, status="done", canceled=False,
+                                     finished_at=time.time(), eta_s=0,
+                                     result={"ok": True, "items": local_items,
+                                             "summary": summary, "meta": meta})
+        except RecognizeCanceled:
+            _recog_job_patch_current(job_id, run_id, status="canceled", stage="已取消",
+                                     finished_at=time.time(), eta_s=0)
+        except Exception as e:
+            _recog_job_patch_current(job_id, run_id, status="failed", error=str(e), stage="识别失败",
+                                     finished_at=time.time(), eta_s=0)
+
+
+def _recognize_llm(params):
+    """大模型配置优先级：请求内传入 > 配置中心已保存值 > 默认(关闭)。"""
+    params = params or {}
+    saved = load_config()["llm"]
+    return {
+        "enabled": bool(params.get("llm_enabled", saved.get("enabled", False))),
+        "api": (params.get("llm_api") or saved.get("api") or "").strip(),
+        "model": (params.get("llm_model") or saved.get("model") or "").strip(),
+        "key": (params.get("llm_key") or saved.get("key") or "").strip(),
+    }
+
+
+def _recog_job_id(raw_id):
+    """任务 ID 限制为安全字符，避免被拼进日志/URL 或与旧记录冲突。"""
+    raw = str(raw_id or "").strip()
+    if _recog_job_id_valid(raw):
+        return raw
+    return "r" + uuid.uuid4().hex[:20]
+
+
+def _recog_test_delay(payload):
+    """仅在隔离测试实例（WE_LTASK_TEST=1）接受阶段延迟，生产请求一律忽略。"""
+    if os.environ.get("WE_LTASK_TEST") != "1":
+        return 0
+    try:
+        return max(0, min(5000, int(payload.get("stage_delay_ms") or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
 # T01835：在途识别计数——recognize 是同步长请求（LLM 启用时可达数十秒），
 # 没有进度表可查，用计数器让 /api/jobs/running 也能感知「AI 识别进行中」。
 _RECOGNIZE_ACTIVE = 0
@@ -1117,11 +1442,17 @@ def _llm_enhance(path, items, llm):
     return llm_meta
 
 
-def recognize_doc(path, llm=None):
-    """解析需求文档 → 候选功能点清单（type 复用 guess_type，modify 以清单类型为准）。
-    llm: dict(enabled, api, model, key) 或 None；启用时调用大模型对候选做复核/补全。
-    """
+def _recog_tick(progress, pct, stage):
+    """本地识别阶段回调；异常（取消）向上抛出，由长任务线程收口。"""
+    if progress:
+        progress(pct, stage)
+
+
+def recognize_local(path, progress=None):
+    """解析文档并生成本地候选（不含 LLM）；返回 (items, sys_name, base_mod)。
+    解析子阶段通过 progress(pct, 文案) 上报，便于长任务展示真实进度/设置取消检查点。"""
     doc = Document(str(path))
+    _recog_tick(progress, 12, "解析文档结构")
     base_mod = "新增"
     # T00851：system 从文档提取主涉及系统名，替代硬编码「综合平台」，禁止默认「票据系统」
     sys_name = _extract_doc_system(doc)
@@ -1131,17 +1462,18 @@ def recognize_doc(path, llm=None):
         table_items = []
     else:
         table_items, base_mod = _collect_table_items(tb, colidx, sys_name, base_mod)
+    _recog_tick(progress, 28, "提取功能点清单")
 
     # 来源一：功能点清单表格；来源二：正文特征句（反洗钱类）；来源三：文档标题层级
     body = _body_subitems(doc)
     body_items = _body_candidate_items(body, table_items, sys_name, base_mod, path)
-    head_items = _heading_candidate_items(_heading_features(doc), sys_name, base_mod)
+    _recog_tick(progress, 42, "扫描正文特征")
 
+    head_items = _heading_candidate_items(_heading_features(doc), sys_name, base_mod)
     items = _select_primary_items(head_items, table_items, body_items)
     if not items:
         items = [_placeholder_item(sys_name, base_mod)]
-
-    llm_meta = _llm_enhance(path, items, llm)
+    _recog_tick(progress, 54, "匹配功能点候选")
 
     for i, it in enumerate(items, 1):
         it["seq"] = i
@@ -1149,6 +1481,20 @@ def recognize_doc(path, llm=None):
     # 不再被引用；显式 del + 强制 GC，避免大文档并发下工作集漂移（原生内存 tracemalloc 不可见）
     del doc
     gc.collect()
+    return items, sys_name, base_mod
+
+
+def recognize_doc(path, llm=None, progress=None):
+    """解析需求文档 → 候选功能点清单（type 复用 guess_type，modify 以清单类型为准）。
+    llm: dict(enabled, api, model, key) 或 None；启用时调用大模型对候选做复核/补全。
+    progress: 可选阶段回调；同步旧接口不传，长任务接口用于真实进度与取消检查点。
+    """
+    items, _sys_name, _base_mod = recognize_local(path, progress)
+    _recog_tick(progress, 55, "本地候选已就绪")
+    llm_meta = _llm_enhance(path, items, llm)
+    _recog_tick(progress, 92, "汇总候选清单")
+    for i, it in enumerate(items, 1):
+        it["seq"] = i
     return items, llm_meta
 
 
@@ -1657,6 +2003,15 @@ class Handler(BaseHTTPRequestHandler):
             job = (parse_qs(u.query).get("job") or [""])[0]
             self._json(200, {"ok": True, "progress": _gen_progress_get(job)})
             return True
+        if u.path == "/api/recognize/job":
+            # T06180：识别长任务状态/结果轮询（done 时附带 items/summary/meta）
+            job = (parse_qs(u.query).get("job") or [""])[0]
+            cur = _recog_job_get(job)
+            if not cur:
+                self._json(404, {"ok": False, "msg": "任务不存在"})
+            else:
+                self._json(200, {"ok": True, "job": _recog_job_public(cur, include_result=True)})
+            return True
         if u.path == "/api/rules":
             # M3/FR-2.9：识别规则表读取
             if RULES is None:
@@ -1914,6 +2269,9 @@ class Handler(BaseHTTPRequestHandler):
     # 未命中路径仍返回 404。分发顺序与原 if 链一致，行为不变。
     POST_ROUTES = {
         "/api/recognize": "_post_recognize",
+        "/api/recognize/jobs": "_post_recognize_jobs",
+        "/api/recognize/cancel": "_post_recognize_cancel",
+        "/api/recognize/resume": "_post_recognize_resume",
         API_CONFIG: "_post_config",
         "/api/story/push": "_post_story_push",
         "/api/templates/save": "_post_template_save",
@@ -2009,13 +2367,7 @@ class Handler(BaseHTTPRequestHandler):
             src.write_bytes(base64.b64decode(b64))
             params = payload.get("params", {}) or {}
             # 大模型配置优先级：请求内传入 > 配置中心已保存值 > 默认(关闭)
-            saved = load_config()["llm"]
-            llm = {
-                "enabled": bool(params.get("llm_enabled", saved.get("enabled", False))),
-                "api": (params.get("llm_api") or saved.get("api") or "").strip(),
-                "model": (params.get("llm_model") or saved.get("model") or "").strip(),
-                "key": (params.get("llm_key") or saved.get("key") or "").strip(),
-            }
+            llm = _recognize_llm(params)
             items, llm_meta = recognize_doc(src, llm if llm["enabled"] else None)
             try:
                 cx_mode = engine.normalize_cx_mode(params.get("cx_mode"))
@@ -2030,6 +2382,51 @@ class Handler(BaseHTTPRequestHandler):
                                     "meta": {"params_received": params, "llm": llm_meta, "llm_source": source,
                                              "llm_enabled_effective": llm["enabled"],
                                              "rules": (RULES.version() if RULES else {"rules_version": 0})}})
+
+    def _post_recognize_jobs(self, raw):
+        """T06180：创建异步识别任务（进程内线程），立即返回任务句柄供前端轮询。"""
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+            V.check_recognize(payload)
+        except V.VErr as e:
+            return self._json(400, {"ok": False, "msg": e.msg, "field": e.field})
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        job_id = _recog_job_id(payload.get("job"))
+        if _recog_job_get(job_id):
+            return self._json(409, {"ok": False, "msg": "任务已存在"})
+        name = payload.get("name", UPLOAD_FALLBACK_NAME)
+        src = _upload_path(name)
+        src.write_bytes(base64.b64decode(payload.get("b64", "")))
+        params = payload.get("params", {}) or {}
+        llm = _recognize_llm(params)
+        _recog_job_new(job_id, src, params, llm, _recog_test_delay(payload))
+        start_recog_job_thread(job_id)
+        return self._json(202, {"ok": True, "job": _recog_job_public(_recog_job_get(job_id))})
+
+    def _post_recognize_cancel(self, raw):
+        """T06180：取消识别任务；立即返回 canceled，线程在下一检查点停止。"""
+        try:
+            job_id = str((json.loads(raw.decode("utf-8")) or {}).get("job") or "")
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        job = _recog_job_cancel(job_id)
+        if not job:
+            return self._json(404, {"ok": False, "msg": "任务不存在"})
+        return self._json(200, {"ok": True, "job": job})
+
+    def _post_recognize_resume(self, raw):
+        """T06180：从 local_items 断点续跑；已取消/失败任务可续，运行中任务幂等返回。"""
+        try:
+            job_id = str((json.loads(raw.decode("utf-8")) or {}).get("job") or "")
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        job = _recog_job_resume(job_id)
+        if not job:
+            return self._json(404, {"ok": False, "msg": "任务不存在"})
+        if job.get("status") == "done":
+            return self._json(409, {"ok": False, "msg": "任务已完成", "job": job})
+        return self._json(202, {"ok": True, "job": job})
 
     def _post_config(self, raw):
         # 保存配置中心（大模型）配置

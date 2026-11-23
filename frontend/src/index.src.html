@@ -123,6 +123,19 @@
         </div>
         <button class="cta" id="startBtn" disabled data-i18n="title=work.start_btn" title="上传文档开始识别"><i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">上传文档开始识别</span></button>
         <div class="mark" id="progressMark"></div>
+        <div class="ltask" id="ltaskPanel" hidden aria-live="polite">
+          <div class="ltask-head"><b id="ltaskTitle">识别需求文档</b><span id="ltaskPct">0%</span></div>
+          <div class="ltask-track" id="ltaskTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="ltaskFill"></i></div>
+          <div class="ltask-meta"><span id="ltaskStage">准备识别…</span><span id="ltaskEta"></span></div>
+          <button type="button" class="btn btn-ghost ltask-cancel" id="ltaskCancel">取消任务</button>
+        </div>
+        <div class="ltask-resume" id="ltaskResumeBanner" hidden>
+          <div><b>有未完成的识别任务</b><div id="ltaskResumeStage"></div></div>
+          <div class="ltask-resume-actions">
+            <button type="button" class="btn" id="ltaskResumeBtn">继续识别</button>
+            <button type="button" class="btn btn-ghost" id="ltaskDiscardBtn">放弃</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
