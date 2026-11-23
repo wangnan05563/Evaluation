@@ -106,7 +106,7 @@ body{font-family:var(--ff);color:var(--ink);background:var(--bg);-webkit-font-sm
 body[data-step="upload"] #v-upload,body[data-step="review"] #v-review,body[data-step="result"] #v-result,body[data-step="history"] #v-history{display:block}
 /* M3/FR-1.4：排序表头 + 键盘焦点行 */
 .sortable{cursor:pointer;user-select:none}
-#tbody tr.cur{outline:2px solid var(--brand);outline-offset:-2px}
+#tbody .rowr.cur{outline:2px solid var(--brand);outline-offset:-2px}
 #fSys,#fType,#fReuse{max-width:110px;font-size:12px}
 /* M2/FR-1.2：结果页图表网格 */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
@@ -181,7 +181,7 @@ body[data-page="pert"] #pg-pert{display:block}
 .m-item .tip{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--on-brand);font-size:11px;font-weight:500;padding:5px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:.15s;box-shadow:var(--shadow-lg);z-index:50}
 .m-item .tip::before{content:"";position:absolute;top:-4px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-bottom-color:var(--ink)}
 .m-item:hover .tip{opacity:1}
-@media(max-width:820px){.menu{gap:2px}.m-item span.lbl{display:none}.m-item{padding:9px 10px}}
+@media(max-width:820px){.menu{gap:2px}.m-item span.lbl{display:none}.m-item{padding:9px 10px}.m-item .tip{display:none}}
 .up-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px}
 .drop{border:2px dashed var(--drop-line);border-radius:var(--r-lg);background:var(--surface-2);padding:48px 22px;text-align:center;cursor:pointer;transition:.2s}
 .drop:hover{border-color:var(--brand);background:var(--brand-soft)}
@@ -235,8 +235,8 @@ body[data-page="pert"] #pg-pert{display:block}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-size:11px;color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
-tr.rowr:hover{background:var(--surface-2)}
-tr.rowr.done{opacity:.7}
+#v-review .rowr:hover{background:var(--surface-2)}
+#v-review .rowr.done{background:var(--surface-2)}
 /* 真实票据需求描述可达数百字，仅 max-width 限宽仍会换行几十行把行高撑到 300px+，
    表格不可用。改为默认钳制 3 行，点击描述全文展开/收起（JS 事件委托见 01_core.js）。 */
 .desc{max-width:420px;line-height:1.55;font-weight:500;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;cursor:zoom-in}
@@ -256,7 +256,7 @@ tr.rowr.done{opacity:.7}
 .pick{font-family:var(--ff);font-size:12px;font-weight:500;border:1px solid var(--line);border-radius:8px;padding:3px 6px;background:var(--card);color:var(--ink);outline:none;width:76px}
 .num{font-weight:600;font-variant-numeric:tabular-nums}
 .basis{font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:7px 9px;border-radius:8px;line-height:1.55;margin-top:6px;display:none}
-tr.rowr.showb .basis{display:block}
+#v-review .rowr.showb .basis{display:block}
 .toggle{border:0;background:var(--line-2);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:500;cursor:pointer}
 .stat{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;white-space:nowrap}
 .stat .lic{width:15px;height:15px}
@@ -361,6 +361,197 @@ tr.rowr.showb .basis{display:block}
   th,td{padding:7px 6px}
   .pick{width:64px}
 }
+/* T06174：10k 复核表固定视口——滚动父容器不再随 10k 行内容无限增高，ctBindScroll 才能触发。 */
+#v-review .ct-scroll {
+  max-height: max(300px, calc(100vh - 506px));   /* 表格下沿止于底部 sticky dockbar 上方，避免行被汇总条遮住 */
+  overflow: auto !important;
+}
+
+/* T06174：复核表改为 div 网格，行体不再进入 <table> 布局；虚拟窗口约 20 行。 */
+#v-review .ct-head,
+#v-review .ct-body .rowr {
+  display: grid;
+  grid-template-columns: 34px minmax(150px, 1fr) 140px 170px 52px 76px 76px 56px 86px;
+  align-items: stretch;
+}
+#v-review .ct-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+#v-review .ct-h {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#v-review .ct-h.sortable { cursor: pointer; }
+#v-review .ct-ck { justify-content: center; padding-left: 0; padding-right: 0; }
+#v-review .ct-scroll { position: relative; }
+#v-review .ct-body { position: relative; }
+#v-review .ct-body .rowr {
+  position: relative;
+  min-height: 44px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line-2);
+}
+#v-review .ct-body.virtual .ct-spacer {
+  height: 0;
+}
+#v-review .ct-body.virtual .ct-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+  contain: layout paint;
+}
+#v-review .ct-body.virtual .rowr {
+  position: relative;
+  height: 44px;
+}
+#v-review .ct-c { display: block; min-width: 0; padding: 9px 10px; }
+#v-review .ct-body.virtual .ct-c { padding: 6px 8px; }
+#v-review .ct-body.virtual .rowr .desc {
+  display: block;
+  max-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#v-review .ct-body .ct-ck { display: flex; align-items: center; justify-content: center; padding: 0; }
+#v-review .ct-empty { padding: 24px 12px; }
+#v-review .ct-body .rowr:hover { background: var(--surface-2); }
+#v-review .ct-body .rowr.done { background: var(--surface-2); }
+#v-review .ct-body .rowr.cur { outline: 2px solid var(--brand); outline-offset: -2px; z-index: 2; }
+/* 展开判定依据时行高不再固定；覆盖后续行并可读。 */
+#v-review .ct-body .rowr.showb {
+  z-index: 3;
+  height: auto;
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+#v-review .ct-body .rowr.showb .basis { display: block; }
+
+@media (max-width: 1180px) {
+  #v-review .ct-head,
+  #v-review .ct-body .rowr {
+    grid-template-columns: 34px minmax(180px, 1fr) 140px 170px 52px 76px 76px 56px 86px;
+  }
+}
+
+/* T06173：200% 缩放（720 CSS px）下复核表改为 4 列只读布局，避免文档级横向滚动。
+   只保留勾选/描述/计数项类别/状态；其余列在窄视口隐藏，编辑走批量操作。 */
+@media (max-width: 900px) {
+  #v-review .ct-head,
+  #v-review .ct-body .rowr {
+    grid-template-columns: 32px minmax(0, 1fr) 96px 72px;
+  }
+  #v-review .ct-head .ct-h:nth-child(4),
+  #v-review .ct-head .ct-h:nth-child(5),
+  #v-review .ct-head .ct-h:nth-child(6),
+  #v-review .ct-head .ct-h:nth-child(7),
+  #v-review .ct-head .ct-h:nth-child(8),
+  #v-review .ct-body .rowr .ct-c:nth-child(4),
+  #v-review .ct-body .rowr .ct-c:nth-child(5),
+  #v-review .ct-body .rowr .ct-c:nth-child(6),
+  #v-review .ct-body .rowr .ct-c:nth-child(7),
+  #v-review .ct-body .rowr .ct-c:nth-child(8) {
+    display: none;
+  }
+  #v-review .ct-body .rowr .ct-c:nth-child(3) { padding-left: 6px; padding-right: 6px; }
+  #v-review .ct-body .rowr .ct-c:nth-child(9) { padding-left: 6px; padding-right: 6px; }
+}
+
+/* T06184 / AC-17：Ctrl/Cmd+K 命令面板（本地索引，无网络搜索）
+   设计约束：
+   - 覆盖层与面板全部走主题令牌，暗色/高对比自动跟随，不写死颜色；
+   - 行高 ≥36px、字号 ≥13px，focus-visible 走全局 2px 品牌环；
+   - 列表最多 60 行、内部滚动，避免 10k 行场景把面板撑出视口。 */
+.cmdk{
+  position:fixed; inset:0; z-index:1200;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:12vh 16px 24px;
+  background:rgba(15,23,42,.42);
+  backdrop-filter:blur(2px);
+}
+body.cmdk-lock{overflow:hidden}
+.cmdk[hidden]{display:none}
+.cmdk-panel{
+  width:min(680px,100%); max-height:72vh;
+  display:flex; flex-direction:column;
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--line-ctrl); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg); overflow:hidden;
+}
+.cmdk-head{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line)}
+.cmdk-head .lic{width:18px;height:18px;color:var(--brand);flex:none}
+.cmdk-input{
+  flex:1; min-width:0; height:36px; padding:0 2px;
+  border:0; outline:0; background:transparent; color:var(--ink);
+  font:600 15px/36px var(--ff);
+}
+.cmdk-input::placeholder{color:var(--muted);font-weight:500}
+.cmdk-kbd{
+  flex:none; padding:3px 7px; border:1px solid var(--line-ctrl); border-radius:6px;
+  font:600 11px/1.3 var(--ff); color:var(--muted); background:var(--surface-2);
+}
+.cmdk-list{overflow:auto; padding:6px; margin:0; list-style:none}
+.cmdk-group{padding:0}
+.cmdk-group-label{
+  display:block; padding:8px 10px 5px; font:700 11px/1.2 var(--ff); letter-spacing:.04em;
+  color:var(--muted); text-transform:uppercase;
+}
+.cmdk-item{position:relative;list-style:none}
+.cmdk-row{
+  display:flex; align-items:center; gap:10px; width:100%;
+  min-height:40px; padding:6px 46px 6px 10px; border:0; border-radius:var(--r-md);
+  background:transparent; color:var(--ink); text-align:left; cursor:pointer;
+  font:500 13px/1.35 var(--ff);
+}
+.cmdk-row:hover{background:var(--brand-soft)}
+.cmdk-row[aria-selected="true"]{background:var(--brand-soft); outline:2px solid var(--brand); outline-offset:-2px}
+.cmdk-ico{width:18px;height:18px;color:var(--muted);flex:none}
+.cmdk-row[aria-selected="true"] .cmdk-ico{color:var(--brand)}
+.cmdk-main{flex:1;min-width:0}
+.cmdk-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-sub{display:block;margin-top:1px;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-star{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  width:28px; height:28px; border:1px solid transparent; border-radius:var(--r-full);
+  background:transparent; color:var(--muted); cursor:pointer;
+  font:600 15px/1 var(--ff);
+}
+.cmdk-star:hover{border-color:var(--line-ctrl);color:var(--brand)}
+.cmdk-star[aria-pressed="true"]{color:var(--brand)}
+.cmdk-empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7}
+.cmdk-foot{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px;
+  padding:8px 14px; border-top:1px solid var(--line);
+  font:500 11px/1.5 var(--ff); color:var(--muted);
+}
+.cmdk-foot .cmdk-kbd{padding:2px 5px}
+.cmdk-latency{margin-left:auto;font-variant-numeric:tabular-nums}
+.cmdk-hit{animation:cmdkHit 1.1s ease-out 1}
+@keyframes cmdkHit{
+  0%{box-shadow:0 0 0 3px var(--brand) inset}
+  100%{box-shadow:0 0 0 0 transparent inset}
+}
+@media (max-width:640px){
+  .cmdk{padding-top:8vh}
+  .cmdk-panel{max-height:78vh}
+  .cmdk-kbd{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .cmdk-hit{animation:none;outline:3px solid var(--brand);outline-offset:-3px}
+}
+
 /* ===== FR-UI04动效 + FR-UI07 空态插画 样式 =====
  * 依赖 10_main.css 的设计令牌（--surface-2/--line/--brand/--danger 等），
  * 因此全部走变量取色：亮/暗/高对比三态自动适配，无需各写一份。
@@ -419,15 +610,35 @@ tr.rowr.showb .basis{display:block}
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
+<!-- T06184 / AC-17：Ctrl/Cmd+K 全局命令面板。索引完全本地构建（页面/当前功能项/PERT 项目），
+     不发起网络搜索；最近与收藏存 localStorage（we_cmd_recent / we_cmd_fav），换主题自动跟随令牌。 -->
+<div id="cmdk" class="cmdk" hidden>
+  <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="命令面板">
+    <div class="cmdk-head">
+      <i aria-hidden="true" data-lucide="search" class="lic"></i>
+      <input id="cmdkInput" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="搜索页面、功能项或项目…" aria-label="搜索页面、功能项或项目"
+             aria-controls="cmdkList" aria-autocomplete="list">
+      <span class="cmdk-kbd" aria-hidden="true">Esc</span>
+    </div>
+    <div id="cmdkList" class="cmdk-list" role="listbox" aria-label="命令与搜索结果"></div>
+    <div class="cmdk-foot">
+      <span><span class="cmdk-kbd">↑ ↓</span> 选择</span>
+      <span><span class="cmdk-kbd">Enter</span> 执行</span>
+      <span><span class="cmdk-kbd">Ctrl + Enter</span> 收藏</span>
+      <span class="cmdk-latency" id="cmdkLatency">0 ms</span>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <div class="brand"><i aria-hidden="true" data-lucide="chart-spline" class="lic"></i><div><h1 data-i18n="app.title">工作量评估助手</h1></div></div>
     <nav class="menu">
-      <button class="m-item on" id="mi-work" data-page="work" onclick="goPage('work')"><i aria-hidden="true" data-lucide="calculator" class="lic"></i><span class="lbl" data-i18n="nav.work">IFPUG 估算</span><span class="tip" data-i18n="nav.work.tip">上传需求 → 审核功能点 → 生成成品造价表</span></button>
-      <button class="m-item" id="mi-pert" data-page="pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
-      <button class="m-item" id="mi-fast" data-page="fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
-      <button class="m-item" id="mi-config" data-page="config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
-      <button class="m-item" id="mi-help" data-page="help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
+      <button class="m-item on" id="mi-work" data-page="work" aria-label="IFPUG 估算" data-i18n="aria-label=nav.work" onclick="goPage('work')"><i aria-hidden="true" data-lucide="calculator" class="lic"></i><span class="lbl" data-i18n="nav.work">IFPUG 估算</span><span class="tip" data-i18n="nav.work.tip">上传需求 → 审核功能点 → 生成成品造价表</span></button>
+      <button class="m-item" id="mi-pert" data-page="pert" aria-label="PERT 估算" data-i18n="aria-label=nav.pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
+      <button class="m-item" id="mi-fast" data-page="fast" aria-label="快速估算" data-i18n="aria-label=nav.fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
+      <button class="m-item" id="mi-config" data-page="config" aria-label="配置中心" data-i18n="aria-label=nav.config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
+      <button class="m-item" id="mi-help" data-page="help" aria-label="帮助文档" data-i18n="aria-label=nav.help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
     </nav>
   </header>
 
@@ -483,13 +694,13 @@ tr.rowr.showb .basis{display:block}
       <div class="glass pad">
         <div class="card-title"><i aria-hidden="true" data-lucide="settings-2"></i>项目参数</div>
         <div class="fields">
-          <div class="fill"><div class="f-w">规模计数时机</div><select><option>估算早期</option><option selected>估算中期</option><option>估算晚期</option><option>交付后及运维</option></select></div>
-          <div class="fill"><div class="f-w">规模估算方法</div><select id="methodSel" onchange="onMethodChange()"><option selected>估算功能点</option><option>预估功能点</option></select></div>
-          <div class="fill"><div class="f-w">应用类型</div><select><option selected>业务处理</option><option>应用集成</option><option>科技</option><option>智能信息</option></select></div>
-          <div class="fill"><div class="f-w">开发语言</div><select><option selected>JAVA、C++、C# 等</option><option>C 等</option><option>PowerBuilder、ASP 等</option></select></div>
-          <div class="fill"><div class="f-w">开发团队背景</div><select><option selected>本行业类似软件</option><option>相关行业软件</option><option>无相关背景</option></select></div>
-          <div class="fill"><div class="f-w">人月基准单价（万元）</div><input type="text" value="2.57"></div>
-          <div class="fill"><div class="f-w">系统类别生产率（人时/FP）</div><input type="text" value="10.67"></div>
+          <div class="fill"><div class="f-w">规模计数时机</div><select aria-label="规模计数时机"><option>估算早期</option><option selected>估算中期</option><option>估算晚期</option><option>交付后及运维</option></select></div>
+          <div class="fill"><div class="f-w">规模估算方法</div><select id="methodSel" aria-label="规模估算方法" onchange="onMethodChange()"><option selected>估算功能点</option><option>预估功能点</option></select></div>
+          <div class="fill"><div class="f-w">应用类型</div><select aria-label="应用类型"><option selected>业务处理</option><option>应用集成</option><option>科技</option><option>智能信息</option></select></div>
+          <div class="fill"><div class="f-w">开发语言</div><select aria-label="开发语言"><option selected>JAVA、C++、C# 等</option><option>C 等</option><option>PowerBuilder、ASP 等</option></select></div>
+          <div class="fill"><div class="f-w">开发团队背景</div><select aria-label="开发团队背景"><option selected>本行业类似软件</option><option>相关行业软件</option><option>无相关背景</option></select></div>
+          <div class="fill"><div class="f-w">人月基准单价（万元）</div><input type="text" value="2.57" aria-label="人月基准单价（万元）"></div>
+          <div class="fill"><div class="f-w">系统类别生产率（人时/FP）</div><input type="text" value="10.67" aria-label="系统类别生产率（人时/FP）"></div>
         </div>
         <button class="cta" id="startBtn" disabled data-i18n="title=work.start_btn" title="上传文档开始识别"><i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">上传文档开始识别</span></button>
         <div class="mark" id="progressMark"></div>
@@ -519,18 +730,28 @@ tr.rowr.showb .basis{display:block}
         </div>
         <div class="mark" id="batchBar" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
           <b><span data-i18n="review.batch.pre">对筛选出的</span> <span id="batchCnt">0</span> <span data-i18n="review.batch.post">行批量：</span></b>
-          <select id="bReuse"><option value="" data-i18n="review.batch.reuse">重用度…</option><option>高</option><option>中</option><option>低</option></select>
-          <select id="bModify"><option value="" data-i18n="review.batch.modify">修改类型…</option><option>新增</option><option>修改</option><option>删除</option></select>
-          <select id="bCx"><option value="" data-i18n="review.batch.cx">复杂度…</option><option>低</option><option>中</option><option>高</option></select>
+          <select id="bReuse" aria-label="批量设置重用度"><option value="" data-i18n="review.batch.reuse">重用度…</option><option>高</option><option>中</option><option>低</option></select>
+          <select id="bModify" aria-label="批量设置修改类型"><option value="" data-i18n="review.batch.modify">修改类型…</option><option>新增</option><option>修改</option><option>删除</option></select>
+          <select id="bCx" aria-label="批量设置复杂度"><option value="" data-i18n="review.batch.cx">复杂度…</option><option>低</option><option>中</option><option>高</option></select>
           <button class="btn btn-ghost" onclick="batchApply()" data-i18n="title=review.batch.apply_title" title="应用到筛选出的全部行"><span data-i18n="review.batch.apply">应用</span></button>
           <button class="btn btn-ghost" onclick="batchConfirm()" data-i18n="title=review.batch.confirm_title" title="全部标记为已确认"><span data-i18n="review.batch.confirm">标记确认</span></button>
           <button class="btn btn-ghost" onclick="batchDelete()" data-i18n="title=review.batch.del_title" title="删除筛选出的全部行（需确认）"><i aria-hidden="true" data-lucide="trash-2" style="width:14px;height:14px"></i><span data-i18n="review.batch.del">删除</span></button>
         </div>
-        <div style="overflow:auto">
-        <table>
-          <thead><tr><th style="width:34px"><input type="checkbox" id="ckAll" data-i18n="title=review.th.select_all|aria-label=review.th.select_all_aria" title="全选/全不选（确认所有功能项）" aria-label="全选/全不选，确认所有功能项" onchange="toggleAllCk(this.checked)"></th><th onclick="sortBy('desc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('desc')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.desc_title" title="按描述排序"><span data-i18n="review.th.desc">功能项描述</span> <span id="s-desc"></span></th><th onclick="sortBy('type')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('type')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.count_item_title" title="按类型排序"><span data-i18n="review.th.count_item">计数项 · 类别</span> <span id="s-type"></span></th><th style="width:168px" data-i18n="title=review.th.cx_title|review.th.cx" title="复杂度仅作记录，不参与 UFP；母版按类别默认权重计算">复杂度</th><th style="width:60px" data-i18n="review.th.ufp">UFP</th><th style="width:86px" data-i18n="review.th.reuse">重用</th><th style="width:86px" data-i18n="review.th.modify">修改</th><th onclick="sortBy('us')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('us')}" class="sortable" role="button" tabindex="0" aria-sort="none" data-i18n="title=review.th.us_title" title="按 US 排序" style="width:60px"><span data-i18n="review.th.us">US</span> <span id="s-us"></span></th><th data-i18n="review.th.status">状态</th></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
+        <div class="ct-wrap" role="table" aria-label="功能点复核表">
+        <div class="ct-head" role="row">
+          <div class="ct-h ct-ck" role="columnheader"><input type="checkbox" id="ckAll" data-i18n="title=review.th.select_all|aria-label=review.th.select_all_aria" title="全选/全不选（确认所有功能项）" aria-label="全选/全不选，确认所有功能项" onchange="toggleAllCk(this.checked)"></div>
+          <div class="ct-h sortable" role="columnheader" tabindex="0" aria-sort="none" onclick="sortBy('desc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('desc')}" data-i18n="title=review.th.desc_title" title="按描述排序"><span data-i18n="review.th.desc">功能项描述</span> <span id="s-desc"></span></div>
+          <div class="ct-h sortable" role="columnheader" tabindex="0" aria-sort="none" onclick="sortBy('type')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('type')}" data-i18n="title=review.th.count_item_title" title="按类型排序"><span data-i18n="review.th.count_item">计数项 · 类别</span> <span id="s-type"></span></div>
+          <div class="ct-h" role="columnheader" data-i18n="title=review.th.cx_title|review.th.cx" title="复杂度仅作记录，不参与 UFP；母版按类别默认权重计算">复杂度</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.ufp">UFP</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.reuse">重用</div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.modify">修改</div>
+          <div class="ct-h sortable" role="columnheader" tabindex="0" aria-sort="none" onclick="sortBy('us')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortBy('us')}" data-i18n="title=review.th.us_title" title="按 US 排序"><span data-i18n="review.th.us">US</span> <span id="s-us"></span></div>
+          <div class="ct-h" role="columnheader" data-i18n="review.th.status">状态</div>
+        </div>
+        <div class="ct-scroll" style="overflow:auto">
+          <div id="tbody" class="ct-body" role="rowgroup"></div>
+        </div>
         </div>
         <div class="dockbar">
           <div class="gprog" id="genProg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-live="polite">
@@ -685,7 +906,7 @@ tr.rowr.showb .basis{display:block}
       <div class="cfg-row">
         <input id="ctxDir" type="text" data-i18n-ph="config.ctx.ph" placeholder="例如：D:\code\otherProjects\foo 或 /root/proj" style="flex:1;padding:10px 12px;border:1px solid var(--line-ctrl);border-radius:var(--r-md);font-family:var(--ff);font-size:13px;outline:none">
         <button class="btn btn-ghost" onclick="openDirPicker()" data-i18n="title=config.ctx.browse|aria-label=config.ctx.browse" title="浏览选择目录" aria-label="浏览选择目录"><i aria-hidden="true" data-lucide="folder-search" style="width:15px;height:15px"></i></button>
-        <button class="btn btn-primary" onclick="saveCtxDir()" data-i18n="title=config.ctx.save" data-i18n="title=config.upd.save" title="保存" aria-label="保存"><i aria-hidden="true" data-lucide="save" style="width:15px;height:15px"></i></button>
+        <button class="btn btn-primary" onclick="saveCtxDir()" data-i18n="title=config.ctx.save|aria-label=config.ctx.save" title="保存目录" aria-label="保存目录"><i aria-hidden="true" data-lucide="save" style="width:15px;height:15px"></i></button>
         <button class="btn btn-ghost" onclick="analyzeCtx()" data-i18n="title=config.ctx.scan|aria-label=config.ctx.scan" title="扫描分析" aria-label="扫描分析"><i aria-hidden="true" data-lucide="scan-search" style="width:15px;height:15px"></i></button>
       </div>
       <div class="cfg-note">
@@ -1239,16 +1460,50 @@ function dynPaint(){let htmlPainted=false;for(const d of __dyn){if(!document.bod
 const LV={低:"low",中:"mid",高:"high",新增:"new",修改:"change",删除:"del"};
 // 属性转义：system 等字段可能含引号/尖括号，拼进 HTML 属性前必须转义
 const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+/* T06173/WCAG 4.1.2：配置页/表格内存在大量“视觉有标题、程序无名称”的输入控件。
+   统一按最近的表头、.f-w 字段名或卡片标题补 aria-label；已有 name 的控件不覆盖。 */
+function a11yLabelControls(root=document){
+  const scope=root&&root.querySelectorAll?root:document;
+  scope.querySelectorAll("input,select,textarea").forEach(el=>{
+    const type=(el.getAttribute("type")||"").toLowerCase();
+    if(type==="hidden"||type==="file")return;
+    if(el.getAttribute("aria-label")||el.getAttribute("aria-labelledby")||el.closest("label"))return;
+    let name="";
+    const tr=el.closest("tr");
+    if(tr){
+      const cell=el.closest("td,th"),table=tr.closest("table");
+      if(cell&&table){
+        const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
+        if(th)name=th.textContent.replace(/\s+/g," ").trim();
+      }
+    }
+    if(!name){
+      const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
+      const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
+      if(lab)name=lab.textContent.replace(/\s+/g," ").trim();
+    }
+    if(!name){
+      const card=el.closest(".glass.pad,.card");
+      const title=card&&card.querySelector(".card-title");
+      if(title)name=(title.querySelector("span")||title).textContent.replace(/\s+/g," ").trim();
+    }
+    if(!name&&el.getAttribute("placeholder"))name=el.getAttribute("placeholder").trim();
+    if(!name&&el.id)name=el.id;
+    if(name)el.setAttribute("aria-label",name.slice(0,96));
+  });
+}
+a11yLabelControls();
+document.addEventListener("DOMContentLoaded",()=>{a11yLabelControls();setTimeout(()=>a11yLabelControls(),600);});
 function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
 function ufp(it){const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function us(it){return ufp(it)*REUSE[it.reuse]*MODIFY[it.modify];}
 function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":""}>${label}</option>`;}
-function cxCellHTML(it){return `<select class="pick" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
-function reuseHTML(it){return `<select class="pick" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
-function modHTML(it){return `<select class="pick" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
-function typeCell(it){return `<select class="pick" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
-function refreshRow(it){const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(!tr)return;
+function cxCellHTML(it){return `<select class="pick" aria-label="${t("review.th.cx")} ${it.seq}" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
+function reuseHTML(it){return `<select class="pick" aria-label="${t("review.th.reuse")} ${it.seq}" data-k="reuse" data-seq="${it.seq}">${['低','中','高'].map(v=>optHTML(v,it.reuse,t("common.lv."+LV[v]))).join('')}</select>`;}
+function modHTML(it){return `<select class="pick" aria-label="${t("review.th.modify")} ${it.seq}" data-k="modify" data-seq="${it.seq}">${['新增','修改','删除'].map(v=>optHTML(v,it.modify,t("common.mod."+LV[v]))).join('')}</select>`;}
+function typeCell(it){return `<select class="pick" aria-label="${t("review.th.count_item")} ${it.seq}" data-k="type" data-seq="${it.seq}">${Object.keys(CATCOLOR).map(t=>"<option "+(t===it.type?" selected":"")+">"+t+"</option>").join('')}</select>`;}
+function refreshRow(it){const tr=document.querySelector(`#tbody .rowr[data-seq="${it.seq}"]`);if(!tr)return;
 tr.querySelector('[data-u]').textContent=ufp(it);tr.querySelector('[data-s]').textContent=us(it).toFixed(2);const ct=tr.querySelector(".cat");ct.className="cat "+CATCOLOR[it.type];ct.textContent=it.type;}
 function refreshTotals(){
   const okT=items.filter(x=>x.ok),tU=items.reduce((a,x)=>a+ufp(x),0),tS=items.reduce((a,x)=>a+us(x),0).toFixed(2);
@@ -1312,7 +1567,7 @@ function updateSortInd(){
     const el=document.getElementById("s-"+k);
     if(el)el.textContent=d===0?"":(d===1?"▲":"▼");
     // FR-UI05：aria-sort 同步实际排序状态，读屏才能播报当前列与升降序（WCAG 1.3.1）
-    const th=document.querySelector(`th[onclick*="sortBy('${k}')"]`);
+    const th=document.querySelector(`.ct-h[onclick*="sortBy('${k}')"]`);
     if(th)th.setAttribute("aria-sort",ariaSortOf(k));
   });
 }
@@ -1320,46 +1575,61 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
   $("#fTodo").checked=false;sortState=null;render();toast(t("review.filter.cleared"));}
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
-function rowHTML(it){
-  return `<tr class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}">
-      <td><input type="checkbox" class="ck" ${it.ok?'checked':''}></td>
-      <td><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></td>
-      <td><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></td>
-      <td><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></td>
-      <td class="num" data-u>${ufp(it)}</td><td>${reuseHTML(it)}</td><td>${modHTML(it)}</td><td class="num" data-s>${us(it).toFixed(2)}</td>
-      <td><span class="rowst">${badge(it)}</span></td>
-    </tr>`;}
-function render(opts){   // FR-3.3：light 模式跳过树重建/筛选同步（滚动路径专用，建树开销不随窗口变化）
+function rowHTML(it,lite){
+  if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
+      <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
+      <div class="ct-c" role="gridcell">${escAttr(it.cx||'')}</div>
+      <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${it.reuse||''}</div><div class="ct-c" role="gridcell">${it.modify||'新增'}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
+      <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
+    </div>`;
+  return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div><div class="basis">${it.basis||''}</div></div>
+      <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
+      <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px">${typeCell(it)}${cxCellHTML(it)}</div></div>
+      <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${reuseHTML(it)}</div><div class="ct-c" role="gridcell">${modHTML(it)}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
+      <div class="ct-c" role="gridcell"><span class="rowst">${badge(it)}</span></div>
+    </div>`;}
+function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
   if(!light){buildTree();syncSysFilter();updateSortInd();}
-  const arr=visibleItems();
-  $("#listCnt").textContent=tf("review.count",{n:arr.length});
-  const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;
+  const arr=light&&window.__ctArr?window.__ctArr:visibleItems();
+  if(!light)window.__ctArr=arr;
+  const lite=items.length>CT.liteLimit;   // 10k 级列表：紧凑只读行，编辑走批量操作
+  const vrEl=$("#v-review");if(vrEl)vrEl.classList.toggle("ct-lite",lite);
+  if(!light){$("#listCnt").textContent=tf("review.count",{n:arr.length});
+    const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;}
   if(!items.length){
-    $("#tbody").innerHTML=`<tr><td colspan="9">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</td></tr>`;
-    refreshTotals();window.lucide&&lucide.createIcons();return;}
+    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+    tb.innerHTML=`<div class="ct-empty">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</div>`;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
   if(!arr.length){
-    $("#tbody").innerHTML=`<tr><td colspan="9">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</td></tr>`;
-    refreshTotals();window.lucide&&lucide.createIcons();return;}
+    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+    tb.innerHTML=`<div class="ct-empty">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</div>`;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
   if(!window.__showb)window.__showb=new Set();   // FR-3.3：展开状态改 Set 驱动（虚拟路径可还原）
-  const ckBind=()=>document.querySelectorAll(".ck").forEach(c=>c.addEventListener("change",e=>{
-    const seq=+e.target.closest("tr").dataset.seq,it=items.find(x=>x.seq===seq);
-    it.ok=e.target.checked;e.target.closest("tr").classList.toggle("done",e.target.checked);
-    const rs=e.target.closest("tr").querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();
-  }));
   if(arr.length>CT.threshold){   // FR-3.3（UI03）：虚拟滚动窗口渲染
-    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it),curSeq,window.__showb);
-    ckBind();
+    if(!light){const tb=$("#tbody");tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
+    $("#tbody").setAttribute("role","rowgroup");
+    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it,lite),curSeq,window.__showb);
     ctBindScroll($("#tbody"),()=>render({light:true}));
-    refreshTotals();window.lucide&&lucide.createIcons();return;
+    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+    return;
   }
-  $("#tbody").innerHTML=arr.map(it=>rowHTML(it).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
-  ckBind();
+  const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.setAttribute("role","rowgroup");
+  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
   refreshTotals();window.lucide&&lucide.createIcons();
 }
-$("#tbody").addEventListener("change",e=>{const s=e.target;if(!s.dataset.k)return;
-const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
+$("#tbody").addEventListener("change",e=>{
+  const ck=e.target.closest(".ck");
+  if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+    it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+    const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
+    window.lucide&&lucide.createIcons();refreshTotals();return;}
+  const s=e.target;if(!s.dataset.k)return;
+  const it=items.find(x=>x.seq===+s.dataset.seq);recordRej(it,s.dataset.k,it[s.dataset.k],s.value);it[s.dataset.k]=s.value;refreshRow(it);refreshTotals();saveFormState();updateRejBadge();});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -1378,18 +1648,18 @@ document.addEventListener("keydown",e=>{
   if(d){e.preventDefault();descToggle(d);}
 });
 function toggleBasis(seq){
-  const tr=document.querySelector(`tr[data-seq="${seq}"]`);
-  if(tr){tr.classList.toggle("showb");const on=tr.classList.contains("showb");const btn=tr.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  const row=document.querySelector(`#tbody [data-seq="${seq}"]`);
+  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
-function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const tr=document.querySelector(`tr[data-seq="${it.seq}"]`);if(tr)tr.classList.add("showb");});
-  if(document.querySelector("#tbody .vsp"))render();}   // 虚拟路径重渲窗口
+function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const row=document.querySelector(`#tbody [data-seq="${it.seq}"]`);if(row)row.classList.add("showb");});
+  if($("#tbody").classList.contains("virtual"))render();}   // 虚拟路径重渲窗口
 // 按功能模块过滤：此前用 tr.textContent.includes(sys) 判断，但表格行并不展示 system 字段，
 // 导致点击模块标题后所有行都被隐藏（数据"消失"）。改为按行内 data-sys 精确匹配。
 function filterSys(node){
   const sys=(node&&node.dataset)?node.dataset.sys:"";
   document.querySelectorAll("#tree .tnode").forEach(n=>n.classList.toggle("on",n===node));
-  document.querySelectorAll("#tbody tr").forEach(tr=>{
+  document.querySelectorAll("#tbody .rowr").forEach(tr=>{
     tr.style.display=(!sys||tr.dataset.sys===sys)?"":"none";
   });
 }
@@ -1785,12 +2055,24 @@ async function bindConfig(){
     // 断点续录：无草稿时以后端已保存值为快照基线；有未提交草稿则按域覆盖恢复
     if(!cfgHasDraft())cfgWriteSnapAll();
     cfgRestoreDraft();
+    a11yLabelControls();
   }catch(e){toast(tf("config.load_failed",{msg:e.message}));}
 }
 /** 渲染大模型配置字段：开发商下拉 + 启用开关 + API/模型/Key。 */
-function renderConfigFields(){
+function providerLabel(k,fallback){
+  const key=`config.provider.${k}`;
+  return (__I18N&&__I18N[key])?t(key):(fallback||k);
+}
+function renderProviderOptions(){
   const sel=$("#providerSel");
-  sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML=Object.entries(providers).map(([k,v])=>`<option value="${k}">${providerLabel(k,v.label)}</option>`).join("");
+  if(cur&&sel.querySelector(`option[value="${cur}"]`))sel.value=cur;
+}
+function renderConfigFields(){
+  renderProviderOptions();
+  const sel=$("#providerSel");
   sel.value=llmCfg.provider;
   $("#llmSwitch").classList.toggle("on",!!llmCfg.llm.enabled);
   $("#llmSwitch").setAttribute("aria-checked",llmCfg.llm.enabled?"true":"false");   // FR-UI05：程序化设值同步 aria-checked
@@ -3060,8 +3342,8 @@ document.addEventListener("keydown",e=>{
   if(!items.length||document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
   const h=ROW_KEYS[e.key];if(h)h(e);
 });
-function highlightRow(){document.querySelectorAll("#tbody tr").forEach(tr=>tr.classList.toggle("cur",+tr.dataset.seq===curSeq));
-  const tr=document.querySelector(`#tbody tr[data-seq="${curSeq}"]`);if(tr)tr.scrollIntoView({block:"nearest"});}
+function highlightRow(){document.querySelectorAll("#tbody .rowr").forEach(tr=>tr.classList.toggle("cur",+tr.dataset.seq===curSeq));
+  const tr=document.querySelector(`#tbody .rowr[data-seq="${curSeq}"]`);if(tr)tr.scrollIntoView({block:"nearest"});}
 /* M5：外观卡片逻辑（FR-4.1/4.2/4.3） */
 function setThemeMode(m){localStorage.setItem('wl_theme_mode',m);applyTheme();themeSegPaint();}
 function themeSegPaint(){const m=localStorage.getItem('wl_theme_mode')||'light';
@@ -3125,6 +3407,7 @@ function rulesLoad(){
     <td><input data-ri="${i}" data-rk="enabled" type="checkbox" ${r.enabled!==false?"checked":""}></td>
     <td><textarea data-ri="${i}" data-rk="patterns" style="width:100%;height:36px" title="${escAttr(t("rules.pat_title"))}">${histEsc((r.patterns||[]).join(String.fromCodePoint(10)))}</textarea></td>
     <td><textarea data-ri="${i}" data-rk="exclude" style="width:110px;height:36px" title="${escAttr(t("rules.exc_title"))}">${histEsc((r.exclude||[]).join(String.fromCodePoint(10)))}</textarea></td></tr>`).join("");
+  if(typeof a11yLabelControls==="function")a11yLabelControls($("#rulesRows"));
   window.lucide&&lucide.createIcons();
 }).catch(e=>{$("#rulesRows").innerHTML=`<tr><td colspan="8">${errorBox(e.message,"rulesLoad()")}</td></tr>`;window.lucide&&lucide.createIcons();});}
 function rulesCollect(){
@@ -3684,13 +3967,14 @@ window.addEventListener("DOMContentLoaded",async ()=>{
   else{try{saveFormState();}catch(e){}}
 });
 
-/* ===== M9/FR-3.3（UI03）：复核表格组件化——虚拟滚动窗口助手（IFPUG 复核已接入，PERT 可复用） ===== */
-const CT = { rowH: 44, over: 15, threshold: 120 };   // 行高估测 / 视口外余量 / 虚拟化阈值
+/* ===== M9/FR-3.3（UI03）：复核列表虚拟滚动——div 行池 + 固定窗口，避免 <table> 整表布局 ===== */
+const CT = { rowH: 44, over: 0, threshold: 120, liteLimit: 1000 };   // 行高 / 视口外余量 / 虚拟化阈值 / 紧凑只读阈值
 let CT_SC = null, CT_VPH = 600;
+const CT_TPL = document.createElement("template");
 function ctScrollParent(el) {
-  if (CT_SC && CT_SC.contains(el)) return CT_SC;   // 缓存：滚动容器/视口高每帧不再强制布局
+  if (CT_SC && CT_SC.contains(el)) { if (!CT_VPH) CT_VPH = CT_SC.clientHeight || 600; return CT_SC; }   // 缓存：滚动容器/视口高每帧不再强制布局
   let p = el && el.parentElement;
-  while (p) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY)) { CT_SC = p; CT_VPH = p.clientHeight; return p; } p = p.parentElement; }
+  while (p) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY)) { CT_SC = p; if (p.clientHeight > 0) CT_VPH = p.clientHeight; return p; } p = p.parentElement; }
   return null;
 }
 function ctWindow(total, scrollTop, viewportH) {
@@ -3698,30 +3982,81 @@ function ctWindow(total, scrollTop, viewportH) {
   const count = Math.min(total - first, Math.ceil(viewportH / CT.rowH) + CT.over * 2);
   return { first, count };
 }
-/* 虚拟渲染：spacer 行补位 + 视口窗口行；rowHtmlFn(it, extra) 生成行 HTML（extra 含 cur/showb 状态）。
-   无回归策略：仅在行数 > CT.threshold 时启用窗口路径，小列表保持全量渲染。 */
-function ctRenderVirtual(tbody, arr, rowHtmlFn, cur, showbSet) {
-  const sc = ctScrollParent(tbody);
-  const vpH = sc ? (CT_VPH || sc.clientHeight) : 600;
+function ctRowNode(rowHtmlFn, it, cur, showbSet) {
+  const html = rowHtmlFn(it).replace("class=\"rowr", `class="rowr ${it.seq === cur ? "cur" : ""} ${showbSet && showbSet.has(it.seq) ? "showb" : ""}"`);
+  CT_TPL.innerHTML = html;
+  return CT_TPL.content.firstElementChild;
+}
+/* 虚拟渲染：body 高度=总行高，行节点绝对定位；固定 ~20 个节点，滚动只更新进出窗口的行。 */
+function ctRenderVirtual(body, arr, rowHtmlFn, cur, showbSet) {
+  const sc = ctScrollParent(body);
+  const vpH = sc ? ((CT_VPH || sc.clientHeight) || 600) : 600;
   const st = sc ? sc.scrollTop : 0;
   let { first, count } = ctWindow(arr.length, st, vpH);
   if (cur != null) {                       // 键盘焦点行必须在窗口内
     const idx = arr.findIndex(x => x.seq === cur);
     if (idx >= 0) {
-      if (idx < first) first = Math.max(0, idx - 5);
-      else if (idx >= first + count) { first = Math.min(arr.length - 1, idx - count + 10); count = Math.min(arr.length - first, count); }
+      if (idx < first) first = Math.max(0, idx - CT.over);
+      else if (idx >= first + count) { first = Math.min(arr.length - 1, idx - count + 4); count = Math.min(arr.length - first, count); }
     }
   }
-  const slice = arr.slice(first, first + count);
-  const top = first, bot = arr.length - first - slice.length;
-  tbody.innerHTML =
-    `<tr class="vsp" style="height:${top * CT.rowH}px"><td colspan="9"></td></tr>` +
-    slice.map(it => rowHtmlFn(it).replace('class="rowr', `class="rowr ${it.seq === cur ? "cur" : ""} ${showbSet && showbSet.has(it.seq) ? "showb" : ""}"`)).join("") +
-    `<tr class="vsp" style="height:${bot * CT.rowH}px"><td colspan="9"></td></tr>`;
+  body.classList.add("virtual");
+  const totalH = arr.length * CT.rowH;
+  if (body.__ctTotalH !== totalH) { body.__ctTotalH = totalH; body.style.height = totalH + "px"; }
+  let rows = body.__ctRows;
+  if (!rows || !body.contains(rows)) { rows = document.createElement("div"); rows.className = "ct-rows"; rows.setAttribute("role", "presentation"); body.appendChild(rows); body.__ctRows = rows; }
+  const count2 = count;
+  const map = rows.__map || (rows.__map = new Map());
+  const firstSeq = arr[first] ? arr[first].seq : -1;
+  const lastSeq = arr[first + count2 - 1] ? arr[first + count2 - 1].seq : -1;
+  for (const [seq, slot] of map) {
+    if (seq < firstSeq || seq > lastSeq) { slot.el.remove(); map.delete(seq); }
+  }
+  const newEls = [];
+  for (let i = 0; i < count2; i++) {
+    const it = arr[first + i];
+    const mark = it.seq + "|" + (it.seq === cur ? "c" : "") + "|" + (showbSet && showbSet.has(it.seq) ? "s" : "") + "|" + (it.ok ? "d" : "");
+    let slot = map.get(it.seq);
+    if (!slot) {
+      const el = document.createElement("div");
+      el.className = "rowr";
+      slot = { el, mark: "" };
+      map.set(it.seq, slot);
+      newEls.push(el);
+    }
+    if (slot.mark !== mark) {
+      const fresh = ctRowNode(rowHtmlFn, it, cur, showbSet);
+      for (const a of fresh.attributes) slot.el.setAttribute(a.name, a.value);
+      slot.el.innerHTML = fresh.innerHTML;
+      slot.mark = mark;
+    }
+  }
+  if (newEls.length) {
+    const frag = document.createDocumentFragment();
+    for (const el of newEls) frag.appendChild(el);
+    rows.appendChild(frag);
+  }
+  let orderBad = rows.children.length !== count2;
+  if (!orderBad) {
+    for (let i = 0; i < count2; i++) {
+      const it = arr[first + i], el = map.get(it.seq).el;
+      if (rows.children[i] !== el) { orderBad = true; break; }
+    }
+  }
+  if (orderBad) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count2; i++) frag.appendChild(map.get(arr[first + i].seq).el);
+    rows.replaceChildren(frag);
+  }
+  if (rows.__first !== first) { rows.__first = first; rows.style.transform = `translateY(${first * CT.rowH}px)`; }
+  if (sc && !body.__ctReflow && sc.clientHeight > 0 && sc.clientHeight !== vpH) {
+    body.__ctReflow = 1;
+    requestAnimationFrame(() => { body.__ctReflow = 0; if (sc.clientHeight > 0 && sc.clientHeight !== vpH) { CT_VPH = sc.clientHeight; render({ light: true }); } });
+  }
   return { first, count };
 }
-function ctBindScroll(tbody, onWin) {
-  const sc = ctScrollParent(tbody);
+function ctBindScroll(body, onWin) {
+  const sc = ctScrollParent(body);
   if (!sc || sc.dataset.ctBound) return;
   sc.dataset.ctBound = "1";
   let raf = 0;
@@ -3846,6 +4181,356 @@ function bindDropZone(el, onFile){
     if (f && onFile) onFile(f);
   });
 }
+
+/* T06184 / AC-17：Ctrl/Cmd+K 命令面板
+   验收口径：
+   - 任意页面按 Ctrl/Cmd+K（两次按键：Ctrl + K）打开；
+   - 索引完全本地，搜索走过一次内存过滤，输入到出结果 ≤200ms；
+   - 支持「最近使用」和「收藏」（localStorage 持久化）；
+   - 结果覆盖页面导航、当前 IFPUG 功能项、PERT 项目与常用操作；
+   - 选中功能项后回到审核页并定位到对应行，选中 PERT 项目后直接切换项目。
+   实现约束：不引入新依赖、不发网络搜索；项目列表只在后台预取一次，失败静默降级。 */
+(() => {
+  const MAX_RESULTS = 60, MAX_RECENT = 8, MAX_ITEMS_EMPTY = 12, MAX_FAV = 10;
+  const LS_RECENT = 'we_cmd_recent', LS_FAV = 'we_cmd_fav';
+  const $ = sel => document.querySelector(sel);
+  let el, panel, input, list, latencyEl;
+  let isOpen = false, entries = [], visible = [], active = 0, query = '';
+  let builtFor = null, projects = [], projectFetching = false;
+  let lastFocus = null, chromeLang = '';
+
+  const TEXT = {
+    'zh-CN': {
+      dialog: '命令面板', placeholder: '搜索页面、功能项或项目…',
+      ariaSearch: '搜索页面、功能项或项目', ariaList: '命令与搜索结果',
+      fav: '收藏', recent: '最近', pages: '页面', items: '当前功能项',
+      projects: 'PERT 项目', actions: '操作', results: '搜索结果',
+      empty: '没有匹配结果', emptyHint: '试试页面名、功能项编号、系统名或项目名',
+      select: '选择', run: '执行', favorite: '收藏', unfavorite: '取消收藏',
+      page: '页面', item: '功能项', project: '项目', action: '操作',
+      history: '打开估算历史', noItems: '（尚未识别功能项）', latency: '搜索耗时'
+    },
+    'en-US': {
+      dialog: 'Command palette', placeholder: 'Search pages, function items or projects…',
+      ariaSearch: 'Search pages, function items or projects', ariaList: 'Commands and search results',
+      fav: 'Favorites', recent: 'Recent', pages: 'Pages', items: 'Current function items',
+      projects: 'PERT projects', actions: 'Actions', results: 'Results',
+      empty: 'No matching result', emptyHint: 'Try a page name, item number, system or project name',
+      select: 'Select', run: 'Run', favorite: 'Favorite', unfavorite: 'Remove favorite',
+      page: 'Page', item: 'Item', project: 'Project', action: 'Action',
+      history: 'Open estimate history', noItems: '(no function items yet)', latency: 'Search'
+    }
+  };
+  const PAGE_DEFS = [
+    ['work', 'IFPUG 估算', 'IFPUG estimate', 'calculator', '上传需求 → 审核功能点 → 生成造价表', 'upload review result function point'],
+    ['pert', 'PERT 估算', 'PERT estimate', 'activity', '三点估算：乐观/最可能/悲观', 'pert optimistic likely pessimistic'],
+    ['fast', '快速估算', 'Quick estimate', 'zap', 'NESMA 预估/估算法', 'nesma quick ilf eif'],
+    ['config', '配置中心', 'Configuration', 'settings', '大模型识别增强与费率规则', 'config llm rules rates'],
+    ['help', '帮助文档', 'Help', 'book-open', '评估方法论与计算算法说明', 'help docs guide']
+  ];
+  const ICONS = { page: 'layout-grid', item: 'list-checks', project: 'folder-open', action: 'command' };
+
+  function lang() {
+    const raw = (typeof __I18N_LANG !== 'undefined' && __I18N_LANG) ||
+      localStorage.getItem('wl_lang') || document.documentElement.lang || 'zh-CN';
+    return String(raw).toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN';
+  }
+  function s(k) { return TEXT[lang()][k] || TEXT['zh-CN'][k] || k; }
+  function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function readArr(key) {
+    try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
+    catch { return []; }
+  }
+  function writeArr(key, arr) { try { localStorage.setItem(key, JSON.stringify(arr.slice(0, 30))); } catch { /* 隐私模式静默降级 */ } }
+  function addRecent(id) {
+    const arr = readArr(LS_RECENT).filter(x => x !== id);
+    arr.unshift(id); writeArr(LS_RECENT, arr);
+  }
+  function isFav(id) { return readArr(LS_FAV).includes(id); }
+  function toggleFav(id) {
+    const arr = readArr(LS_FAV);
+    const i = arr.indexOf(id);
+    if (i >= 0) arr.splice(i, 1); else arr.unshift(id);
+    writeArr(LS_FAV, arr);
+    render();
+  }
+
+  function buildEntries() {
+    const L = lang();
+    const out = [];
+    const pageLabel = idx => L === 'zh-CN' ? PAGE_DEFS[idx][1] : PAGE_DEFS[idx][2];
+    const pageSub = idx => L === 'zh-CN' ? PAGE_DEFS[idx][4] : PAGE_DEFS[idx][5];
+    PAGE_DEFS.forEach((p, i) => out.push({
+      id: 'page:' + p[0], kind: 'page', label: pageLabel(i), sub: s('page') + ' · ' + pageSub(i),
+      icon: p[3], keywords: p[0] + ' ' + p[5] + ' ' + p[1] + ' ' + p[2],
+      run: () => goPage(p[0])
+    }));
+    if (typeof histOpen === 'function') {
+      out.push({
+        id: 'action:history', kind: 'action', label: s('history'), sub: s('action'),
+        icon: 'history', keywords: 'history 历史 估算 reopen',
+        run: () => histOpen()
+      });
+    }
+    const arr = (typeof items !== 'undefined' && Array.isArray(items)) ? items : [];
+    arr.forEach(it => {
+      const seq = Number(it.seq);
+      const name = String(it.name || it.desc || ('#' + seq));
+      const type = it.type || '?';
+      const sys = it.system ? ' · ' + it.system : '';
+      out.push({
+        id: 'item:' + seq, kind: 'item', label: name,
+        sub: s('item') + ' #' + seq + ' · ' + type + sys,
+        icon: ICONS.item, keywords: [seq, name, type, it.system, it.sub, it.id].filter(Boolean).join(' '),
+        run: () => {
+          goPage('work');
+          try { curSeq = seq; } catch { /* 非审核页脚本环境 */ }
+          if (typeof goStep === 'function') goStep(arr.length ? 'review' : 'upload');
+          setTimeout(() => {
+            try {
+              const body = document.querySelector('#tbody');
+              const idx = arr.findIndex(x => x.seq === seq);
+              const sc = (body && typeof ctScrollParent === 'function') ? ctScrollParent(body) : null;
+              if (sc && idx >= 0 && typeof CT !== 'undefined') sc.scrollTop = Math.max(0, (idx - 4) * CT.rowH);
+              if (typeof render === 'function') render();
+            } catch { /* 大表重建失败不阻塞定位 */ }
+            const row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]');
+            if (!row) return;
+            document.querySelectorAll('#tbody .rowr.cur').forEach(x => x.classList.remove('cur'));
+            row.classList.add('cur', 'cmdk-hit');
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            setTimeout(() => row.classList.remove('cmdk-hit'), 1200);
+          }, 80);
+        }
+      });
+    });
+    projects.forEach(p => out.push({
+      id: 'project:' + p.id, kind: 'project', label: p.name, sub: s('project') + ' · PERT',
+      icon: ICONS.project, keywords: 'pert project ' + p.name + ' ' + p.id,
+      run: () => {
+        goPage('pert');
+        let tries = 0;
+        const pick = () => {
+          const sel = $('#pertProjSel');
+          if (!sel) return;
+          sel.value = String(p.id);
+          if (sel.value !== String(p.id) && tries++ < 12) { setTimeout(pick, 100); return; }
+          if (sel.value === String(p.id) && typeof pertPickProj === 'function') pertPickProj();
+        };
+        // pertInit 会异步重建下拉；等它落定再回填，避免两条加载链互相覆盖
+        setTimeout(pick, 300);
+      }
+    }));
+    return out;
+  }
+
+  function ensureEntries() {
+    const key = lang() + ':' + ((typeof items !== 'undefined' && Array.isArray(items)) ? items.length : 0) + ':' + projects.length;
+    if (builtFor !== key) { entries = buildEntries(); builtFor = key; }
+  }
+
+  function fetchProjects() {
+    if (projectFetching || projects.length) return;
+    projectFetching = true;
+    try {
+      fetch((typeof API !== 'undefined' ? API : '') + '/api/pert/projects', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store'
+      })
+        .then(r => r.json()).then(j => {
+          projects = (j && j.projects || []).map(p => ({ id: p.id, name: p.name || ('#' + p.id) }));
+          builtFor = null;   // 索引失效：下次打开/输入重建
+        }).catch(() => { /* 项目列表不可用不阻塞页面/功能项搜索 */ })
+        .finally(() => { projectFetching = false; });
+    } catch { projectFetching = false; }
+  }
+
+  function entryMap() {
+    const m = new Map();
+    ensureEntries();
+    entries.forEach(e => m.set(e.id, e));
+    return m;
+  }
+
+  function scoreOf(e, q) {
+    const label = e.label.toLowerCase(), sub = e.sub.toLowerCase(), hay = label + ' ' + sub + ' ' + (e.keywords || '').toLowerCase();
+    if (!hay.includes(q)) return -1;
+    let sc = 1;
+    if (label === q) sc = 8;
+    else if (label.startsWith(q)) sc = 7;
+    else if (label.includes(q)) sc = 5;
+    else if (sub.includes(q)) sc = 3;
+    if (e.kind === 'page') sc += 2;
+    if (e.kind === 'action') sc += 1;
+    return sc;
+  }
+
+  function computeVisible() {
+    const q = query.trim().toLowerCase();
+    ensureEntries();
+    if (!q) {
+      const m = entryMap();
+      const out = [];
+      const ids = new Set();
+      const push = (e, group) => {
+        if (!e || ids.has(e.id) || out.filter(x => x.group).length >= MAX_RESULTS) return;
+        ids.add(e.id); out.push({ ...e, group });
+      };
+      readArr(LS_FAV).slice(0, MAX_FAV).forEach(id => push(m.get(id), s('fav')));
+      readArr(LS_RECENT).slice(0, MAX_RECENT).forEach(id => push(m.get(id), s('recent')));
+      entries.filter(e => e.kind === 'page' || e.kind === 'action').forEach(e => push(e, s('pages')));
+      const itemEntries = entries.filter(e => e.kind === 'item');
+      itemEntries.slice(0, MAX_ITEMS_EMPTY).forEach(e => push(e, s('items')));
+      entries.filter(e => e.kind === 'project').slice(0, 10).forEach(e => push(e, s('projects')));
+      return out;
+    }
+    const scored = entries.map(e => ({ e, sc: scoreOf(e, q) })).filter(x => x.sc >= 0);
+    scored.sort((a, b) => b.sc - a.sc || a.e.label.length - b.e.label.length || a.e.label.localeCompare(b.e.label));
+    const out = scored.slice(0, MAX_RESULTS).map(x => ({ ...x.e, group: s('results') }));
+    return out;
+  }
+
+  function render() {
+    if (!list) return;
+    const t0 = performance.now();
+    visible = computeVisible();
+    if (active >= visible.length) active = Math.max(0, visible.length - 1);
+    if (visible.length && active < 0) active = 0;
+    let html = '', lastGroup = '', opened = false;
+    if (!visible.length) {
+      html = '<div class="cmdk-empty" role="presentation"><div>' + esc(s('empty')) + '</div><div>' + esc(s('emptyHint')) + '</div></div>';
+    } else {
+      visible.forEach((e, i) => {
+        if (e.group && e.group !== lastGroup) {
+          if (opened) html += '</div>';
+          html += '<div class="cmdk-group" role="group" aria-label="' + esc(e.group) + '"><div class="cmdk-group-label" aria-hidden="true">' + esc(e.group) + '</div>';
+          lastGroup = e.group; opened = true;
+        }
+        const fav = isFav(e.id);
+        html += '<div class="cmdk-item">' +
+          '<div id="cmdk-opt-' + i + '" class="cmdk-row" role="option" tabindex="-1" aria-selected="' + (i === active) + '" data-id="' + esc(e.id) + '">' +
+          '<i aria-hidden="true" data-lucide="' + esc(e.icon || ICONS.page) + '" class="lic cmdk-ico"></i>' +
+          '<span class="cmdk-main"><span class="cmdk-label">' + esc(e.label) + '</span><span class="cmdk-sub">' + esc(e.sub) + '</span></span>' +
+          '</div>' +
+          '<span class="cmdk-star" aria-hidden="true">' + (fav ? '★' : '☆') + '</span>' +
+          '</div>';
+      });
+      if (opened) html += '</div>';
+    }
+    list.innerHTML = html;
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+    if (visible.length) {
+      input.setAttribute('aria-activedescendant', 'cmdk-opt-' + active);
+      const row = document.getElementById('cmdk-opt-' + active);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    } else input.removeAttribute('aria-activedescendant');
+    if (!latencyEl) latencyEl = $('#cmdkLatency');
+    if (latencyEl) latencyEl.textContent = Math.round(performance.now() - t0) + ' ms';
+  }
+
+  function localizeChrome() {
+    if (chromeLang === lang()) return;
+    chromeLang = lang();
+    if (!el) return;
+    const dlg = panel;
+    dlg.setAttribute('aria-label', s('dialog'));
+    input.placeholder = s('placeholder');
+    input.setAttribute('aria-label', s('ariaSearch'));
+    list.setAttribute('aria-label', s('ariaList'));
+    const foot = document.querySelector('.cmdk-foot');
+    if (foot) {
+      foot.innerHTML = '<span><span class="cmdk-kbd">↑ ↓</span> ' + esc(s('select')) + '</span>' +
+        '<span><span class="cmdk-kbd">Enter</span> ' + esc(s('run')) + '</span>' +
+        '<span><span class="cmdk-kbd">Ctrl + Enter</span> ' + esc(s('favorite')) + '</span>' +
+        '<span class="cmdk-latency" id="cmdkLatency">0 ms</span>';
+      latencyEl = $('#cmdkLatency');
+    }
+  }
+
+  function open() {
+    if (!el || isOpen) return;
+    lastFocus = document.activeElement;
+    isOpen = true;
+    el.hidden = false;
+    document.body.classList.add('cmdk-lock');
+    const wrap = document.querySelector('.wrap');
+    if (wrap) { wrap.setAttribute('aria-hidden', 'true'); wrap.inert = true; }
+    localizeChrome();
+    input.value = '';
+    query = '';
+    active = 0;
+    fetchProjects();
+    builtFor = null;
+    render();
+    requestAnimationFrame(() => { input.focus(); input.select(); });
+  }
+  function close() {
+    if (!isOpen) return;
+    isOpen = false;
+    el.hidden = true;
+    document.body.classList.remove('cmdk-lock');
+    const wrap = document.querySelector('.wrap');
+    if (wrap) { wrap.removeAttribute('aria-hidden'); wrap.inert = false; }
+    input.value = '';
+    query = '';
+    if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch { /* 目标已卸载 */ } }
+  }
+  function runActive() {
+    if (!visible.length) return;
+    const e = visible[active];
+    if (!e) return;
+    addRecent(e.id);
+    close();
+    setTimeout(() => { try { e.run(); } catch (err) { console.error('[cmdk] run failed', err); } }, 0);
+  }
+  function move(delta) {
+    if (!visible.length) return;
+    active = (active + delta + visible.length) % visible.length;
+    render();
+  }
+
+  function onKeyDown(e) {
+    const combo = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K');
+    if (combo) { e.preventDefault(); e.stopPropagation(); isOpen ? close() : open(); return; }
+    if (!isOpen) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); move(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); move(-1); return; }
+    if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      if (e.ctrlKey || e.metaKey) {
+        if (visible[active]) { toggleFav(visible[active].id); render(); }
+      } else runActive();
+    }
+  }
+
+  function bind() {
+    el = $('#cmdk'); panel = el && el.querySelector('.cmdk-panel');
+    input = $('#cmdkInput'); list = $('#cmdkList');
+    if (!el || !panel || !input || !list) return;
+    input.addEventListener('input', () => { query = input.value; active = 0; render(); });
+    list.addEventListener('click', e => {
+      const star = e.target.closest('.cmdk-star');
+      if (star) {
+        const row = star.closest('.cmdk-row');
+        if (row) { toggleFav(row.dataset.id); render(); input.focus(); }
+        return;
+      }
+      const row = e.target.closest('.cmdk-row');
+      if (!row) return;
+      const idx = visible.findIndex(x => x.id === row.dataset.id);
+      if (idx < 0) return;
+      active = idx; runActive();
+    });
+    el.addEventListener('mousedown', e => { if (e.target === el) close(); });
+    document.addEventListener('keydown', onKeyDown, true);
+    window.CMDK = { open, close, get visible() { return visible; }, get latency() { return $('#cmdkLatency')?.textContent || ''; } };
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
+  else bind();
+})();
 
 /* 窗口关闭行为（T03779）：最小化到托盘 / 直接关闭 + 记住选择。
  * 配置由 Electron 主进程持有（userData/window-prefs.json），经 preload 的

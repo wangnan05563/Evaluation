@@ -13,6 +13,26 @@
 <!--BUILD:CSS-->
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
+<!-- T06184 / AC-17：Ctrl/Cmd+K 全局命令面板。索引完全本地构建（页面/当前功能项/PERT 项目），
+     不发起网络搜索；最近与收藏存 localStorage（we_cmd_recent / we_cmd_fav），换主题自动跟随令牌。 -->
+<div id="cmdk" class="cmdk" hidden>
+  <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="命令面板">
+    <div class="cmdk-head">
+      <i aria-hidden="true" data-lucide="search" class="lic"></i>
+      <input id="cmdkInput" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="搜索页面、功能项或项目…" aria-label="搜索页面、功能项或项目"
+             aria-controls="cmdkList" aria-autocomplete="list">
+      <span class="cmdk-kbd" aria-hidden="true">Esc</span>
+    </div>
+    <div id="cmdkList" class="cmdk-list" role="listbox" aria-label="命令与搜索结果"></div>
+    <div class="cmdk-foot">
+      <span><span class="cmdk-kbd">↑ ↓</span> 选择</span>
+      <span><span class="cmdk-kbd">Enter</span> 执行</span>
+      <span><span class="cmdk-kbd">Ctrl + Enter</span> 收藏</span>
+      <span class="cmdk-latency" id="cmdkLatency">0 ms</span>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <div class="brand"><i aria-hidden="true" data-lucide="chart-spline" class="lic"></i><div><h1 data-i18n="app.title">工作量评估助手</h1></div></div>
