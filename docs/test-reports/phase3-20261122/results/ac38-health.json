@@ -1,0 +1,13 @@
+{
+ "ok": true,
+ "http_status": 200,
+ "elapsed_sec": 28.27,
+ "threshold_sec": 300,
+ "body": {
+  "ok": true,
+  "engine": "ready",
+  "us": "105.07 口径"
+ },
+ "error": null,
+ "pass": true
+}

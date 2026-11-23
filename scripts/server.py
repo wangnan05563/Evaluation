@@ -22,6 +22,7 @@ import engine
 import generate_xlsx as g
 from replay_recognize import guess_type
 import pert
+import diag_redact
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -649,6 +650,10 @@ def check_update():
     """请求生效更新源并与当前版本比较。由后端代理规避浏览器 CORS。"""
     info = _update_source_info()
     url = info["url"]
+    if info["source"] == "off":
+        # 保留历史 msgKey 供更新源单测/S19 兼容，同时用 disabled 标记让 UI 区分「停用」与「检测失败」。
+        return {"ok": False, "disabled": True, "msgKey": "help.upd.msg_unconfigured",
+                "msg": "版本检测已停用", "current": APP_VERSION}
     if not url:
         return {"ok": False, **_m("help.upd.msg_unconfigured", "未配置更新源"), "current": APP_VERSION}
     try:
@@ -1467,29 +1472,45 @@ def _llm_pert_split(api, model, key, excerpt):
 # 使其认知复杂度远超阈值（python:S3776）。抽出后 do_GET 只做「匹配路径 → 调处理器」。
 
 def _build_diag_zip():
-    """M8/FR-5.4：打包诊断包（日志 + 脱敏配置 + 版本信息），返回 zip 路径。
+    """M8/FR-5.4 + AC-40：打包脱敏诊断包（日志 + 配置 + 版本信息 + 脱敏报告）。
 
     注：T01481 评估过加 TTL 缓存（P1-3），但诊断包按需即时生成是产品语义
     （用户点一次就应拿到当下快照），不为此做语义妥协。
+    AC-40：日志按白名单重建，配置递归掩码密钥，绝对路径/令牌/邮箱统一清洗；
+    config.json 含 LLM 密钥，整份不进入诊断包。
     """
     import zipfile
     os.makedirs(APP_DATA / "diag", exist_ok=True)
     zp = APP_DATA / "diag" / f"diag_{time.strftime('%Y%m%d-%H%M%S')}.zip"
+    stats = []
     with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
         lj = APP_DATA / "logs" / "server.jsonl"
         if lj.exists():
-            z.write(lj, "logs/server.jsonl")
+            try:
+                safe_log, log_stats = diag_redact.redact_log_text(
+                    lj.read_text(encoding="utf-8", errors="replace"))
+                z.writestr("logs/server.jsonl", safe_log)
+                stats.append(log_stats)
+            except Exception:
+                pass
         for n in (F_RECOGNITION_RULES, F_RATES_VERSIONS, F_SCHEMA_VER):
             f = APP_DATA / n
             if not f.exists():
                 continue
             try:
-                z.writestr(f"config/{n}", f.read_text(encoding="utf-8"))   # 无密钥字段，原样归档
+                safe_text, cfg_stats = diag_redact.redact_json_text(
+                    f.read_text(encoding="utf-8", errors="replace"))
+                z.writestr(f"config/{n}", safe_text)
+                stats.append(cfg_stats)
             except Exception:
                 pass
+        report = diag_redact.merge_stats(*stats)
+        z.writestr("redaction-report.json", json.dumps(report, ensure_ascii=False, indent=1))
+        z.writestr("README.txt", diag_redact.readme(report))
         z.writestr("version.json", json.dumps({
             "app": "workload-estimate", "schema_ver": SCHEMA_VER,
             "python": sys.version.split()[0],
+            "redacted": True,
             "routes": ["/api/health", "/api/recognize", "/api/generate", "/api/history",
                        "/api/rules", "/api/rates", API_CONFIG, "/api/diag",
                        "/api/data/export"]}, ensure_ascii=False, indent=1))

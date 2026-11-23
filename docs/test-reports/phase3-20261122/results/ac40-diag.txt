@@ -1,0 +1,4 @@
+[info][datakeeper] backup_done {'dst': 'C:\\PYFIX_~4\\tmpklgsnxtc\\backups\\20261123-220409'}
+[info][datakeeper] schema_ready {'ver': 2, 'applied': [1]}
+[info][diag] export {'size': 1802}
+AC-40 diag redaction PASS: diag_20261123-220409.zip files= 7 report= {'dropped_fields': {'err': 1, 'key': 1, 'token': 1, 'msg': 1}, 'malformed_lines': 1, 'masked_keys': 4}

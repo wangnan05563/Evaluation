@@ -79,9 +79,36 @@ Function _WeRescueLegacyData
   Pop $R0
 FunctionEnd
 
+; AC-39：安装/升级前把用户数据+配置留一份 preinstall 快照。
+; electron-builder 覆盖升级会先静默运行旧卸载器；即使新版本启动迁移失败，
+; 也能用 scripts/rollback.py --backup preinstall 还原到升级前状态。
+Function _WeBackupBeforeUpgrade
+  Push $R0
+  Push $R1
+  StrCpy $R0 "$APPDATA\WorkloadEval"
+  CreateDirectory "$R0\backups\preinstall"
+  CreateDirectory "$R0\logs"
+  CopyFiles /SILENT "$R0\config.json" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\pert.db" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\estimation.db" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\recognition_rules.json" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\rates_versions.json" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\template.xlsx" "$R0\backups\preinstall"
+  CopyFiles /SILENT "$R0\schema_ver" "$R0\backups\preinstall"
+  FileOpen $R1 "$R0\logs\installer.log" a
+  ${IfNot} ${Errors}
+    FileWrite $R1 "preinstall backup: $R0\backups\preinstall$\r$\n"
+    FileClose $R1
+  ${EndIf}
+  DetailPrint "已备份升级前数据到 $R0\backups\preinstall"
+  Pop $R1
+  Pop $R0
+FunctionEnd
+
 !macro customInit
   DetailPrint "正在关闭已运行的工作量评估工具 ..."
   nsExec::ExecToLog 'taskkill /f /t /im 工作量评估工具.exe'
+  Call _WeBackupBeforeUpgrade
   Call _WeRescueLegacyData
 !macroend
 
