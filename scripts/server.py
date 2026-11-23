@@ -1726,6 +1726,13 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/history":
             self._history_list(u)
             return True
+        if u.path == "/api/history/ids/status":
+            # T06190：迁移向导状态（schema 版本 / 迁移状态 / 待迁移 / 备份 / 双读）
+            if HIST is None:
+                self._json(503, {"ok": False, **_m(HIST_UNAVAIL_KEY, HIST_UNAVAIL_ZH)})
+            else:
+                self._json(200, {"ok": True, **HIST.migration_status()})
+            return True
         if u.path == "/api/history/ids/validate":
             # T06187：稳定功能 ID 映射表校验（缺失/重复/未知映射/跨组/断链）
             if HIST is None:

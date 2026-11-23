@@ -75,6 +75,21 @@
         <span data-i18n="history.note">重开 = 载入该版本到「审核功能点」，修改后重新生成会自动记为下一版本；另存为 = 载入后换标题生成新记录。删除历史不影响已下载的成品表。勾选两个版本可对比差异（新增/删除/变更高亮）。</span>
       </div>
       <div id="histDiff" class="glass pad" style="margin-top:14px;display:none"></div>
+      <details id="migrationCard" class="glass pad" style="margin-top:14px">
+        <summary style="cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px">
+          <i aria-hidden="true" data-lucide="database" style="width:15px;height:15px;color:var(--brand)"></i>
+          数据迁移与双读兼容 <span id="migrationBadge" class="badge" style="font-size:11px">读取中…</span>
+        </summary>
+        <div style="margin-top:10px">
+          <div id="migrationInfo" style="font-size:12px;color:var(--muted);line-height:1.9">正在读取迁移状态…</div>
+          <div class="toolbar" style="margin-top:10px;gap:8px">
+            <button class="btn btn-primary" id="migrationRunBtn" onclick="migrationRun()"><i aria-hidden="true" data-lucide="play" style="width:14px;height:14px"></i><span>执行迁移</span></button>
+            <button class="btn btn-ghost" id="migrationRollbackBtn" onclick="migrationRollback()"><i aria-hidden="true" data-lucide="undo-2" style="width:14px;height:14px"></i><span>回滚迁移</span></button>
+            <button class="btn btn-ghost" onclick="migrationRender()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span>刷新状态</span></button>
+          </div>
+          <div id="migrationMsg" style="font-size:12px;margin-top:8px"></div>
+        </div>
+      </details>
     </div>
   </section>
 

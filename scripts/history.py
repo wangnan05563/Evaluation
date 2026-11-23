@@ -265,6 +265,45 @@ class HistStore:
             finally:
                 c.close()
 
+    def migration_status(self):
+        """迁移向导状态：schema 版本、迁移状态、待迁移项、备份数、双读兼容计数。"""
+        with self._lock:
+            c = self._conn()
+            try:
+                rows = c.execute("SELECT id,schema_ver,items_json FROM estimation_history").fetchall()
+                versions, legacy_rows, missing_rows, missing_items, items_n = {}, 0, 0, 0, 0
+                for r in rows:
+                    v = int(r["schema_ver"] or 1)
+                    versions[str(v)] = versions.get(str(v), 0) + 1
+                    if v < SCHEMA_VER:
+                        legacy_rows += 1
+                    try:
+                        its = json.loads(r["items_json"] or "[]")
+                    except Exception:
+                        its = []
+                    items_n += len(its)
+                    miss = sum(1 for it in its if not str(it.get("stable_id") or "").strip())
+                    if miss:
+                        missing_rows += 1
+                        missing_items += miss
+                backups = c.execute("SELECT COUNT(*) AS m FROM history_items_backup").fetchone()["m"]
+                mapped = c.execute("SELECT COUNT(*) AS m FROM item_id_map").fetchone()["m"]
+                state = self._meta_get(c, "migration_state") or "pending"
+                if state == "pending" and missing_items == 0:
+                    state = "current"
+                return {
+                    "schema_ver": SCHEMA_VER,
+                    "migration_state": state,
+                    "migrated_at": self._meta_get(c, "migration_done_at"),
+                    "rows": len(rows), "items": items_n, "mapped": mapped,
+                    "schema_versions": versions, "legacy_rows": legacy_rows,
+                    "missing_rows": missing_rows, "missing_items": missing_items,
+                    "backups": backups, "can_rollback": backups > 0,
+                    "dual_read": True,
+                }
+            finally:
+                c.close()
+
     def validate_ids(self):
         """映射表校验：缺失、重复、未知映射、版本组不一致、替换链断裂。"""
         with self._lock:

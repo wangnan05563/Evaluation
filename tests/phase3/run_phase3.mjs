@@ -30,6 +30,7 @@ const suites = [
   { id: 'montecarlo', script: 'tests/phase3/ui_montecarlo.mjs', timeout: 180000 },
   { id: 'ifpug-complexity', script: 'tests/phase3/ui_ifpug_complexity.mjs', timeout: 120000 },
   { id: 'stable-ids', script: 'tests/phase3/ui_stable_ids.mjs', timeout: 180000 },
+  { id: 'data-migration', script: 'tests/phase3/ui_migration.mjs', timeout: 180000 },
   { id: 'i18n-pseudo', script: 'tests/phase3/ui_i18n_pseudo.mjs', timeout: 120000 },
   { id: 'single-machine', script: 'tests/phase3/ui_single_machine.mjs', timeout: 120000 },
   { id: 'empty-error', script: 'tests/phase3/ui_empty_error.mjs', timeout: 120000 },
@@ -79,9 +80,9 @@ async function startChrome() {
   }
   throw new Error('Chrome CDP 未就绪');
 }
-function runSuite(s) {
+function runSuite(s, dataDir) {
   return new Promise(res => {
-    const p = spawn(process.execPath, [s.script], { cwd: ROOT, env: { ...process.env, PHASE3_APP: `${API}/`, PHASE3_CDP: CDP } });
+    const p = spawn(process.execPath, [s.script], { cwd: ROOT, env: { ...process.env, PHASE3_APP: `${API}/`, PHASE3_CDP: CDP, PHASE3_DATA: dataDir } });
     let tail = '';
     p.stdout.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) tail = tail.slice(-20000); process.stdout.write(t); });
     p.stderr.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) tail = tail.slice(-20000); process.stderr.write(t); });
@@ -100,7 +101,7 @@ try {
   console.log(`# 三期验证环境就绪 API=${API} CDP=${CDP} DATA=${dataDir}\n`);
   for (const s of selected) {
     console.log(`\n== ${s.id} ==`);
-    const r = await runSuite(s);
+    const r = await runSuite(s, dataDir);
     const ok = r.code === 0;
     results.push({ id: s.id, ok, code: r.code, tail: r.tail.slice(-3000) });
     console.log(`== ${s.id} ${ok ? 'PASS' : 'FAIL'} ==\n`);

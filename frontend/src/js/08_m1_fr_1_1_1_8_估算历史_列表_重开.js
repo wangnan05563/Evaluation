@@ -12,6 +12,7 @@ async function histOpen(){
   dynHtml("#histRows",histRowsHTML);
   $("#histRows").innerHTML=skeletonTable(6,4);
   goStep("history");
+  if(typeof migrationRender==="function")migrationRender();
   try{
     const r=await fetch(API+"/api/history?limit=50",{cache:"no-store"});
     const j=await r.json();
