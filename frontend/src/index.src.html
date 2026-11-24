@@ -33,7 +33,38 @@
     </div>
   </div>
 </div>
-<!-- T06183：首次启动角色化引导。?welcome=0 供既有 UI 回归跳过；?welcome=1 强制打开。 -->
+<!-- T06199：工作组登录/首次初始化/SSO 回退。单机版 hidden，不进入 tab 序与读屏树。 -->
+<div id="authGate" class="auth-gate" hidden aria-hidden="true">
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle" aria-describedby="authHint">
+    <div class="auth-kicker"><i aria-hidden="true" data-lucide="shield-check"></i><span data-i18n="auth.kicker">工作组安全访问</span></div>
+    <h2 id="authTitle" data-i18n="auth.title">工作组登录</h2>
+    <p id="authHint" class="auth-hint" data-i18n="auth.hint">登录后按角色权限访问估算、项目签收与审计。</p>
+    <div id="authSsoMsg" class="auth-alert" hidden role="alert"></div>
+    <form id="authForm" class="auth-form" onsubmit="event.preventDefault();RbacAuth.submit()">
+      <label class="auth-field"><span data-i18n="auth.username">账号</span>
+        <input id="authUsername" name="username" autocomplete="username" required maxlength="40" spellcheck="false">
+      </label>
+      <label class="auth-field"><span data-i18n="auth.password">密码</span>
+        <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
+      </label>
+      <label class="auth-field" id="authDisplayRow" hidden><span data-i18n="auth.display_name">显示名称</span>
+        <input id="authDisplayName" name="display_name" maxlength="60" autocomplete="name">
+      </label>
+      <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span data-i18n="auth.login">登录</span></button>
+    </form>
+    <div class="auth-or" id="authSsoBox"><span data-i18n="auth.or">或</span></div>
+    <button type="button" class="btn btn-ghost auth-sso" id="authSsoBtn" onclick="RbacAuth.ssoStart()">
+      <i aria-hidden="true" data-lucide="fingerprint"></i><span id="authSsoLabel" data-i18n="auth.sso">使用 SSO 登录</span>
+    </button>
+    <div class="auth-fallback" id="authFallbackBox" hidden>
+      <span data-i18n="auth.fallback_hint">SSO 不可用时，可回退管理员账号登录。</span>
+      <button type="button" class="linkbtn" id="authFallback" onclick="RbacAuth.fallback()" data-i18n="auth.fallback_btn">改用管理员账号</button>
+    </div>
+    <div class="auth-msg" id="authMsg" role="status" aria-live="polite"></div>
+    <p class="auth-foot" data-i18n="auth.foot">会话 12 小时；单机版不启用登录。管理员密码只在本机加盐哈希保存。</p>
+  </div>
+</div>
+
 <div id="roleWelcome" class="rw" hidden aria-hidden="true">
   <div class="rw-scrim" data-rw-close></div>
   <div class="rw-card" role="dialog" aria-modal="true" aria-labelledby="rwTitle" aria-describedby="rwDesc">
@@ -83,6 +114,7 @@
       <button class="m-item" id="mi-pert" data-page="pert" aria-label="PERT 估算" data-i18n="aria-label=nav.pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
       <button class="m-item" id="mi-fast" data-page="fast" aria-label="快速估算" data-i18n="aria-label=nav.fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
       <button class="m-item" id="mi-flow" data-page="flow" aria-label="项目签收" data-i18n="aria-label=nav.flow" onclick="goPage('flow')"><i aria-hidden="true" data-lucide="badge-check" class="lic"></i><span class="lbl" data-i18n="nav.flow">项目签收</span><span class="tip" data-i18n="nav.flow.tip">草稿 → 评审 → 驳回/修订 → 签收，全程留审计轨迹</span></button>
+      <button class="m-item" id="mi-team" data-page="team" hidden aria-label="团队与权限" data-i18n="aria-label=nav.team" onclick="goPage('team')"><i aria-hidden="true" data-lucide="users" class="lic"></i><span class="lbl" data-i18n="nav.team">团队与权限</span><span class="tip" data-i18n="nav.team.tip">角色权限矩阵、用户管理、SSO 与越权审计</span></button>
       <button class="m-item" id="mi-config" data-page="config" aria-label="配置中心" data-i18n="aria-label=nav.config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
       <button class="m-item" id="mi-help" data-page="help" aria-label="帮助文档" data-i18n="aria-label=nav.help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
     </nav>
@@ -899,6 +931,74 @@
         </div>
       </section>
     </div>
+  </main>
+
+  <!-- ============ 页面五：团队与权限（T06199 工作组专用） ============ -->
+  <main class="page" id="pg-team">
+    <div class="team-head">
+      <div class="card-title"><i aria-hidden="true" data-lucide="users"></i><span data-i18n="team.title">团队与权限</span>
+        <span class="team-sub" data-i18n="team.subtitle">角色权限矩阵、成员账号、SSO 与越权审计</span></div>
+      <p class="cfg-note" data-i18n="team.note">工作组版按角色收敛能力；单机版不启用本页。所有拒绝访问都会写入审计，且响应不包含对象数据。</p>
+    </div>
+    <div class="team-grid">
+      <section class="glass pad team-card team-who" aria-labelledby="rbacWhoTitle">
+        <div class="card-title" id="rbacWhoTitle"><i aria-hidden="true" data-lucide="user-round-check"></i><span data-i18n="team.who.title">当前会话</span></div>
+        <div id="rbacWho" class="rbac-who" role="status" aria-live="polite"></div>
+        <div class="wf-actions">
+          <button type="button" class="btn btn-ghost" id="rbacLogout" onclick="RbacAuth.logout()"><i aria-hidden="true" data-lucide="log-out" style="width:14px;height:14px"></i><span data-i18n="team.logout">退出登录</span></button>
+        </div>
+      </section>
+
+      <section class="glass pad team-card" id="rbacUsersCard" aria-labelledby="rbacUsersTitle">
+        <div class="card-title" id="rbacUsersTitle"><i aria-hidden="true" data-lucide="user-plus"></i><span data-i18n="team.users.title">成员账号</span><span class="team-count" id="rbacUserCount"></span></div>
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacUsersTitle" tabindex="0"><table class="rbac-table" aria-label="成员账号列表">
+          <thead><tr><th data-i18n="team.users.name">成员</th><th data-i18n="team.users.role">角色</th><th data-i18n="team.users.status">状态</th><th data-i18n="team.users.last">最近登录</th><th data-i18n="team.users.action">操作</th></tr></thead>
+          <tbody id="rbacUserRows"></tbody>
+        </table></div>
+        <form id="rbacUserForm" class="rbac-inline" onsubmit="event.preventDefault();RbacAuth.createUser()">
+          <label class="rbac-field"><span data-i18n="team.users.new_name">账号</span><input id="rbacNewUser" maxlength="40" autocomplete="off" required></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_display">显示名称</span><input id="rbacNewName" maxlength="60" autocomplete="off"></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_role">角色</span><select id="rbacNewRole"><option value="evaluator">评估师</option><option value="reviewer">评审人</option><option value="manager">项目经理</option><option value="viewer">只读成员</option></select></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_pass">初始密码</span><input id="rbacNewPass" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+          <button type="submit" class="btn btn-primary" id="rbacAddBtn"><i aria-hidden="true" data-lucide="plus" style="width:14px;height:14px"></i><span data-i18n="team.users.add">添加成员</span></button>
+        </form>
+        <div class="rbac-msg" id="rbacUserMsg" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="glass pad team-card" id="rbacSsoCard" aria-labelledby="rbacSsoTitle">
+        <div class="card-title" id="rbacSsoTitle"><i aria-hidden="true" data-lucide="fingerprint"></i><span data-i18n="team.sso.title">SSO 集成</span><span class="badge" id="rbacSsoBadge"></span></div>
+        <p class="cfg-note" data-i18n="team.sso.note">标准 OIDC 授权码流程；失败或未配置时回退本机管理员账号，不阻断登录。</p>
+        <form id="rbacSsoForm" class="rbac-form" onsubmit="event.preventDefault();RbacAuth.saveSso()">
+          <label class="rbac-check"><input id="rbacSsoEnabled" type="checkbox"><span data-i18n="team.sso.enabled">启用 SSO</span></label>
+          <label class="rbac-field"><span data-i18n="team.sso.provider">标识提供方名称</span><input id="rbacSsoProvider" maxlength="40" placeholder="MockIDP"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.authorize">授权端点</span><input id="rbacSsoAuthorize" type="url" placeholder="https://idp.example.com/authorize"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.token">令牌端点</span><input id="rbacSsoToken" type="url" placeholder="https://idp.example.com/token"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.userinfo">用户信息端点</span><input id="rbacSsoUserinfo" type="url" placeholder="https://idp.example.com/userinfo"></label>
+          <div class="rbac-two">
+            <label class="rbac-field"><span data-i18n="team.sso.client">Client ID</span><input id="rbacSsoClient" maxlength="200" autocomplete="off"></label>
+            <label class="rbac-field"><span data-i18n="team.sso.secret">Client Secret</span><input id="rbacSsoSecret" type="password" maxlength="500" autocomplete="new-password" placeholder="留空表示不修改"></label>
+          </div>
+          <div class="rbac-two">
+            <label class="rbac-field"><span data-i18n="team.sso.default_role">自动开通角色</span><select id="rbacSsoRole"><option value="viewer">只读成员</option><option value="evaluator">评估师</option><option value="reviewer">评审人</option></select></label>
+            <label class="rbac-check rbac-check-inline"><input id="rbacSsoProvision" type="checkbox"><span data-i18n="team.sso.provision">首次登录自动开通</span></label>
+          </div>
+          <div class="wf-actions"><button type="submit" class="btn btn-primary" id="rbacSsoSave"><i aria-hidden="true" data-lucide="save" style="width:14px;height:14px"></i><span data-i18n="team.sso.save">保存 SSO 配置</span></button></div>
+        </form>
+        <div class="rbac-msg" id="rbacSsoMsg" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="glass pad team-card team-wide" id="rbacMatrixCard" aria-labelledby="rbacMatrixTitle">
+        <div class="card-title" id="rbacMatrixTitle"><i aria-hidden="true" data-lucide="table-2"></i><span data-i18n="team.matrix.title">角色权限矩阵</span></div>
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacMatrixTitle" tabindex="0"><table class="rbac-table rbac-matrix" aria-label="角色权限矩阵"><thead id="rbacMatrixHead"></thead><tbody id="rbacMatrixBody"></tbody></table></div>
+      </section>
+
+      <section class="glass pad team-card team-wide" id="rbacAuditCard" aria-labelledby="rbacAuditTitle">
+        <div class="card-title" id="rbacAuditTitle"><i aria-hidden="true" data-lucide="scroll-text"></i><span data-i18n="team.audit.title">越权与登录审计</span><span class="team-count" id="rbacAuditCount"></span></div>
+        <ol class="rbac-audit" id="rbacAudit" tabindex="0" aria-labelledby="rbacAuditTitle"></ol>
+        <div class="wf-actions"><button type="button" class="btn btn-ghost" onclick="RbacAuth.loadAudit()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="team.audit.refresh">刷新审计</span></button></div>
+      </section>
+    </div>
+    <div class="rbac-msg team-msg" id="rbacMsg" role="status" aria-live="polite"></div>
   </main>
 
   <!-- ============ 页面四：PERT 三点估算 ============ -->

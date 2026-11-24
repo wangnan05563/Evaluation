@@ -1,0 +1,188 @@
+{
+  "suite": "rbac-api",
+  "at": "2026-11-24T13:56:49Z",
+  "checks": [
+    {
+      "name": "隔离服务健康",
+      "ok": true,
+      "detail": "http://127.0.0.1:49186"
+    },
+    {
+      "name": "工作组未登录：要求初始化管理员",
+      "ok": true,
+      "detail": "{\"ok\": true, \"mode\": \"workgroup\", \"authRequired\": true, \"bootstrapRequired\": true, \"user\": null, \"permissions\": [], \"ssoEnabled\": false, \"providerName\": \"SSO\", \"adminFallback\": true}"
+    },
+    {
+      "name": "未登录访问配置：401 且无 config 数据",
+      "ok": true,
+      "detail": "401 UNAUTHORIZED"
+    },
+    {
+      "name": "初始化弱密码被拒",
+      "ok": true,
+      "detail": "400 WEAK_PASSWORD"
+    },
+    {
+      "name": "初始化管理员成功并下发 HttpOnly Cookie",
+      "ok": true,
+      "detail": "we_rbac=QhTSnKaqe_qCIrh-DzfrIu9hXbN8o-JQqfpRdT8FO9s; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200"
+    },
+    {
+      "name": "初始化后 me 返回 admin/权限",
+      "ok": true,
+      "detail": "admin"
+    },
+    {
+      "name": "重复初始化 409",
+      "ok": true,
+      "detail": "409 BOOTSTRAP_CLOSED"
+    },
+    {
+      "name": "管理员可读配置",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "权限矩阵 API 返回 5 角色/13 权限",
+      "ok": true,
+      "detail": "5/13"
+    },
+    {
+      "name": "管理员创建评估师/只读用户",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "用户列表含三名账号",
+      "ok": true,
+      "detail": "['root', 'eval1', 'viewer1']"
+    },
+    {
+      "name": "评估师/只读用户登录成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "评估师可查看项目列表",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "只读成员访问项目：403 且无 projects 数据",
+      "ok": true,
+      "detail": "403 PERMISSION_DENIED"
+    },
+    {
+      "name": "只读成员访问具体项目：403 且不回显项目内容",
+      "ok": true,
+      "detail": "{\"ok\": false, \"code\": \"PERMISSION_DENIED\", \"msg\": \"权限不足，已拒绝访问并记录审计\", \"permission\": \"project.read\"}"
+    },
+    {
+      "name": "评估师读配置：403 且无 config",
+      "ok": true,
+      "detail": "403 PERMISSION_DENIED"
+    },
+    {
+      "name": "评估师读用户表：403",
+      "ok": true,
+      "detail": "403 PERMISSION_DENIED"
+    },
+    {
+      "name": "评估师读审计：403",
+      "ok": true,
+      "detail": "403 PERMISSION_DENIED"
+    },
+    {
+      "name": "四类越权全部落审计",
+      "ok": true,
+      "detail": "['audit.read', 'project.read', 'settings.read', 'user.manage']"
+    },
+    {
+      "name": "审计含操作人/对象/路径",
+      "ok": true,
+      "detail": "[{\"id\": 12, \"at\": \"2026-11-24T13:56:33Z\", \"actor_name\": \"评估师甲\", \"action\": \"access\", \"result\": \"deny\", \"permission\": \"audit.read\", \"object_type\": \"audit\", \"object_id\": \"\", \"ip\": \"127.0.0.1\", \"detail\": \"GET /api/rbac/audit\"}, {\"id\": 11, \"at\": \"2026-11-24T13:56:33Z\", \"actor_name\": \"评估师甲\", \"action\": \"access\", \"result\": \"deny\", \"permission\": \"user.manage\", \"object_type\": \"\", \"object_id\": \"\", \"ip\": \"127.0.0.1\", \"detail\": \"GET /api/rbac/users\"}]"
+    },
+    {
+      "name": "角色变更立即生效",
+      "ok": true,
+      "detail": "200/200"
+    },
+    {
+      "name": "停用用户踢出旧会话",
+      "ok": true,
+      "detail": "disable=200 evaluator=401"
+    },
+    {
+      "name": "SSO 未配置：失败并声明 fallback=admin",
+      "ok": true,
+      "detail": "400 SSO_DISABLED"
+    },
+    {
+      "name": "管理员保存 SSO 配置且不回显明文 secret",
+      "ok": true,
+      "detail": "{\"enabled\": true, \"provider_name\": \"MockIDP\", \"authorize_url\": \"http://127.0.0.1:49187/authorize\", \"token_url\": \"http://127.0.0.1:49187/token\", \"userinfo_url\": \"http://127.0.0.1:49187/userinfo\", \"client_id\": \"web\", \"redi"
+    },
+    {
+      "name": "client_secret 磁盘为密文且无明文",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO 授权 URL 含 client_id/state/redirect_uri",
+      "ok": true,
+      "detail": "http://127.0.0.1:49187/authorize?response_type=code&client_id=web&redirect_uri=http%3A%2F%2F127.0.0.1%3A49186%2Fapi%2Fauth%2Fsso%2Fcallback&scope=openid+profile+email&state=AzodF4W"
+    },
+    {
+      "name": "OIDC 回调成功并下发会话 Cookie",
+      "ok": true,
+      "detail": "200 sso.user"
+    },
+    {
+      "name": "SSO 自动开通为只读成员",
+      "ok": true,
+      "detail": "viewer"
+    },
+    {
+      "name": "SSO token 失败：502 且回退管理员",
+      "ok": true,
+      "detail": "502 SSO_TOKEN_FAILED"
+    },
+    {
+      "name": "SSO state 伪造：400 且回退管理员",
+      "ok": true,
+      "detail": "400 SSO_BAD_STATE"
+    },
+    {
+      "name": "SSO 失败不影响管理员账号回退",
+      "ok": true,
+      "detail": "root"
+    },
+    {
+      "name": "SSO 成败均进入审计",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "审计不含 SSO 明文 secret 或 token",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "登出清 Cookie 后回未登录态",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "管理员回退登录仍可用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "登录页静态资源可访问",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 36,
+  "total": 36
+}

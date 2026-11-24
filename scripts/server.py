@@ -6,7 +6,7 @@
   POST /api/generate      候选清单(JSON) + 参数 → 生成成品 xlsx，返回汇总+下载句柄
   GET  /api/download?s=xx 下载生成的成品 xlsx
 """
-import base64, gc, io, json, os, re, shutil, sqlite3, subprocess, sys, threading, time, uuid, webbrowser
+import base64, gc, io, json, os, re, shutil, sqlite3, subprocess, sys, threading, time, urllib.parse, uuid, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote
@@ -29,6 +29,7 @@ import theme_tokens
 import evidence
 import ai_eval
 import project_workflow
+import rbac
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -606,6 +607,15 @@ except Exception as e:
     RATES = None
     print(f"[rates] 初始化失败: {type(e).__name__}: {e}", flush=True)
 
+def _body_json(raw):
+    """安全解析 JSON 请求体；空体/坏 JSON 返回空 dict，由端点各自报字段错误。"""
+    try:
+        obj = json.loads(raw.decode("utf-8")) if raw else {}
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
 def _m(key, zh_tpl, **args):
     """T01668（FR-ENG05）：带稳定键的响应消息构造器。
 
@@ -793,6 +803,19 @@ try:
 except Exception as e:
     print(f"[workflow] 初始化失败，签收功能禁用: {type(e).__name__}: {e}", flush=True)
 
+# T06199：工作组 RBAC/SSO 存储。单机版不创建 rbac.db；首次访问工作组鉴权时再懒加载。
+RBAC = None
+RBAC_LOCK = threading.Lock()
+
+
+def get_rbac():
+    global RBAC
+    if RBAC is None:
+        with RBAC_LOCK:
+            if RBAC is None:
+                RBAC = rbac.RbacStore(APP_DATA / "rbac.db")
+    return RBAC
+
 # M8/FR-5.6：备份与 schema 迁移放在各存储初始化之后（保证 pert.db/estimation.db 已就绪）
 try:
     _bk = _dk.backup_on_start(APP_DATA)
@@ -819,6 +842,11 @@ DEFAULT_CONFIG = {
     "recalc": {"mode": "async", "timeout": 120},   # 成品表公式缓存重算策略（T00962）
     # T06198：单机版默认隐藏项目签收；工作组版启用状态机/签收页
     "deployment": {"mode": "standalone"},
+    # T06199：工作组 SSO（标准 OIDC 授权码 + userinfo）；单机版不启用
+    "sso": {"enabled": False, "provider_name": "SSO", "authorize_url": "", "token_url": "",
+            "userinfo_url": "", "client_id": "", "client_secret": "", "redirect_uri": "",
+            "scope": "openid profile email", "auto_provision": True,
+            "default_role": "viewer", "admin_fallback": True},
 }
 PROVIDERS = {
     "openai":     {"label": "OpenAI",       "console": "https://platform.openai.com/api-keys",
@@ -858,6 +886,29 @@ def _encrypt_llm_key(cfg):
     return cfg
 
 
+def _decrypt_sso_secret(cfg):
+    """T06199：sso.client_secret 只在内存解密；缺失/损坏时按未配置处理。"""
+    sso = cfg.get("sso") or {}
+    enc = sso.get("client_secret_enc")
+    if enc:
+        try:
+            sso["client_secret"] = secret_store.unprotect(enc)
+        except Exception:
+            sso["client_secret"] = ""
+    return cfg
+
+
+def _encrypt_sso_secret(cfg):
+    """SSO client_secret 与 API Key 同口径：磁盘只留 DPAPI 密文。"""
+    sso = cfg.get("sso") or {}
+    secret = str(sso.pop("client_secret", "") or "")
+    if secret:
+        sso["client_secret_enc"] = secret_store.protect(secret)
+    else:
+        sso.pop("client_secret_enc", None)
+    return cfg
+
+
 def _migrate_plaintext_key():
     """存量 config.json 若已有明文 llm.key，启动时原地加密一次（幂等）。"""
     if not CONF_FILE.exists():
@@ -888,8 +939,9 @@ def load_config():
                       "context_dir": cfg.get("context_dir", DEFAULT_CONFIG["context_dir"]),
                       "update_url": cfg.get("update_url", DEFAULT_CONFIG["update_url"]),
                       "recalc": {**DEFAULT_CONFIG["recalc"], **(cfg.get("recalc") or {})},
-                      "deployment": {**DEFAULT_CONFIG["deployment"], **(cfg.get("deployment") or {})}}
-            return _decrypt_llm_key(merged)
+                      "deployment": {**DEFAULT_CONFIG["deployment"], **(cfg.get("deployment") or {})},
+                      "sso": {**DEFAULT_CONFIG["sso"], **(cfg.get("sso") or {})}}
+            return _decrypt_sso_secret(_decrypt_llm_key(merged))
         except Exception:
             pass
     return json.loads(json.dumps(DEFAULT_CONFIG))
@@ -922,6 +974,60 @@ def _apply_deployment(cfg, deployment):
     cfg["deployment"]["mode"] = mode if mode in ("standalone", "workgroup") else "standalone"
 
 
+def _safe_url(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    p = urlparse(text)
+    return text[:600] if p.scheme in ("http", "https") and p.netloc else ""
+
+
+def _apply_sso(cfg, sso):
+    """T06199：SSO 配置只接受白名单字段；client_secret 空表示沿用已存密文。"""
+    if not isinstance(sso, dict):
+        return
+    cur = cfg.setdefault("sso", {})
+    if "enabled" in sso:
+        cur["enabled"] = bool(sso.get("enabled"))
+    if "auto_provision" in sso:
+        cur["auto_provision"] = bool(sso.get("auto_provision"))
+    if "admin_fallback" in sso:
+        cur["admin_fallback"] = bool(sso.get("admin_fallback"))
+    if "provider_name" in sso:
+        cur["provider_name"] = (str(sso.get("provider_name") or "").strip() or "SSO")[:40]
+    for key in ("authorize_url", "token_url", "userinfo_url"):
+        if key in sso:
+            cur[key] = _safe_url(sso.get(key))
+    if "client_id" in sso:
+        cur["client_id"] = str(sso.get("client_id") or "").strip()[:200]
+    if "client_secret" in sso and str(sso.get("client_secret") or "").strip():
+        cur["client_secret"] = str(sso.get("client_secret")).strip()[:500]
+    if "redirect_uri" in sso:
+        redirect = str(sso.get("redirect_uri") or "").strip()
+        cur["redirect_uri"] = _safe_url(redirect) if redirect.startswith(("http://", "https://")) else ""
+    if "scope" in sso:
+        cur["scope"] = (str(sso.get("scope") or "").strip() or "openid profile email")[:200]
+    if "default_role" in sso:
+        role = str(sso.get("default_role") or "viewer").strip()
+        cur["default_role"] = role if role in rbac.ROLE_DEFS and role != "admin" else "viewer"
+
+
+def sso_public_view(cfg):
+    """SSO 配置回显：不含 client_secret 明文，只给是否已配置。"""
+    sso = dict((cfg or {}).get("sso") or {})
+    sso.pop("client_secret", None)
+    sso["client_secret_set"] = bool(sso.get("client_secret_enc"))
+    sso.pop("client_secret_enc", None)
+    return sso
+
+
+def public_config(cfg):
+    """配置中心回显：保留既有字段，SSO 段改用 sso_public_view。"""
+    out = {k: v for k, v in (cfg or {}).items()}
+    out["sso"] = sso_public_view(cfg)
+    return out
+
+
 def save_config(payload):
     """写入配置到磁盘；payload 中 llm 仅接受合法键，llm.key 加密为 key_enc 落盘。"""
     cfg = load_config()
@@ -933,9 +1039,11 @@ def save_config(payload):
             cfg[key] = str(payload[key] or "").strip()
     _apply_recalc_overrides(cfg, payload.get("recalc") or {})
     _apply_deployment(cfg, payload.get("deployment") or {})
+    _apply_sso(cfg, payload.get("sso") or {})
     _encrypt_llm_key(cfg)
+    _encrypt_sso_secret(cfg)
     CONF_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-    return _decrypt_llm_key(cfg)
+    return _decrypt_sso_secret(_decrypt_llm_key(cfg))
 
 
 _migrate_plaintext_key()
@@ -2027,6 +2135,8 @@ def _list_templates():
 
 # ---------------- HTTP 服务 ----------------
 class Handler(BaseHTTPRequestHandler):
+    rbac_user = None
+    rbac_permissions = []
     # T01481（P0-1）：HTTP/1.1 长连接复用，消除每请求 TCP 重建
     # （T01369 实测：HTTP/1.0 下持续 20 并发 60s 连接拒绝率 99.49%；
     #   所有响应路径均已带 Content-Length，满足 1.1 分帧要求）
@@ -2035,21 +2145,294 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Token")
         # 暴露 Content-Disposition，让前端 fetch 也能拿到建议文件名
         self.send_header("Access-Control-Expose-Headers", "Content-Disposition")
 
-    def _json(self, code, obj):
+    def _json(self, code, obj, headers=None):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self._cors()
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    def _redirect(self, location, headers=None):
+        self.send_response(302)
+        self._cors()
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _client_ip(self):
+        # 本地服务不信任 X-Forwarded-For；只取真实 TCP 对端，防伪造审计来源。
+        return (self.client_address[0] if self.client_address else "")[:64]
+
+    def _session_token(self):
+        return rbac.token_from_headers(self.headers)
+
+    def _workgroup(self):
+        return ((load_config().get("deployment") or {}).get("mode") == "workgroup")
+
+    def _auth_fail(self, err, headers=None):
+        body = {"ok": False, "code": err.code, "msg": err.message}
+        body.update(err.extra or {})
+        if headers:
+            self._json(err.status, body, headers)
+        else:
+            self._json(err.status, body)
+
+    def _auth_required_permission(self, method, path, query, raw):
+        """路径→权限矩阵；未知 API 至少要求已登录（app.use）。"""
+        if path.startswith("/api/rbac/users"):
+            return rbac.P_USER, "", ""
+        if path == "/api/rbac/audit":
+            return rbac.P_AUDIT_READ, "audit", ""
+        if path == "/api/rbac/sso-config":
+            return rbac.P_SET_WRITE, "sso", ""
+        if path == "/api/rbac/matrix":
+            return rbac.P_APP, "", ""
+        if path.startswith("/api/workflow"):
+            object_id = ""
+            action = ""
+            try:
+                if query:
+                    object_id = (parse_qs(query).get("project_id") or [""])[0]
+                if raw and path in ("/api/workflow/transition", "/api/workflow/signoff-package"):
+                    body = json.loads(raw.decode("utf-8")) if raw else {}
+                    object_id = str(body.get("project_id") or object_id)
+                    action = str(body.get("action") or "")
+            except Exception:
+                pass
+            if method == "POST":
+                perm = rbac.P_PROJ_SIGN if (action == "sign" or path.endswith("signoff-package")) else rbac.P_PROJ_WRITE
+            else:
+                perm = rbac.P_PROJ_READ
+            return perm, "project", object_id
+        if path.startswith("/api/config") or path.startswith("/api/theme") or path.startswith("/api/update"):
+            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
+        if path.startswith("/api/rates") or path.startswith("/api/rules"):
+            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
+        if path.startswith("/api/audit") or path.startswith("/api/share"):
+            return rbac.P_AUDIT_EXPORT, "audit", ""
+        if path.startswith("/api/eval"):
+            return rbac.P_AUDIT_READ, "", ""
+        if path.startswith("/api/data"):
+            return rbac.P_DATA, "", ""
+        if path.startswith("/api/history"):
+            return (rbac.P_EST_READ if method == "GET" else rbac.P_EST_WRITE), "", ""
+        if path.startswith("/api/pert"):
+            return (rbac.P_EST_READ if method == "GET" else rbac.P_EST_WRITE), "", ""
+        if path in ("/api/recognize", "/api/recognize/jobs", "/api/recognize/cancel",
+                    "/api/recognize/resume", "/api/generate", "/api/ifpug/summary", "/api/story/push"):
+            return rbac.P_EST_CREATE, "", ""
+        if path.startswith("/api/context") or path == "/api/pickdir":
+            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
+        if path.startswith("/api/templates"):
+            return (rbac.P_EST_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
+        return rbac.P_APP, "", ""
+
+    def _auth_gate(self, method, path, query, raw=b""):
+        """工作组请求统一入口。返回 True 表示已写响应；False 放行。
+
+        单机版不创建 rbac.db，也不暴露 auth/rbac 端点；仅 /api/auth/me 返回 standalone 供前端回显。
+        """
+        if path == "/api/auth/me":
+            return False
+        if path in ("/", "/index.html", "/health") or path.startswith("/static/"):
+            return False
+        if path in ("/api/i18n", "/api/app-info"):
+            return False
+        if path in ("/api/auth/login", "/api/auth/bootstrap", "/api/auth/logout",
+                    "/api/auth/sso/start", "/api/auth/sso/callback"):
+            return False
+        if not path.startswith("/api/"):
+            return False
+        if not self._workgroup():
+            if path.startswith(("/api/auth/", "/api/rbac/")):
+                self._json(404, {"ok": False})
+                return True
+            return False
+        store = get_rbac()
+        token = self._session_token()
+        permission, object_type, object_id = self._auth_required_permission(method, path, query, raw)
+        try:
+            user = store.authorize(token, permission, object_type=object_type, object_id=object_id,
+                                   ip=self._client_ip(), method=method, path=path)
+        except rbac.RbacError as e:
+            headers = {"WWW-Authenticate": "Bearer"} if e.status == 401 else None
+            self._auth_fail(e, headers)
+            return True
+        self.rbac_user = user
+        self.rbac_permissions = list(user.get("permissions") or [])
+        return False
+
+    def _sso_redirect_uri(self, cfg):
+        configured = str((cfg.get("sso") or {}).get("redirect_uri") or "").strip()
+        if configured:
+            return configured
+        return f"http://127.0.0.1:{self.server.server_port}/api/auth/sso/callback"
+
+    def _sso_failure(self, err, fmt_json=False):
+        """SSO 失败统一回退：JSON 调用方拿到 fallback=admin；浏览器回登录页。"""
+        if fmt_json:
+            return self._auth_fail(err)
+        reason = urllib.parse.quote(str(err.code or "SSO_FAILED"))
+        return self._redirect(f"/?sso=fallback&reason={reason}")
+
+    def _get_auth_routes(self, p, q):
+        """认证/SSO/团队权限只读端点。返回 True 表示已处理。"""
+        mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
+        if p == "/api/auth/me":
+            if mode != "workgroup":
+                return self._json(200, {"ok": True, "mode": "standalone", "authRequired": False,
+                                        "bootstrapRequired": False, "user": None, "permissions": [],
+                                        "ssoEnabled": False, "providerName": "", "adminFallback": True}) or True
+            store = get_rbac()
+            user = store.session(self._session_token(), ip=self._client_ip())
+            cfg = load_config()
+            sso = cfg.get("sso") or {}
+            payload = {"ok": True, "mode": "workgroup", "authRequired": True,
+                       "bootstrapRequired": store.bootstrap_required(), "user": user,
+                       "permissions": (user or {}).get("permissions") or [],
+                       "ssoEnabled": bool(sso.get("enabled")), "providerName": sso.get("provider_name") or "SSO",
+                       "adminFallback": bool(sso.get("admin_fallback", True))}
+            return self._json(200, payload) or True
+        if p == "/api/auth/sso/start":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            cfg = load_config()
+            store = get_rbac()
+            try:
+                next_path = (parse_qs(q).get("next") or ["/"])[0]
+                state, redirect_after = store.create_sso_state(next_path)
+                redirect_uri = self._sso_redirect_uri(cfg)
+                url = rbac.sso_authorize_url(cfg.get("sso") or {}, redirect_uri, state)
+                return self._json(200, {"ok": True, "authorize_url": url, "state": state,
+                                        "redirect_after": redirect_after}) or True
+            except rbac.RbacError as e:
+                return self._auth_fail(e) or True
+        if p == "/api/auth/sso/callback":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            cfg = load_config()
+            store = get_rbac()
+            qs = parse_qs(q)
+            fmt_json = (qs.get("format") or [""])[0] == "json"
+            redirect_after = "/"
+            try:
+                state = (qs.get("state") or [""])[0]
+                redirect_after = store.consume_sso_state(state)
+                code = (qs.get("code") or [""])[0]
+                userinfo = rbac.exchange_sso_code(cfg.get("sso") or {}, code, self._sso_redirect_uri(cfg))
+                sso = cfg.get("sso") or {}
+                result = store.sso_login(
+                    userinfo, sso.get("provider_name") or "SSO",
+                    auto_provision=bool(sso.get("auto_provision", True)),
+                    default_role=sso.get("default_role") or "viewer", ip=self._client_ip())
+                cookie = rbac.cookie_header(result["token"])
+                if fmt_json:
+                    return self._json(200, {"ok": True, "user": result["user"],
+                                            "created": result["created"]}, {"Set-Cookie": cookie}) or True
+                sep = "&" if "?" in redirect_after else "?"
+                return self._redirect(redirect_after + sep + "sso=ok", {"Set-Cookie": cookie}) or True
+            except rbac.RbacError as e:
+                store.record("", "SSO", "sso_login", "deny", "", "session", "", self._client_ip(), e.code)
+                return self._sso_failure(e, fmt_json) or True
+        if p == "/api/rbac/matrix":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            return self._json(200, {"ok": True, **rbac.RbacStore.matrix(), "user": self.rbac_user}) or True
+        if p == "/api/rbac/users":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            return self._json(200, {"ok": True, "users": get_rbac().list_users(),
+                                    "roles": [{"code": k, "label": v["label"]}
+                                              for k, v in rbac.ROLE_DEFS.items()]}) or True
+        if p == "/api/rbac/audit":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            limit = (parse_qs(q).get("limit") or ["100"])[0]
+            result = (parse_qs(q).get("result") or [""])[0]
+            return self._json(200, {"ok": True, "audit": get_rbac().list_audit(limit=limit, result=result)}) or True
+        if p == "/api/rbac/sso-config":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            return self._json(200, {"ok": True, "sso": sso_public_view(load_config())}) or True
+        return False
+
+    def _post_auth_routes(self, p, raw):
+        """登录/初始化/登出/用户管理/SSO 配置写端点。返回 True 表示已处理。"""
+        if not p.startswith(("/api/auth/", "/api/rbac/")):
+            return False
+        body = _body_json(raw)
+        mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
+        if p == "/api/auth/bootstrap":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            ip = self._client_ip()
+            if ip not in ("127.0.0.1", "::1", "localhost"):
+                return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
+                                       "msg": "仅允许本机初始化管理员"}) or True
+            try:
+                result = get_rbac().bootstrap(body.get("username"), body.get("password"),
+                                              body.get("display_name"), ip=ip)
+                return self._json(200, {"ok": True, "mode": "workgroup", "bootstrapRequired": False,
+                                        "user": result["user"]}, {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
+            except rbac.RbacError as e:
+                return self._auth_fail(e) or True
+        if p == "/api/auth/login":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            try:
+                result = get_rbac().login(body.get("username"), body.get("password"),
+                                          ip=self._client_ip(),
+                                          user_agent=self.headers.get("User-Agent") or "")
+                return self._json(200, {"ok": True, "user": result["user"]},
+                                  {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
+            except rbac.RbacError as e:
+                return self._auth_fail(e) or True
+        if p == "/api/auth/logout":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            get_rbac().logout(self._session_token(), ip=self._client_ip())
+            return self._json(200, {"ok": True}, {"Set-Cookie": rbac.clear_cookie_header()}) or True
+        if p == "/api/rbac/users":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            try:
+                user = get_rbac().create_user(self.rbac_user, body.get("username"), body.get("password"),
+                                              body.get("display_name"), body.get("role") or "viewer",
+                                              ip=self._client_ip())
+                return self._json(200, {"ok": True, "user": user}) or True
+            except rbac.RbacError as e:
+                return self._auth_fail(e) or True
+        if p == "/api/rbac/users/update":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            try:
+                user = get_rbac().update_user(self.rbac_user, body.get("id"), role=body.get("role"),
+                                             status=body.get("status"), display_name=body.get("display_name"),
+                                             ip=self._client_ip())
+                return self._json(200, {"ok": True, "user": user}) or True
+            except rbac.RbacError as e:
+                return self._auth_fail(e) or True
+        if p == "/api/rbac/sso-config":
+            if mode != "workgroup":
+                return self._json(404, {"ok": False}) or True
+            cfg = save_config({"sso": body})
+            get_rbac().record(self.rbac_user["id"], self.rbac_user["display_name"] or self.rbac_user["username"],
+                              "sso_config", "success", rbac.P_SET_WRITE, "sso", "", self._client_ip(),
+                              f"enabled={int(bool(cfg['sso'].get('enabled')))} provider={cfg['sso'].get('provider_name')}")
+            return self._json(200, {"ok": True, "sso": sso_public_view(cfg)}) or True
+        return False
+
     def _serve_frontend(self):
-        # 优先打包资源，其次应用目录；返回 index.html
         p = _RES / "frontend" / "index.html"
         if not p.exists():
             p = _APP_ROOT / "frontend" / "index.html"
@@ -2252,7 +2635,7 @@ class Handler(BaseHTTPRequestHandler):
             # 配置中心：返回持久化配置 + 预设元数据（模型开发商/控制台链接）
             # T05688：附带内置/生效更新源，供界面展示「留空时实际用哪个地址」
             cfg = load_config()
-            self._json(200, {"ok": True, "config": cfg, "providers": PROVIDERS,
+            self._json(200, {"ok": True, "config": public_config(cfg), "providers": PROVIDERS,
                              "update_source": _update_source_info()})
             return True
         if u.path == "/api/config/models":
@@ -2426,6 +2809,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
+        if self._auth_gate("GET", u.path, u.query):
+            return
+        if self._get_auth_routes(u.path, u.query):
+            return
         for route in (self._get_page_routes, self._get_export_routes, self._get_history_routes,
                       self._get_config_routes, self._get_file_routes):
             if route(u):
@@ -2493,8 +2880,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length) if length else b""
-        path = urlparse(self.path).path
+        u = urlparse(self.path)
+        path, query = u.path, u.query
         try:
+            if self._auth_gate("POST", path, query, raw):
+                return
+            if self._post_auth_routes(path, raw):
+                return
             if self._dispatch_post(path, raw):
                 return
         except Exception as e:
@@ -2608,7 +3000,7 @@ class Handler(BaseHTTPRequestHandler):
     def _post_config(self, raw):
         # 保存配置中心（大模型）配置
         cfg = save_config(json.loads(raw.decode("utf-8")))
-        return self._json(200, {"ok": True, "config": cfg})
+        return self._json(200, {"ok": True, "config": public_config(cfg)})
 
     # ---------------- 三层 Token 主题（T06171） ----------------
     def _post_theme_validate(self, raw):
@@ -2794,9 +3186,15 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
         try:
+            actor = payload.get("actor")
+            role = payload.get("role") or "评估师"
+            # T06199：工作组版禁止前端伪造操作人/角色，审计轨迹以登录会话为准。
+            if self._workgroup() and getattr(self, "rbac_user", None):
+                actor = self.rbac_user.get("display_name") or self.rbac_user.get("username")
+                role = self.rbac_user.get("role_label") or self.rbac_user.get("role")
             detail = WORKFLOW.transition(
                 payload.get("project_id"), payload.get("action"),
-                actor=payload.get("actor"), role=payload.get("role") or "评估师",
+                actor=actor, role=role,
                 opinion=payload.get("opinion") or "",
             )
             detail = self._workflow_project_payload(detail["project_id"])

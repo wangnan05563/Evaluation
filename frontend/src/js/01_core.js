@@ -384,6 +384,21 @@ function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
 function goPage(p){
+  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+  if(document.body.classList.contains('auth-locked')&&p!=="work"){
+    if(window.RbacAuth)RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));
+    return;
+  }
+  if(p==="team"){
+    if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return;}
+    if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return;}
+  }
+  if(p==="config"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read")){
+    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return;
+  }
+  if(p==="flow"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){
+    toast(tl("rbac.denied.project","当前角色无权查看项目"));return;
+  }
   if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
@@ -394,6 +409,7 @@ function goPage(p){
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
   if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
   if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
+  if(p==="team"&&window.RbacAuth)RbacAuth.teamInit();           // T06199：团队与权限
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();

@@ -32,6 +32,7 @@ const suites = [
   { id: 'evidence-confidence', script: 'tests/phase3/ui_evidence_confidence.mjs', timeout: 180000 },
   { id: 'ai-eval', script: 'tests/phase3/ui_ai_eval.mjs', timeout: 180000 },
   { id: 'project-workflow', script: 'tests/phase3/ui_project_workflow.mjs', timeout: 300000 },
+  { id: 'rbac-sso', script: 'tests/phase3/ui_rbac_sso.mjs', timeout: 300000 },
   { id: 'long-task', script: 'tests/phase3/ui_long_task.mjs', timeout: 120000 },
   { id: 'audit-package', script: 'tests/phase3/ui_audit_package.mjs', timeout: 120000 },
   { id: 'present-share', script: 'tests/phase3/ui_present_share.mjs', timeout: 120000 },

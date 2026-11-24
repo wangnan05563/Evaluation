@@ -1,0 +1,183 @@
+{
+  "suite": "rbac",
+  "at": "2026-11-24T13:54:54Z",
+  "checks": [
+    {
+      "name": "空库要求初始化管理员",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "初始化拒绝弱密码",
+      "ok": true,
+      "detail": "WEAK_PASSWORD/400"
+    },
+    {
+      "name": "初始化拒绝非法用户名",
+      "ok": true,
+      "detail": "INVALID_USERNAME/400"
+    },
+    {
+      "name": "初始化创建 admin 并返回会话",
+      "ok": true,
+      "detail": "admin"
+    },
+    {
+      "name": "重复初始化被关闭",
+      "ok": true,
+      "detail": "BOOTSTRAP_CLOSED/409"
+    },
+    {
+      "name": "会话令牌可解析",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "密码不以明文落库",
+      "ok": true,
+      "detail": "pbkdf2_sha256$210000$8"
+    },
+    {
+      "name": "错误密码统一 401",
+      "ok": true,
+      "detail": "LOGIN_FAILED/401"
+    },
+    {
+      "name": "admin 拥有全部权限",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "矩阵含 5 个角色 / 13 项权限",
+      "ok": true,
+      "detail": "5/13"
+    },
+    {
+      "name": "风险权限分层：评估师不可签收/管用户，只读成员不可看项目",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "用户名重复返回 409",
+      "ok": true,
+      "detail": "USERNAME_TAKEN/409"
+    },
+    {
+      "name": "评估师登录且可查看项目",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "只读成员访问项目被 403 拒绝",
+      "ok": true,
+      "detail": "PERMISSION_DENIED/403"
+    },
+    {
+      "name": "拒绝被记录到审计：对象/权限/操作人完整",
+      "ok": true,
+      "detail": "{'id': 8, 'at': '2026-11-24T13:54:52Z', 'actor_name': '只读乙', 'action': 'access', 'result': 'deny', 'permission': 'project.read', 'object_type': 'project', 'object_id': 'p-403', 'ip': '127.0.0.1', 'detail': 'GET /api/workflow/project?project_id=p-403'}"
+    },
+    {
+      "name": "无会话访问返回 401",
+      "ok": true,
+      "detail": "UNAUTHORIZED/401"
+    },
+    {
+      "name": "匿名拒绝同样落审计",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "管理员可改角色且立即生效",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "停用账号登录被 401",
+      "ok": true,
+      "detail": "LOGIN_FAILED/401"
+    },
+    {
+      "name": "停用用户立即踢出会话并禁止登录",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "唯一管理员不可停用",
+      "ok": true,
+      "detail": "LAST_ADMIN/409"
+    },
+    {
+      "name": "登出后会话失效",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO state 生成并限制回跳",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO state 一次性消费",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO state 重放失败",
+      "ok": true,
+      "detail": "SSO_BAD_STATE/400"
+    },
+    {
+      "name": "SSO 自动开通默认只读成员",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO-only 账号密码登录被拒",
+      "ok": true,
+      "detail": "LOGIN_FAILED/401"
+    },
+    {
+      "name": "SSO 账号无本地密码不可密码登录",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "同一 SSO 主体复用已有账号",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO 不允许自动开通管理员",
+      "ok": true,
+      "detail": "SSO_ROLE_INVALID/500"
+    },
+    {
+      "name": "会话 Cookie 含 HttpOnly/SameSite",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "审计不含密码或明文令牌",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SSO 登录成功进入审计",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "角色变更进入审计",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "审计结果过滤可用",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 35,
+  "total": 35
+}

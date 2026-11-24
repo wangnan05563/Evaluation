@@ -131,8 +131,15 @@
     }else signed.hidden=true;
     renderTimeline(d.events||[]);
     setButtons(d.status);
-    const actor=$flow("wfActor");if(actor&&!actor.value.trim())actor.value=d.submitted_by||t("flow.role.evaluator");
-    const role=$flow("wfRole");if(role&&d.status==="review")role.value="项目经理";
+    const actor=$flow("wfActor"),role=$flow("wfRole");
+    if(window.RbacAuth&&RbacAuth.workgroup&&RbacAuth.user){
+      // 工作组版操作人/角色以登录会话为准，前端只读展示，服务端仍会覆盖请求值。
+      if(actor){actor.value=RbacAuth.user.display_name||RbacAuth.user.username||"";actor.readOnly=true;actor.setAttribute("aria-readonly","true");}
+      if(role){role.value=RbacAuth.user.role_label||RbacAuth.user.role||"";role.disabled=true;}
+    }else{
+      if(actor){actor.readOnly=false;actor.removeAttribute("aria-readonly");if(!actor.value.trim())actor.value=d.submitted_by||t("flow.role.evaluator");}
+      if(role){role.disabled=false;if(d.status==="review")role.value="项目经理";}
+    }
     window.lucide&&lucide.createIcons();
   }
 
@@ -155,14 +162,22 @@
   function setButtons(status){
     const map={draft:["submit"],review:["reject","revise","sign"],rejected:["submit","revise"],signed:[]};
     const ok=map[status]||[];
-    const set=(id,key)=>$flow(id).disabled=!ok.includes(key);
-    set("wfSubmitBtn","submit");set("wfRejectBtn","reject");set("wfReviseBtn","revise");set("wfSignBtn","sign");
-    const form=$flow("wfForm");if(form)form.classList.toggle("wf-readonly",status==="signed");
-    $flow("wfReportBtn").disabled=!detail;
+    const wg=window.RbacAuth&&RbacAuth.workgroup;
+    const canWrite=!wg||RbacAuth.can("project.write");
+    const canSign=!wg||RbacAuth.can("project.sign");
+    const set=(id,key)=>$flow(id).disabled=!ok.includes(key)||!canWrite;
+    set("wfSubmitBtn","submit");set("wfRejectBtn","reject");set("wfReviseBtn","revise");
+    $flow("wfSignBtn").disabled=!ok.includes("sign")||!canSign;
+    const form=$flow("wfForm");if(form)form.classList.toggle("wf-readonly",status==="signed"||!canWrite);
+    $flow("wfReportBtn").disabled=!detail||!canSign;
   }
 
   async function flowAct(action){
     if(!detail)return;
+    if(window.RbacAuth&&RbacAuth.workgroup){
+      const perm=action==="sign"?"project.sign":"project.write";
+      if(!RbacAuth.can(perm)){toast(tl("rbac.denied.project_action","当前角色无权执行该状态操作"));return;}
+    }
     const actor=($flow("wfActor").value||"").trim(),role=($flow("wfRole").value||"").trim();
     const opinion=($flow("wfOpinion").value||"").trim();
     if(!actor){toast(t("flow.err.actor"));$flow("wfActor").focus();return;}
@@ -194,6 +209,9 @@
 
   async function flowReport(){
     if(!detail)return;
+    if(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.sign")){
+      toast(tl("rbac.denied.project_action","当前角色无权生成签收报告"));return;
+    }
     const btn=$flow("wfReportBtn");if(btn)btn.disabled=true;
     const msg=$flow("wfMsg");if(msg){msg.className="wf-msg";msg.textContent=t("flow.msg.report_busy");}
     try{
@@ -213,6 +231,7 @@
     try{
       const data=await api("/api/config",{deployment:{mode:next}});
       applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||next);
+      if(window.RbacAuth&&RbacAuth.refresh)RbacAuth.refresh();
       toast(t(mode==="workgroup"?"config.deploy.on":"config.deploy.off"));
       if(mode==="workgroup"&&document.body.dataset.page==="flow")flowInit(true);
     }catch(e){toast(e.message);}
@@ -220,9 +239,15 @@
 
   async function flowBootDeployment(){
     try{
-      const data=await api("/api/config");
-      applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||"standalone");
-    }catch(e){applyDeploymentMode("standalone");}
+      // T06199：部署模式属于公开认证状态；工作组未登录时不能去读受保护的 /api/config。
+      const data=await api("/api/auth/me");
+      applyDeploymentMode(data.mode||"standalone");
+    }catch(e){
+      try{
+        const data=await api("/api/config");
+        applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||"standalone");
+      }catch(e2){applyDeploymentMode("standalone");}
+    }
   }
 
   window.flowInit=flowInit;
@@ -232,6 +257,9 @@
   window.flowReport=flowReport;
   window.saveDeployMode=saveDeployMode;
   window.applyDeploymentMode=applyDeploymentMode;
+  document.addEventListener("we:auth",e=>{
+    if(e.detail&&e.detail.mode)applyDeploymentMode(e.detail.mode);
+  });
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",flowBootDeployment,{once:true});
   else flowBootDeployment();
 })();

@@ -327,7 +327,8 @@
   // ---------- 首访触发：进入某页时若未引导过且未关闭过则唤起一次 ----------
   function guideMaybe(page) {
     var menuId = menuOfPage(page);
-    if (!menuId || !stepList(menuId).length) return;   // 无引导配置的页面（如项目签收）不叠加遮罩
+    if (active && active.menuId !== menuId) stop();   // 切页时先收起上一页引导，避免遮罩残留在无引导页面
+    if (!menuId || !stepList(menuId).length) return;   // 无引导配置的页面（如项目签收、团队与权限）不叠加遮罩
     // T06183：首次角色引导优先；已选角色的用户不再自动叠加旧菜单引导（评估师路径不含高级引导）。
     var rw = document.querySelector('#roleWelcome');
     if (rw && !rw.hidden) return;

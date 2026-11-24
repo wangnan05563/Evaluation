@@ -173,7 +173,7 @@ body[data-page="help"] #pg-help{display:block}
 body[data-page="pert"] #pg-pert{display:block}
 /* 菜单栏 */
 .menu{display:flex;align-items:center;gap:6px}
-.m-item{position:relative;display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--muted);font-family:var(--ff);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--r-md);cursor:pointer;transition:.15s}
+.m-item{position:relative;display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--ink-2);font-family:var(--ff);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:var(--r-md);cursor:pointer;transition:.15s}
 .m-item .lic{width:17px;height:17px}
 .m-item:hover{background:var(--line-2);color:var(--ink)}
 .m-item.on{background:var(--brand-soft);color:var(--brand-ink)}
@@ -1352,6 +1352,118 @@ body[data-page="flow"] #pg-flow{display:block}
 }
 
 
+/* T06199：工作组 RBAC / SSO / 团队与权限。单机版不显示任何入口。 */
+body[data-deploy-mode="standalone"] #mi-team{display:none!important}
+body[data-page="team"] #pg-team{display:block}
+.auth-gate[hidden]{display:none!important}
+body.auth-locked{overflow:hidden}
+
+.auth-gate{position:fixed;inset:0;z-index:1300;display:grid;place-items:center;padding:24px;overflow:auto;
+  background:radial-gradient(circle at 20% 10%,rgba(37,99,235,.14),transparent 34%),var(--bg,#F4F7FB)}
+.auth-card{width:min(480px,100%);background:var(--card);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 24px 60px rgba(15,23,42,.16);padding:26px 28px 22px;color:var(--ink)}
+.auth-kicker{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--brand-ink);
+  background:var(--brand-soft);border:1px solid var(--line);border-radius:999px;padding:5px 10px}
+.auth-kicker .lic{width:14px;height:14px}
+.auth-card h2{font-size:24px;line-height:1.3;margin:14px 0 6px}
+.auth-hint{font-size:12.5px;line-height:1.75;color:var(--muted);margin:0 0 16px}
+.auth-alert{border:1px solid var(--danger);background:var(--danger-soft);color:var(--danger);border-radius:10px;
+  padding:9px 11px;font-size:12px;line-height:1.65;margin:0 0 12px}
+.auth-form{display:flex;flex-direction:column;gap:12px}
+.auth-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+.auth-field input{height:42px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);
+  padding:0 12px;font-family:var(--ff);font-size:13.5px;outline:none}
+.auth-field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.auth-submit{justify-content:center;min-height:44px;margin-top:2px;font-size:14px}
+.auth-or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11px;margin:14px 0 10px}
+.auth-or::before,.auth-or::after{content:"";height:1px;background:var(--line);flex:1}
+.auth-sso{width:100%;justify-content:center;min-height:42px;font-size:13px}
+.auth-fallback{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding:9px 10px;
+  border:1px dashed var(--line);border-radius:10px;font-size:11.5px;color:var(--muted);line-height:1.6}
+.auth-msg{font-size:12px;color:var(--muted);min-height:18px;line-height:1.65;margin-top:10px}
+.auth-msg.err{color:var(--danger)} .auth-msg.ok{color:var(--ok)}
+.auth-foot{font-size:11px;line-height:1.65;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin:16px 0 0}
+.linkbtn{border:0;background:none;color:var(--brand-ink);text-decoration:underline;cursor:pointer;font:inherit;padding:2px 0}
+.linkbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:3px}
+
+.team-head{margin-bottom:16px}
+.team-sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:8px}
+.team-grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+.team-card{min-width:0}
+.team-who{grid-column:1;grid-row:1}
+#rbacUsersCard{grid-column:2;grid-row:1/span 2}
+#rbacSsoCard{grid-column:1;grid-row:2}
+.team-wide{grid-column:1/-1}
+.team-count{font-size:11px;color:var(--muted);font-weight:400;margin-left:6px}
+.rbac-who{display:flex;flex-direction:column;gap:9px;min-height:78px;font-size:12px;color:var(--muted)}
+.rbac-who b{font-size:17px;color:var(--ink)}
+.rbac-who .rbac-role{display:inline-flex;align-self:flex-start;align-items:center;font-size:11px;font-weight:700;
+  color:var(--brand-ink);background:var(--brand-soft);border:1px solid var(--line);border-radius:999px;padding:4px 9px}
+.rbac-who .rbac-perms{display:flex;flex-wrap:wrap;gap:5px}
+.rbac-who .rbac-perms span{font-size:10.5px;color:var(--ink-2);background:var(--surface-2);border-radius:5px;padding:2px 6px}
+.rbac-table-wrap{width:100%;overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:330px}
+.rbac-table{width:100%;border-collapse:collapse;font-size:12px;min-width:620px}
+.rbac-table th,.rbac-table td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:middle}
+.rbac-table th{position:sticky;top:0;z-index:1;background:var(--surface-2);color:var(--ink-2);font-weight:700;font-size:11px}
+.rbac-table td{color:var(--ink);word-break:break-word}
+.rbac-table td small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px}
+.rbac-table tr:last-child td{border-bottom:0}
+.rbac-matrix{min-width:820px}
+.rbac-matrix th:first-child,.rbac-matrix td:first-child{position:sticky;left:0;z-index:2;background:var(--card);min-width:132px}
+.rbac-matrix thead th:first-child{z-index:3;background:var(--surface-2)}
+.rbac-matrix td.on{color:var(--ok);font-weight:700;text-align:center}
+.rbac-matrix td.off{color:var(--muted);text-align:center}
+.rbac-matrix td.on::before{content:"✓";speak:none}
+.rbac-matrix td.off::before{content:"—";speak:none}
+.rbac-status{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 7px;border:1px solid var(--line)}
+.rbac-status.active{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-border)}
+.rbac-status.disabled{color:var(--muted);background:var(--surface-2)}
+.rbac-role-select{height:30px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-family:var(--ff);font-size:11.5px;padding:0 6px}
+.rbac-inline{display:grid;grid-template-columns:1fr 1fr 150px 1fr auto;gap:8px;align-items:end;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.rbac-field{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);min-width:0}
+.rbac-field input,.rbac-field select{height:34px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);
+  padding:0 8px;font-family:var(--ff);font-size:12px;outline:none;min-width:0;width:100%}
+.rbac-field input:focus,.rbac-field select:focus,.rbac-role-select:focus{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+.rbac-inline .btn{height:34px;justify-content:center;white-space:nowrap;padding:0 12px}
+.rbac-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;margin-top:6px}
+.rbac-form .rbac-field:first-of-type{grid-column:1/-1}
+.rbac-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;grid-column:1/-1}
+.rbac-check{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);min-height:32px}
+.rbac-check input{width:15px;height:15px;accent-color:var(--brand)}
+.rbac-check-inline{align-self:end}
+.rbac-form .wf-actions{grid-column:1/-1;margin-top:4px}
+.rbac-msg{font-size:11.5px;line-height:1.65;min-height:16px;color:var(--muted);margin-top:8px}
+.rbac-msg.err{color:var(--danger)} .rbac-msg.ok{color:var(--ok)}
+.team-msg{margin-top:2px}
+.rbac-audit{list-style:none;margin:4px 0 0;padding:0;max-height:330px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.rbac-audit li{display:grid;grid-template-columns:110px minmax(140px,1fr) auto;gap:6px 10px;align-items:baseline;
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--muted);background:var(--card)}
+.rbac-audit time{font-variant-numeric:tabular-nums;color:var(--muted)}
+.rbac-audit b{color:var(--ink);font-weight:600;word-break:break-word}
+.rbac-audit .rbac-audit-detail{grid-column:1/-1;font-size:10.5px;line-height:1.55;word-break:break-word;color:var(--muted)}
+.rbac-audit .rbac-result{font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px;border:1px solid var(--line);white-space:nowrap}
+.rbac-audit .rbac-result.deny,.rbac-audit .rbac-result.fail{color:var(--danger);background:var(--danger-soft);border-color:var(--danger)}
+.rbac-audit .rbac-result.success{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-border)}
+.rbac-empty{font-size:12px;color:var(--muted);padding:10px 2px;line-height:1.7}
+.badge{display:inline-flex;font-size:10.5px;font-weight:700;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px 7px;margin-left:6px}
+.badge.on{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-border)}
+
+@media(max-width:1100px){
+  .team-grid{grid-template-columns:300px minmax(0,1fr)}
+  .rbac-inline{grid-template-columns:1fr 1fr}
+  .rbac-inline .btn{grid-column:1/-1;width:max-content}
+}
+@media(max-width:820px){
+  .team-grid{grid-template-columns:1fr}
+  .team-who,#rbacUsersCard,#rbacSsoCard,.team-wide{grid-column:1;grid-row:auto}
+  .rbac-form,.rbac-two{grid-template-columns:1fr}
+  .rbac-inline{grid-template-columns:1fr}
+  .auth-card{padding:22px 18px 18px}
+  .auth-card h2{font-size:21px}
+  .rbac-audit li{grid-template-columns:1fr auto}
+  .rbac-audit time{grid-column:1/-1}
+}
+
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in" data-deploy-mode="standalone">
@@ -1375,7 +1487,38 @@ body[data-page="flow"] #pg-flow{display:block}
     </div>
   </div>
 </div>
-<!-- T06183：首次启动角色化引导。?welcome=0 供既有 UI 回归跳过；?welcome=1 强制打开。 -->
+<!-- T06199：工作组登录/首次初始化/SSO 回退。单机版 hidden，不进入 tab 序与读屏树。 -->
+<div id="authGate" class="auth-gate" hidden aria-hidden="true">
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle" aria-describedby="authHint">
+    <div class="auth-kicker"><i aria-hidden="true" data-lucide="shield-check"></i><span data-i18n="auth.kicker">工作组安全访问</span></div>
+    <h2 id="authTitle" data-i18n="auth.title">工作组登录</h2>
+    <p id="authHint" class="auth-hint" data-i18n="auth.hint">登录后按角色权限访问估算、项目签收与审计。</p>
+    <div id="authSsoMsg" class="auth-alert" hidden role="alert"></div>
+    <form id="authForm" class="auth-form" onsubmit="event.preventDefault();RbacAuth.submit()">
+      <label class="auth-field"><span data-i18n="auth.username">账号</span>
+        <input id="authUsername" name="username" autocomplete="username" required maxlength="40" spellcheck="false">
+      </label>
+      <label class="auth-field"><span data-i18n="auth.password">密码</span>
+        <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
+      </label>
+      <label class="auth-field" id="authDisplayRow" hidden><span data-i18n="auth.display_name">显示名称</span>
+        <input id="authDisplayName" name="display_name" maxlength="60" autocomplete="name">
+      </label>
+      <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span data-i18n="auth.login">登录</span></button>
+    </form>
+    <div class="auth-or" id="authSsoBox"><span data-i18n="auth.or">或</span></div>
+    <button type="button" class="btn btn-ghost auth-sso" id="authSsoBtn" onclick="RbacAuth.ssoStart()">
+      <i aria-hidden="true" data-lucide="fingerprint"></i><span id="authSsoLabel" data-i18n="auth.sso">使用 SSO 登录</span>
+    </button>
+    <div class="auth-fallback" id="authFallbackBox" hidden>
+      <span data-i18n="auth.fallback_hint">SSO 不可用时，可回退管理员账号登录。</span>
+      <button type="button" class="linkbtn" id="authFallback" onclick="RbacAuth.fallback()" data-i18n="auth.fallback_btn">改用管理员账号</button>
+    </div>
+    <div class="auth-msg" id="authMsg" role="status" aria-live="polite"></div>
+    <p class="auth-foot" data-i18n="auth.foot">会话 12 小时；单机版不启用登录。管理员密码只在本机加盐哈希保存。</p>
+  </div>
+</div>
+
 <div id="roleWelcome" class="rw" hidden aria-hidden="true">
   <div class="rw-scrim" data-rw-close></div>
   <div class="rw-card" role="dialog" aria-modal="true" aria-labelledby="rwTitle" aria-describedby="rwDesc">
@@ -1425,6 +1568,7 @@ body[data-page="flow"] #pg-flow{display:block}
       <button class="m-item" id="mi-pert" data-page="pert" aria-label="PERT 估算" data-i18n="aria-label=nav.pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
       <button class="m-item" id="mi-fast" data-page="fast" aria-label="快速估算" data-i18n="aria-label=nav.fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
       <button class="m-item" id="mi-flow" data-page="flow" aria-label="项目签收" data-i18n="aria-label=nav.flow" onclick="goPage('flow')"><i aria-hidden="true" data-lucide="badge-check" class="lic"></i><span class="lbl" data-i18n="nav.flow">项目签收</span><span class="tip" data-i18n="nav.flow.tip">草稿 → 评审 → 驳回/修订 → 签收，全程留审计轨迹</span></button>
+      <button class="m-item" id="mi-team" data-page="team" hidden aria-label="团队与权限" data-i18n="aria-label=nav.team" onclick="goPage('team')"><i aria-hidden="true" data-lucide="users" class="lic"></i><span class="lbl" data-i18n="nav.team">团队与权限</span><span class="tip" data-i18n="nav.team.tip">角色权限矩阵、用户管理、SSO 与越权审计</span></button>
       <button class="m-item" id="mi-config" data-page="config" aria-label="配置中心" data-i18n="aria-label=nav.config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
       <button class="m-item" id="mi-help" data-page="help" aria-label="帮助文档" data-i18n="aria-label=nav.help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
     </nav>
@@ -2243,6 +2387,74 @@ body[data-page="flow"] #pg-flow{display:block}
     </div>
   </main>
 
+  <!-- ============ 页面五：团队与权限（T06199 工作组专用） ============ -->
+  <main class="page" id="pg-team">
+    <div class="team-head">
+      <div class="card-title"><i aria-hidden="true" data-lucide="users"></i><span data-i18n="team.title">团队与权限</span>
+        <span class="team-sub" data-i18n="team.subtitle">角色权限矩阵、成员账号、SSO 与越权审计</span></div>
+      <p class="cfg-note" data-i18n="team.note">工作组版按角色收敛能力；单机版不启用本页。所有拒绝访问都会写入审计，且响应不包含对象数据。</p>
+    </div>
+    <div class="team-grid">
+      <section class="glass pad team-card team-who" aria-labelledby="rbacWhoTitle">
+        <div class="card-title" id="rbacWhoTitle"><i aria-hidden="true" data-lucide="user-round-check"></i><span data-i18n="team.who.title">当前会话</span></div>
+        <div id="rbacWho" class="rbac-who" role="status" aria-live="polite"></div>
+        <div class="wf-actions">
+          <button type="button" class="btn btn-ghost" id="rbacLogout" onclick="RbacAuth.logout()"><i aria-hidden="true" data-lucide="log-out" style="width:14px;height:14px"></i><span data-i18n="team.logout">退出登录</span></button>
+        </div>
+      </section>
+
+      <section class="glass pad team-card" id="rbacUsersCard" aria-labelledby="rbacUsersTitle">
+        <div class="card-title" id="rbacUsersTitle"><i aria-hidden="true" data-lucide="user-plus"></i><span data-i18n="team.users.title">成员账号</span><span class="team-count" id="rbacUserCount"></span></div>
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacUsersTitle" tabindex="0"><table class="rbac-table" aria-label="成员账号列表">
+          <thead><tr><th data-i18n="team.users.name">成员</th><th data-i18n="team.users.role">角色</th><th data-i18n="team.users.status">状态</th><th data-i18n="team.users.last">最近登录</th><th data-i18n="team.users.action">操作</th></tr></thead>
+          <tbody id="rbacUserRows"></tbody>
+        </table></div>
+        <form id="rbacUserForm" class="rbac-inline" onsubmit="event.preventDefault();RbacAuth.createUser()">
+          <label class="rbac-field"><span data-i18n="team.users.new_name">账号</span><input id="rbacNewUser" maxlength="40" autocomplete="off" required></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_display">显示名称</span><input id="rbacNewName" maxlength="60" autocomplete="off"></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_role">角色</span><select id="rbacNewRole"><option value="evaluator">评估师</option><option value="reviewer">评审人</option><option value="manager">项目经理</option><option value="viewer">只读成员</option></select></label>
+          <label class="rbac-field"><span data-i18n="team.users.new_pass">初始密码</span><input id="rbacNewPass" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+          <button type="submit" class="btn btn-primary" id="rbacAddBtn"><i aria-hidden="true" data-lucide="plus" style="width:14px;height:14px"></i><span data-i18n="team.users.add">添加成员</span></button>
+        </form>
+        <div class="rbac-msg" id="rbacUserMsg" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="glass pad team-card" id="rbacSsoCard" aria-labelledby="rbacSsoTitle">
+        <div class="card-title" id="rbacSsoTitle"><i aria-hidden="true" data-lucide="fingerprint"></i><span data-i18n="team.sso.title">SSO 集成</span><span class="badge" id="rbacSsoBadge"></span></div>
+        <p class="cfg-note" data-i18n="team.sso.note">标准 OIDC 授权码流程；失败或未配置时回退本机管理员账号，不阻断登录。</p>
+        <form id="rbacSsoForm" class="rbac-form" onsubmit="event.preventDefault();RbacAuth.saveSso()">
+          <label class="rbac-check"><input id="rbacSsoEnabled" type="checkbox"><span data-i18n="team.sso.enabled">启用 SSO</span></label>
+          <label class="rbac-field"><span data-i18n="team.sso.provider">标识提供方名称</span><input id="rbacSsoProvider" maxlength="40" placeholder="MockIDP"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.authorize">授权端点</span><input id="rbacSsoAuthorize" type="url" placeholder="https://idp.example.com/authorize"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.token">令牌端点</span><input id="rbacSsoToken" type="url" placeholder="https://idp.example.com/token"></label>
+          <label class="rbac-field"><span data-i18n="team.sso.userinfo">用户信息端点</span><input id="rbacSsoUserinfo" type="url" placeholder="https://idp.example.com/userinfo"></label>
+          <div class="rbac-two">
+            <label class="rbac-field"><span data-i18n="team.sso.client">Client ID</span><input id="rbacSsoClient" maxlength="200" autocomplete="off"></label>
+            <label class="rbac-field"><span data-i18n="team.sso.secret">Client Secret</span><input id="rbacSsoSecret" type="password" maxlength="500" autocomplete="new-password" placeholder="留空表示不修改"></label>
+          </div>
+          <div class="rbac-two">
+            <label class="rbac-field"><span data-i18n="team.sso.default_role">自动开通角色</span><select id="rbacSsoRole"><option value="viewer">只读成员</option><option value="evaluator">评估师</option><option value="reviewer">评审人</option></select></label>
+            <label class="rbac-check rbac-check-inline"><input id="rbacSsoProvision" type="checkbox"><span data-i18n="team.sso.provision">首次登录自动开通</span></label>
+          </div>
+          <div class="wf-actions"><button type="submit" class="btn btn-primary" id="rbacSsoSave"><i aria-hidden="true" data-lucide="save" style="width:14px;height:14px"></i><span data-i18n="team.sso.save">保存 SSO 配置</span></button></div>
+        </form>
+        <div class="rbac-msg" id="rbacSsoMsg" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="glass pad team-card team-wide" id="rbacMatrixCard" aria-labelledby="rbacMatrixTitle">
+        <div class="card-title" id="rbacMatrixTitle"><i aria-hidden="true" data-lucide="table-2"></i><span data-i18n="team.matrix.title">角色权限矩阵</span></div>
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacMatrixTitle" tabindex="0"><table class="rbac-table rbac-matrix" aria-label="角色权限矩阵"><thead id="rbacMatrixHead"></thead><tbody id="rbacMatrixBody"></tbody></table></div>
+      </section>
+
+      <section class="glass pad team-card team-wide" id="rbacAuditCard" aria-labelledby="rbacAuditTitle">
+        <div class="card-title" id="rbacAuditTitle"><i aria-hidden="true" data-lucide="scroll-text"></i><span data-i18n="team.audit.title">越权与登录审计</span><span class="team-count" id="rbacAuditCount"></span></div>
+        <ol class="rbac-audit" id="rbacAudit" tabindex="0" aria-labelledby="rbacAuditTitle"></ol>
+        <div class="wf-actions"><button type="button" class="btn btn-ghost" onclick="RbacAuth.loadAudit()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="team.audit.refresh">刷新审计</span></button></div>
+      </section>
+    </div>
+    <div class="rbac-msg team-msg" id="rbacMsg" role="status" aria-live="polite"></div>
+  </main>
+
   <!-- ============ 页面四：PERT 三点估算 ============ -->
   <!-- 参照 IFPUG 页面结构：无底层背景框，各步骤内容为独立卡片 -->
   <main class="page" id="pg-fast">
@@ -2913,6 +3125,21 @@ function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
 function goPage(p){
+  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+  if(document.body.classList.contains('auth-locked')&&p!=="work"){
+    if(window.RbacAuth)RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));
+    return;
+  }
+  if(p==="team"){
+    if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return;}
+    if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return;}
+  }
+  if(p==="config"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read")){
+    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return;
+  }
+  if(p==="flow"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){
+    toast(tl("rbac.denied.project","当前角色无权查看项目"));return;
+  }
   if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
@@ -2923,6 +3150,7 @@ function goPage(p){
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
   if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
   if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
+  if(p==="team"&&window.RbacAuth)RbacAuth.teamInit();           // T06199：团队与权限
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();
@@ -9249,8 +9477,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }else signed.hidden=true;
     renderTimeline(d.events||[]);
     setButtons(d.status);
-    const actor=$flow("wfActor");if(actor&&!actor.value.trim())actor.value=d.submitted_by||t("flow.role.evaluator");
-    const role=$flow("wfRole");if(role&&d.status==="review")role.value="项目经理";
+    const actor=$flow("wfActor"),role=$flow("wfRole");
+    if(window.RbacAuth&&RbacAuth.workgroup&&RbacAuth.user){
+      // 工作组版操作人/角色以登录会话为准，前端只读展示，服务端仍会覆盖请求值。
+      if(actor){actor.value=RbacAuth.user.display_name||RbacAuth.user.username||"";actor.readOnly=true;actor.setAttribute("aria-readonly","true");}
+      if(role){role.value=RbacAuth.user.role_label||RbacAuth.user.role||"";role.disabled=true;}
+    }else{
+      if(actor){actor.readOnly=false;actor.removeAttribute("aria-readonly");if(!actor.value.trim())actor.value=d.submitted_by||t("flow.role.evaluator");}
+      if(role){role.disabled=false;if(d.status==="review")role.value="项目经理";}
+    }
     window.lucide&&lucide.createIcons();
   }
 
@@ -9273,14 +9508,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function setButtons(status){
     const map={draft:["submit"],review:["reject","revise","sign"],rejected:["submit","revise"],signed:[]};
     const ok=map[status]||[];
-    const set=(id,key)=>$flow(id).disabled=!ok.includes(key);
-    set("wfSubmitBtn","submit");set("wfRejectBtn","reject");set("wfReviseBtn","revise");set("wfSignBtn","sign");
-    const form=$flow("wfForm");if(form)form.classList.toggle("wf-readonly",status==="signed");
-    $flow("wfReportBtn").disabled=!detail;
+    const wg=window.RbacAuth&&RbacAuth.workgroup;
+    const canWrite=!wg||RbacAuth.can("project.write");
+    const canSign=!wg||RbacAuth.can("project.sign");
+    const set=(id,key)=>$flow(id).disabled=!ok.includes(key)||!canWrite;
+    set("wfSubmitBtn","submit");set("wfRejectBtn","reject");set("wfReviseBtn","revise");
+    $flow("wfSignBtn").disabled=!ok.includes("sign")||!canSign;
+    const form=$flow("wfForm");if(form)form.classList.toggle("wf-readonly",status==="signed"||!canWrite);
+    $flow("wfReportBtn").disabled=!detail||!canSign;
   }
 
   async function flowAct(action){
     if(!detail)return;
+    if(window.RbacAuth&&RbacAuth.workgroup){
+      const perm=action==="sign"?"project.sign":"project.write";
+      if(!RbacAuth.can(perm)){toast(tl("rbac.denied.project_action","当前角色无权执行该状态操作"));return;}
+    }
     const actor=($flow("wfActor").value||"").trim(),role=($flow("wfRole").value||"").trim();
     const opinion=($flow("wfOpinion").value||"").trim();
     if(!actor){toast(t("flow.err.actor"));$flow("wfActor").focus();return;}
@@ -9312,6 +9555,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function flowReport(){
     if(!detail)return;
+    if(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.sign")){
+      toast(tl("rbac.denied.project_action","当前角色无权生成签收报告"));return;
+    }
     const btn=$flow("wfReportBtn");if(btn)btn.disabled=true;
     const msg=$flow("wfMsg");if(msg){msg.className="wf-msg";msg.textContent=t("flow.msg.report_busy");}
     try{
@@ -9331,6 +9577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       const data=await api("/api/config",{deployment:{mode:next}});
       applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||next);
+      if(window.RbacAuth&&RbacAuth.refresh)RbacAuth.refresh();
       toast(t(mode==="workgroup"?"config.deploy.on":"config.deploy.off"));
       if(mode==="workgroup"&&document.body.dataset.page==="flow")flowInit(true);
     }catch(e){toast(e.message);}
@@ -9338,9 +9585,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function flowBootDeployment(){
     try{
-      const data=await api("/api/config");
-      applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||"standalone");
-    }catch(e){applyDeploymentMode("standalone");}
+      // T06199：部署模式属于公开认证状态；工作组未登录时不能去读受保护的 /api/config。
+      const data=await api("/api/auth/me");
+      applyDeploymentMode(data.mode||"standalone");
+    }catch(e){
+      try{
+        const data=await api("/api/config");
+        applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||"standalone");
+      }catch(e2){applyDeploymentMode("standalone");}
+    }
   }
 
   window.flowInit=flowInit;
@@ -9350,8 +9603,446 @@ document.addEventListener('DOMContentLoaded', () => {
   window.flowReport=flowReport;
   window.saveDeployMode=saveDeployMode;
   window.applyDeploymentMode=applyDeploymentMode;
+  document.addEventListener("we:auth",e=>{
+    if(e.detail&&e.detail.mode)applyDeploymentMode(e.detail.mode);
+  });
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",flowBootDeployment,{once:true});
   else flowBootDeployment();
+})();
+
+/* T06199：工作组 RBAC / SSO / 团队与权限前端。
+ * 单机版完全隐藏；工作组未登录时用全屏门禁锁住 .wrap，登录后按权限显隐导航与卡片。
+ * 会话用 HttpOnly Cookie，同源 fetch 自动携带，不在 localStorage 存令牌。
+ */
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+  const roleLabel = (code, fallback) => tl('rbac.role.' + code, fallback || code);
+  const permLabel = (code, fallback) => tl('rbac.perm.' + code, fallback || code);
+  const ACTION_FALLBACK = {
+    login: '登录', logout: '退出', access: '访问', bootstrap: '初始化管理员',
+    user_create: '新增成员', user_update: '变更成员', sso_login: 'SSO 登录',
+    sso_provision: 'SSO 开通', sso_config: '保存 SSO 配置'
+  };
+  const STATUS_FALLBACK = { active: '启用', disabled: '停用' };
+
+  function actionLabel(code) {
+    return tl('rbac.action.' + code, ACTION_FALLBACK[code] || code);
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString(navigator.language || 'zh-CN', { hour12: false });
+  }
+
+  function setMsg(el, text, kind) {
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('ok', kind === 'ok');
+    el.classList.toggle('err', kind === 'err');
+  }
+
+  async function req(path, payload, method) {
+    const opts = { method: method || (payload === undefined ? 'GET' : 'POST'), credentials: 'same-origin', cache: 'no-store' };
+    if (payload !== undefined) {
+      opts.headers = { 'Content-Type': 'application/json' };
+      opts.body = JSON.stringify(payload);
+    }
+    let res;
+    try { res = await fetch(path, opts); } catch (e) {
+      return { status: 0, ok: false, data: { ok: false, code: 'NETWORK', msg: String(e.message || e) } };
+    }
+    let data = {};
+    try { data = await res.json(); } catch (e) { data = { ok: false, code: 'BAD_RESPONSE' }; }
+    return { status: res.status, ok: res.ok, data };
+  }
+
+  const R = {
+    state: null,
+    user: null,
+    matrixData: null,
+    rolesData: [],
+    booted: false,
+
+    get mode() { return (this.state && this.state.mode) || document.body.dataset.deployMode || 'standalone'; },
+    get workgroup() { return this.mode === 'workgroup'; },
+    get permissions() { return (this.user && this.user.permissions) || (this.state && this.state.permissions) || []; },
+    get locked() { return document.body.classList.contains('auth-locked'); },
+    can(perm) { return !this.workgroup || this.permissions.indexOf(perm) >= 0; },
+
+    async init() {
+      if (this.booted) return;
+      this.booted = true;
+      const r = await req('/api/auth/me');
+      if (r.ok && r.data && r.data.mode) this.state = r.data;
+      else this.state = { ok: false, mode: 'workgroup', authRequired: true, bootstrapRequired: false, user: null,
+                          permissions: [], ssoEnabled: false, providerName: 'SSO', adminFallback: true };
+      this.user = this.state.user || null;
+      this.applyState();
+      this.handleSsoQuery();
+    },
+
+    applyState() {
+      const workgroup = this.mode === 'workgroup';
+      document.body.dataset.deployMode = workgroup ? 'workgroup' : 'standalone';
+      const team = $('#mi-team');
+      if (team) team.hidden = !workgroup;
+      const config = $('#mi-config');
+      if (config) config.hidden = workgroup && !this.can('settings.read');
+      const flow = $('#mi-flow');
+      if (flow) flow.hidden = workgroup ? !this.can('project.read') : false;
+      if (!workgroup) {
+        this.hideGate();
+        document.dispatchEvent(new CustomEvent('we:auth', { detail: this.state }));
+        return;
+      }
+      // 工作组以 RBAC 角色为准，不再叠加首次启动的本地角色引导。
+      try { localStorage.setItem('wl_onboard_dismissed_v1', '1'); } catch (e) {}
+      const rw = $('#roleWelcome');
+      if (rw) { rw.hidden = true; rw.setAttribute('aria-hidden', 'true'); }
+      if (typeof RoleOnboard !== 'undefined' && RoleOnboard.close) RoleOnboard.close();
+      if (this.user) {
+        this.hideGate();
+      } else {
+        this.showGate(!!this.state.bootstrapRequired);
+      }
+      document.dispatchEvent(new CustomEvent('we:auth', { detail: this.state }));
+    },
+
+    lockApp(locked) {
+      const wrap = $('.wrap');
+      if (wrap) {
+        if (locked) {
+          wrap.setAttribute('inert', '');
+          wrap.setAttribute('aria-hidden', 'true');
+        } else {
+          wrap.removeAttribute('inert');
+          wrap.removeAttribute('aria-hidden');
+        }
+      }
+      document.body.classList.toggle('auth-locked', !!locked);
+    },
+
+    showGate(bootstrap) {
+      const gate = $('#authGate');
+      if (!gate) return;
+      gate.hidden = false;
+      gate.setAttribute('aria-hidden', 'false');
+      $('#authTitle').textContent = bootstrap ? tl('auth.bootstrap_title', '启用工作组 · 创建管理员') : tl('auth.title', '工作组登录');
+      $('#authHint').textContent = bootstrap
+        ? tl('auth.bootstrap_hint', '首次启用工作组需要创建一个本机管理员；之后可接入 SSO。')
+        : tl('auth.hint', '登录后按角色权限访问估算、项目签收与审计。');
+      $('#authSubmit').textContent = bootstrap ? tl('auth.bootstrap_btn', '创建管理员并进入') : tl('auth.login', '登录');
+      $('#authDisplayRow').hidden = !bootstrap;
+      $('#authSsoBox').hidden = !!bootstrap;
+      $('#authSsoBtn').hidden = !!bootstrap;
+      $('#authSsoLabel').textContent = this.state.ssoEnabled
+        ? tf('auth.sso_provider', { provider: this.state.providerName || 'SSO' })
+        : tl('auth.sso_unconfigured', 'SSO 未配置，使用管理员账号');
+      $('#authFallbackBox').hidden = true;
+      $('#authPassword').setAttribute('autocomplete', bootstrap ? 'new-password' : 'current-password');
+      setMsg($('#authMsg'), '');
+      this.lockApp(true);
+      setTimeout(() => { const u = $('#authUsername'); if (u) u.focus(); }, 60);
+    },
+
+    hideGate() {
+      const gate = $('#authGate');
+      if (gate) {
+        gate.hidden = true;
+        gate.setAttribute('aria-hidden', 'true');
+      }
+      this.lockApp(false);
+      setMsg($('#authMsg'), '');
+    },
+
+    async refresh() {
+      const r = await req('/api/auth/me');
+      if (r.ok && r.data && r.data.mode) {
+        this.state = r.data;
+        this.user = r.data.user || null;
+        this.applyState();
+        return true;
+      }
+      return false;
+    },
+
+    async submit() {
+      const btn = $('#authSubmit');
+      if (!btn || btn.disabled) return;
+      const username = ($('#authUsername').value || '').trim();
+      const password = $('#authPassword').value || '';
+      const display = ($('#authDisplayName').value || '').trim();
+      if (!username) { setMsg($('#authMsg'), tl('auth.username_required', '请输入账号'), 'err'); $('#authUsername').focus(); return; }
+      if (password.length < 8) { setMsg($('#authMsg'), tl('auth.password_length', '密码至少 8 位'), 'err'); $('#authPassword').focus(); return; }
+      const bootstrap = !!this.state.bootstrapRequired;
+      btn.disabled = true;
+      const old = btn.textContent;
+      btn.textContent = tl('auth.processing', '处理中…');
+      const payload = bootstrap ? { username, password, display_name: display } : { username, password };
+      const r = await req(bootstrap ? '/api/auth/bootstrap' : '/api/auth/login', payload);
+      btn.disabled = false;
+      btn.textContent = old;
+      if (!r.ok) {
+        setMsg($('#authMsg'), r.data.msg || tl('auth.login_failed', '登录失败，请重试'), 'err');
+        return;
+      }
+      $('#authPassword').value = '';
+      await this.refresh();
+      setMsg($('#authMsg'), '');
+      toast(tl('auth.logged_in', '已登录'));
+      if (typeof goPage === 'function') goPage(bootstrap ? 'team' : 'work');
+      if (bootstrap) this.teamInit();
+    },
+
+    fallback() {
+      setMsg($('#authMsg'), tl('auth.fallback_ready', '已切换为管理员账号登录，请输入账号和密码'), 'ok');
+      $('#authFallbackBox').hidden = true;
+      $('#authUsername').focus();
+    },
+
+    async ssoStart() {
+      if (!this.workgroup) return;
+      const msg = $('#authSsoMsg');
+      if (msg) { msg.hidden = false; msg.textContent = tl('auth.sso_connecting', '正在跳转 SSO…'); }
+      const r = await req('/api/auth/sso/start?next=' + encodeURIComponent('/'), undefined, 'GET');
+      if (r.ok && r.data.authorize_url) {
+        location.href = r.data.authorize_url;
+        return;
+      }
+      const text = (r.data.msg || tl('auth.sso_failed', 'SSO 登录失败')) + '；' +
+        tl('auth.fallback_hint', '可回退管理员账号登录。');
+      if (msg) { msg.hidden = false; msg.textContent = text; }
+      $('#authFallbackBox').hidden = false;
+      $('#authUsername').focus();
+    },
+
+    handleSsoQuery() {
+      let q;
+      try { q = new URLSearchParams(location.search); } catch (e) { return; }
+      const sso = q.get('sso');
+      if (!sso || !this.workgroup) return;
+      if (sso === 'fallback') {
+        const msg = $('#authSsoMsg');
+        if (msg) { msg.hidden = false; msg.textContent = tl('auth.sso_failed_fallback', 'SSO 登录失败，已回退到管理员账号。'); }
+        const box = $('#authFallbackBox');
+        if (box) box.hidden = false;
+      } else if (sso === 'ok') {
+        toast(tl('auth.sso_ok', 'SSO 登录成功'));
+      }
+      try {
+        q.delete('sso'); q.delete('reason');
+        const clean = location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash;
+        history.replaceState(null, '', clean);
+      } catch (e) {}
+    },
+
+    async logout() {
+      await req('/api/auth/logout', {});
+      this.user = null;
+      this.state = Object.assign({}, this.state, { user: null, permissions: [] });
+      this.applyState();
+      if (typeof goPage === 'function') goPage('work');
+      toast(tl('auth.logged_out', '已退出登录'));
+    },
+
+    setCardVisible(sel, visible) {
+      const el = $(sel);
+      if (el) el.hidden = !visible;
+    },
+
+    async teamInit() {
+      if (!this.workgroup) { toast(tl('team.standalone', '单机版不启用团队与权限')); return; }
+      if (!this.user) { this.showGate(!!this.state.bootstrapRequired); return; }
+      this.setCardVisible('#rbacUsersCard', this.can('user.manage'));
+      this.setCardVisible('#rbacSsoCard', this.can('settings.write'));
+      this.setCardVisible('#rbacAuditCard', this.can('audit.read'));
+      this.renderWho();
+      setMsg($('#rbacMsg'), '');
+      setMsg($('#rbacUserMsg'), '');
+      await Promise.all([
+        this.loadMatrix(),
+        this.can('user.manage') ? this.loadUsers() : Promise.resolve(),
+        this.can('settings.write') ? this.loadSso() : Promise.resolve(),
+        this.can('audit.read') ? this.loadAudit() : Promise.resolve()
+      ]);
+      window.lucide && lucide.createIcons();
+    },
+
+    renderWho() {
+      const u = this.user || {};
+      const chips = (u.permissions || []).slice(0, 10).map((p) =>
+        '<span>' + esc(permLabel(p, p)) + '</span>').join('');
+      const more = (u.permissions || []).length > 10
+        ? '<span>+' + ((u.permissions || []).length - 10) + '</span>' : '';
+      $('#rbacWho').innerHTML =
+        '<b>' + esc(u.display_name || u.username || '—') + '</b>' +
+        '<span>@' + esc(u.username || '') + '</span>' +
+        '<span class="rbac-role">' + esc(roleLabel(u.role, u.role_label)) + '</span>' +
+        '<div class="rbac-perms" aria-label="' + esc(tl('team.who.perms', '当前权限')) + '">' + chips + more + '</div>';
+    },
+
+    async loadMatrix() {
+      const r = await req('/api/rbac/matrix');
+      if (!r.ok) { setMsg($('#rbacMsg'), r.data.msg || tl('team.matrix.fail', '权限矩阵加载失败'), 'err'); return; }
+      this.matrixData = r.data;
+      this.renderMatrix();
+    },
+
+    renderMatrix() {
+      const m = this.matrixData || { roles: [], permissions: [] };
+      const head = $('#rbacMatrixHead');
+      const body = $('#rbacMatrixBody');
+      if (!head || !body) return;
+      head.innerHTML = '<tr><th scope="col">' + esc(tl('team.matrix.permission', '权限')) + '</th>' +
+        m.roles.map((r) => '<th scope="col">' + esc(roleLabel(r.code, r.label)) + '</th>').join('') + '</tr>';
+      body.innerHTML = m.permissions.map((p) => '<tr><th scope="row">' + esc(permLabel(p.code, p.label)) + '</th>' +
+        m.roles.map((r) => {
+          const on = (r.permissions || []).indexOf(p.code) >= 0;
+          return '<td class="' + (on ? 'on' : 'off') + '" aria-label="' +
+            esc(roleLabel(r.code, r.label) + '：' + permLabel(p.code, p.label) + '，' +
+              (on ? tl('team.matrix.allow', '允许') : tl('team.matrix.deny', '不允许'))) + '">' +
+            (on ? '✓' : '—') + '</td>';
+        }).join('') + '</tr>').join('');
+    },
+
+    roleOptions(selected) {
+      const roles = this.rolesData.length ? this.rolesData : [
+        { code: 'evaluator', label: '评估师' }, { code: 'reviewer', label: '评审人' },
+        { code: 'manager', label: '项目经理' }, { code: 'viewer', label: '只读成员' }
+      ];
+      return roles.map((r) => '<option value="' + esc(r.code) + '"' + (r.code === selected ? ' selected' : '') + '>' +
+        esc(roleLabel(r.code, r.label)) + '</option>').join('');
+    },
+
+    async loadUsers() {
+      const r = await req('/api/rbac/users');
+      if (!r.ok) { setMsg($('#rbacUserMsg'), r.data.msg || tl('team.users.fail', '成员加载失败'), 'err'); return; }
+      const users = r.data.users || [];
+      this.rolesData = r.data.roles || [];
+      $('#rbacUserCount').textContent = users.length ? '(' + users.length + ')' : '';
+      $('#rbacUserRows').innerHTML = users.map((u) => {
+        const status = u.status === 'disabled' ? 'disabled' : 'active';
+        return '<tr data-id="' + esc(u.id) + '">' +
+          '<td><b>' + esc(u.display_name || u.username) + '</b><small>@' + esc(u.username) +
+          (u.sso ? ' · SSO' : '') + '</small></td>' +
+          '<td><select class="rbac-role-select" aria-label="' + esc(tl('team.users.change_role', '变更角色')) +
+          '" onchange="RbacAuth.changeRole(\'' + esc(u.id) + '\', this.value)">' + this.roleOptions(u.role) + '</select></td>' +
+          '<td><span class="rbac-status ' + status + '">' + esc(tl('rbac.status.' + status, STATUS_FALLBACK[status])) + '</span></td>' +
+          '<td><small>' + esc(fmtTime(u.last_login_at)) + '</small></td>' +
+          '<td><button type="button" class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="RbacAuth.toggleUser(\'' +
+          esc(u.id) + '\',\'' + (status === 'active' ? 'disabled' : 'active') + '\')">' +
+          esc(status === 'active' ? tl('team.users.disable', '停用') : tl('team.users.enable', '启用')) + '</button></td></tr>';
+      }).join('') || '<tr><td colspan="5" class="rbac-empty">' + esc(tl('team.users.empty', '暂无成员')) + '</td></tr>';
+    },
+
+    async createUser() {
+      const username = ($('#rbacNewUser').value || '').trim();
+      const password = $('#rbacNewPass').value || '';
+      const display = ($('#rbacNewName').value || '').trim();
+      const role = $('#rbacNewRole').value;
+      if (!username) { setMsg($('#rbacUserMsg'), tl('team.users.name_required', '请输入账号'), 'err'); $('#rbacNewUser').focus(); return; }
+      if (password.length < 8) { setMsg($('#rbacUserMsg'), tl('auth.password_length', '密码至少 8 位'), 'err'); $('#rbacNewPass').focus(); return; }
+      const r = await req('/api/rbac/users', { username, password, display_name: display, role });
+      if (!r.ok) { setMsg($('#rbacUserMsg'), r.data.msg || tl('team.users.add_fail', '添加失败'), 'err'); return; }
+      $('#rbacNewUser').value = ''; $('#rbacNewName').value = ''; $('#rbacNewPass').value = '';
+      await this.loadUsers();
+      setMsg($('#rbacUserMsg'), tl('team.users.added', '成员已添加'), 'ok');
+    },
+
+    async changeRole(id, role) {
+      const r = await req('/api/rbac/users/update', { id, role });
+      if (!r.ok) {
+        setMsg($('#rbacUserMsg'), r.data.msg || tl('team.users.update_fail', '变更失败'), 'err');
+        await this.loadUsers();
+        setMsg($('#rbacUserMsg'), r.data.msg || tl('team.users.update_fail', '变更失败'), 'err');
+        return;
+      }
+      if (this.user && this.user.id === id) await this.refresh();
+      await this.loadUsers();
+      setMsg($('#rbacUserMsg'), tl('team.users.updated', '角色已更新'), 'ok');
+    },
+
+    async toggleUser(id, status) {
+      const r = await req('/api/rbac/users/update', { id, status });
+      if (!r.ok) { setMsg($('#rbacUserMsg'), r.data.msg || tl('team.users.update_fail', '变更失败'), 'err'); return; }
+      if (this.user && this.user.id === id) await this.refresh();
+      await this.loadUsers();
+      setMsg($('#rbacUserMsg'), tl('team.users.updated', '状态已更新'), 'ok');
+    },
+
+    async loadAudit() {
+      const r = await req('/api/rbac/audit?limit=80');
+      if (!r.ok) { setMsg($('#rbacMsg'), r.data.msg || tl('team.audit.fail', '审计加载失败'), 'err'); return; }
+      const rows = r.data.audit || [];
+      $('#rbacAuditCount').textContent = rows.length ? '(' + rows.length + ')' : '';
+      $('#rbacAudit').innerHTML = rows.map((a) => {
+        const bad = a.result === 'deny' || a.result === 'fail';
+        return '<li><time datetime="' + esc(a.at) + '">' + esc(fmtTime(a.at)) + '</time>' +
+          '<b>' + esc(a.actor_name || '—') + ' · ' + esc(actionLabel(a.action)) + '</b>' +
+          '<span class="rbac-result ' + esc(a.result) + '">' + esc(a.result === 'deny' ? tl('team.audit.deny', '拒绝')
+            : a.result === 'fail' ? tl('team.audit.fail_badge', '失败') : tl('team.audit.ok', '通过')) + '</span>' +
+          '<span class="rbac-audit-detail">' + esc([a.permission, a.object_type, a.object_id, a.detail].filter(Boolean).join(' · ')) + '</span></li>';
+      }).join('') || '<li class="rbac-empty">' + esc(tl('team.audit.empty', '暂无审计记录')) + '</li>';
+      // .rbac-audit 是 ol，空态用 li 表达，避免嵌套层级失义
+      window.lucide && lucide.createIcons();
+    },
+
+    async loadSso() {
+      const r = await req('/api/rbac/sso-config');
+      if (!r.ok) { setMsg($('#rbacSsoMsg'), r.data.msg || tl('team.sso.fail', 'SSO 配置加载失败'), 'err'); return; }
+      const s = r.data.sso || {};
+      $('#rbacSsoEnabled').checked = !!s.enabled;
+      $('#rbacSsoProvider').value = s.provider_name || '';
+      $('#rbacSsoAuthorize').value = s.authorize_url || '';
+      $('#rbacSsoToken').value = s.token_url || '';
+      $('#rbacSsoUserinfo').value = s.userinfo_url || '';
+      $('#rbacSsoClient').value = s.client_id || '';
+      $('#rbacSsoSecret').value = '';
+      $('#rbacSsoSecret').placeholder = s.client_secret_set
+        ? tl('team.sso.secret_set', '已配置，留空不修改') : tl('team.sso.secret_unset', '未配置');
+      $('#rbacSsoProvision').checked = s.auto_provision !== false;
+      $('#rbacSsoRole').value = s.default_role || 'viewer';
+      const badge = $('#rbacSsoBadge');
+      badge.textContent = s.enabled ? tl('team.sso.on', '已启用') : tl('team.sso.off', '未启用');
+      badge.classList.toggle('on', !!s.enabled);
+      setMsg($('#rbacSsoMsg'), '');
+    },
+
+    async saveSso() {
+      const payload = {
+        enabled: $('#rbacSsoEnabled').checked,
+        provider_name: ($('#rbacSsoProvider').value || '').trim(),
+        authorize_url: ($('#rbacSsoAuthorize').value || '').trim(),
+        token_url: ($('#rbacSsoToken').value || '').trim(),
+        userinfo_url: ($('#rbacSsoUserinfo').value || '').trim(),
+        client_id: ($('#rbacSsoClient').value || '').trim(),
+        client_secret: $('#rbacSsoSecret').value || '',
+        auto_provision: $('#rbacSsoProvision').checked,
+        default_role: $('#rbacSsoRole').value,
+        admin_fallback: true
+      };
+      const r = await req('/api/rbac/sso-config', payload);
+      if (!r.ok) { setMsg($('#rbacSsoMsg'), r.data.msg || tl('team.sso.save_fail', '保存失败'), 'err'); return; }
+      $('#rbacSsoSecret').value = '';
+      const s = r.data.sso || {};
+      const badge = $('#rbacSsoBadge');
+      badge.textContent = s.enabled ? tl('team.sso.on', '已启用') : tl('team.sso.off', '未启用');
+      badge.classList.toggle('on', !!s.enabled);
+      setMsg($('#rbacSsoMsg'), tl('team.sso.saved', 'SSO 配置已保存'), 'ok');
+      await this.loadSso();
+    }
+  };
+
+  // 防御性修正：避免任何语法标记进入模板
+  window.RbacAuth = R;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => R.init(), { once: true });
+  else R.init();
 })();
 
 </script>

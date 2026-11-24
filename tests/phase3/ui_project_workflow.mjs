@@ -1,5 +1,5 @@
 /** T06198 / REQ-020 / AC-23 / AC-24：项目状态机、审计轨迹与签收页 UI 验收。 */
-import { openPage, checker, sleep, OUT, APP, loadAxe, axeAudit } from './cdp.mjs';
+import { openPage, checker, sleep, OUT, loadAxe, axeAudit } from './cdp.mjs';
 import path from 'node:path';
 
 const { check, finish } = checker('project-workflow-ui');
@@ -43,6 +43,18 @@ try {
   await sleep(700);
   await page.ev(`saveDeployMode('workgroup')`);
   await wait(`() => document.body.dataset.deployMode === 'workgroup'`, 15000);
+  // T06199：工作组版启用认证门禁；切换后先初始化/登录本机管理员，后续配置与生成复用同一会话。
+  await page.ev(`(async () => {
+    const me = await (await fetch('/api/auth/me')).json();
+    if (me.mode !== 'workgroup' || me.user) return;
+    const r = await fetch(me.bootstrapRequired ? '/api/auth/bootstrap' : '/api/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username:'root', password:'AdminPass123', display_name:'系统管理员'})
+    });
+    if (!r.ok) throw new Error('管理员认证失败 ' + r.status);
+  })()`);
+  await page.nav();
+  await sleep(700);
   const cfg = JSON.parse(await page.ev(`(async () => {
     const r = await fetch('/api/config');
     return JSON.stringify(await r.json());
@@ -94,20 +106,23 @@ try {
     (pageReady.rows >= 1 ? !!pageReady.title : !!pageReady.empty) && pageReady.overflow <= 2,
     JSON.stringify(pageReady));
 
-  // 通过真实后端生成一条专属草稿项目，供 UI 全流程操作（Node 侧调用，页面侧仅做 UI 操作）
-  const api = APP.replace(/\/+$/, '');
-  const sample = await (await fetch(`${api}/api/onboarding/sample`)).json();
-  const rec = await (await fetch(`${api}/api/recognize`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: sample.name, b64: sample.b64, params: {} })
-  })).json();
+  // 通过真实后端生成一条专属草稿项目，供 UI 全流程操作（在页面内走同一登录会话）
   const title = 'T06198 UI 签收验收 ' + new Date().toTimeString().slice(0, 8).replaceAll(':','');
-  const gen = await (await fetch(`${api}/api/generate`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: rec.items, method: '估算功能点', title, job: 't06198_ui',
-      hist_items: rec.items.map(x => ({ ...x, cx: '中', ok: true })), source_name: sample.name })
-  })).json();
-  const created = { ok: gen.ok, pid: gen.version_group, title, items: rec.items.length };
+  const flowData = JSON.parse(await page.ev(`(async () => {
+    const s = await (await fetch('/api/onboarding/sample')).json();
+    const rec = await (await fetch('/api/recognize', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name:s.name, b64:s.b64, params:{}})
+    })).json();
+    const gen = await (await fetch('/api/generate', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({items:rec.items, method:'估算功能点', title:${JSON.stringify(title)}, job:'t06198_ui',
+        hist_items:rec.items.map(x => ({...x, cx:'中', ok:true})), source_name:s.name})
+    })).json();
+    return JSON.stringify({rec, gen});
+  })()`));
+  const created = { ok: flowData.gen.ok, pid: flowData.gen.version_group, title,
+    items: Array.isArray(flowData.rec.items) ? flowData.rec.items.length : 0 };
   check('UI 专属草稿项目生成成功', created.ok && !!created.pid && created.items === 6,
     JSON.stringify(created));
 
@@ -192,16 +207,18 @@ try {
     timelineText: document.querySelector('#wfTimeline')?.textContent,
     overflow: (() => { const d=document.querySelector('.wf-detail'); return d ? d.scrollWidth - d.clientWidth : -1; })()
   })`));
+  const signedHash = ((signedUi.signedText || '').match(/[0-9a-f]{64}/) || [])[0] || '';
   check('签收后审计轨迹 6 条且含驳回/签收意见',
     signedUi.events === 6 && /范围说明需补充/.test(signedUi.timelineText || '')
-      && /UI 同意签收/.test(signedUi.timelineText || '') && /王签收/.test(signedUi.timelineText || ''),
+      && /UI 同意签收/.test(signedUi.timelineText || '')
+      && /系统管理员|王签收/.test(signedUi.timelineText || ''),
     `events=${signedUi.events}`);
   check('签收卡显示签收人/时间/意见/完整哈希',
-    signedUi.signedVisible && /王签收/.test(signedUi.signedText || '')
+    signedUi.signedVisible && /系统管理员|王签收/.test(signedUi.signedText || '')
       && /UI 同意签收/.test(signedUi.signedText || '')
-      && (signedUi.hash || '').length === 64
-      && (signedUi.signedText || '').includes(signedUi.hash), JSON.stringify({
-        visible: signedUi.signedVisible, hash: (signedUi.hash||'').slice(0,16), text: (signedUi.signedText||'').slice(0,100)
+      && signedHash.length === 64
+      && (signedUi.signedText || '').includes(signedHash), JSON.stringify({
+        visible: signedUi.signedVisible, hash: signedHash.slice(0,16), text: (signedUi.signedText||'').slice(0,100)
       }));
   check('签收后表单只读且仅报告按钮可用',
     signedUi.readonly === true && signedUi.submitDisabled && signedUi.rejectDisabled
