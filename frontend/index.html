@@ -1213,6 +1213,50 @@ tr.bad .ts-state { color: var(--danger-ink); }
   .ts-toolbar select, .ts-toolbar input { max-width: 100%; flex: 1 1 100%; }
 }
 
+/* T06196 / AC-20：离线 AI 质量评测面板 */
+.eval-panel .card-title{flex-wrap:wrap}
+.eval-badge{margin-left:auto;display:inline-flex;align-items:center;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;border:1px solid var(--line)}
+.eval-badge.idle{background:var(--line-2);color:var(--muted)}
+.eval-badge.pass{background:var(--ok-soft);color:var(--ok-ink);border-color:var(--ok)}
+.eval-badge.fail{background:var(--danger-soft);color:var(--danger-ink);border-color:var(--danger)}
+.eval-note{font-size:12px;color:var(--muted);line-height:1.7;margin:2px 0 12px}
+.eval-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0}
+.eval-kpi{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);padding:10px 12px;min-width:0}
+.eval-kpi span{display:block;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+.eval-kpi b{display:block;font-size:22px;line-height:1.25;color:var(--brand-ink);font-variant-numeric:tabular-nums;margin-top:3px}
+.eval-kpi small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;min-height:14px}
+.eval-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.eval-meta{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.eval-section-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);margin:16px 0 8px}
+.eval-section-title:before{content:"";width:3px;height:12px;border-radius:2px;background:var(--brand);display:inline-block}
+.eval-self{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.eval-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:6px;background:var(--card);padding:4px 8px;font-size:11px;color:var(--ink-2)}
+.eval-chip b{font-variant-numeric:tabular-nums;font-size:12px}
+.eval-chip.ok{border-color:var(--line-2);color:var(--muted)}
+.eval-chip.warn{border-color:var(--danger);background:var(--danger-soft);color:var(--danger-ink)}
+.eval-wrong{flex-basis:100%;margin-top:4px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:11px;color:var(--muted)}
+.eval-wrong b{color:var(--ink-2);font-weight:600}
+.eval-wrong span{border:1px dashed var(--line);border-radius:5px;padding:3px 6px;background:var(--card)}
+.eval-wrong em{font-style:normal;color:var(--danger-ink);font-weight:700;margin-left:3px}
+.eval-muted{font-size:11px;color:var(--muted)}
+.eval-matrix-wrap{margin-top:6px}
+.eval-matrix{border-collapse:collapse;font-size:12px;min-width:320px;width:100%;max-width:620px}
+.eval-matrix th,.eval-matrix td{border:1px solid var(--line);padding:6px 9px;text-align:center;font-variant-numeric:tabular-nums}
+.eval-matrix th{background:var(--surface-2);color:var(--ink-2);font-weight:700}
+.eval-matrix td.zero{color:var(--muted)}
+.eval-matrix td.diag{background:var(--ok-soft);color:var(--ok-ink);font-weight:700}
+.eval-matrix td.off{background:var(--danger-soft);color:var(--danger-ink);font-weight:700}
+.eval-precheck-wrap{margin-top:2px}
+.eval-precheck{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px;background:var(--surface-2)}
+.eval-precheck.ok{border-color:var(--ok)}
+.eval-precheck.warn{border-color:var(--danger);background:var(--danger-soft)}
+.eval-precheck b{font-size:11px}
+.eval-precheck small{color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+.eval-spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:evalspin .8s linear infinite;vertical-align:-2px;margin-right:5px}
+@keyframes evalspin{to{transform:rotate(360deg)}}
+@media (max-width:1100px){.eval-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.eval-kpis{grid-template-columns:1fr 1fr}.eval-matrix{min-width:280px;font-size:11px}.eval-matrix th,.eval-matrix td{padding:5px 6px}.eval-badge{margin-left:0}}
+
 </style>
 </head>
 <body data-page="work" data-step="upload" data-pertstep="in">
@@ -1610,6 +1654,34 @@ tr.bad .ts-state { color: var(--danger-ink); }
           <span data-i18n="config.llm.key_local">API Key 仅保存在本机</span> <code>data/config.json</code><span data-i18n="config.llm.key_local2">，不会被上传到任何第三方服务器。</span>
         </div>
       </div>
+    </div>
+    <div class="glass pad eval-panel" id="evalPanel" style="margin-top:20px">
+      <div class="card-title">
+        <i aria-hidden="true" data-lucide="gauge"></i><span data-i18n="config.eval.title">AI 评测与质量门（AC-20）</span>
+        <span class="eval-badge idle" id="evalBadge" data-i18n="config.eval.not_run">未运行</span>
+      </div>
+      <p class="eval-note" data-i18n="config.eval.note">用 120 条已标注功能点离线回放本地识别器，统计 Precision / Recall / F1 与五类混淆矩阵；不调用任何在线 API。生成成品前会自动做重复 / 漏项 / 非法类型自检并落盘留痕。</p>
+      <div class="eval-kpis">
+        <div class="eval-kpi"><span data-i18n="config.eval.sample_big">样本数</span><b id="evalSampleBig">—</b><small id="evalGroups"></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.precision">Precision</span><b id="evalPrecision">—</b><small id="evalThreshold"></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.recall">Recall</span><b id="evalRecall">—</b><small></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.f1">F1</span><b id="evalF1">—</b><small id="evalThreshold2" hidden></small></div>
+      </div>
+      <div class="eval-actions">
+        <button class="btn btn-primary" id="evalRunBtn" onclick="evalRun()"><i aria-hidden="true" data-lucide="play"></i><span data-i18n="config.eval.run">运行离线评测</span></button>
+        <span class="eval-meta" id="evalRunMeta"></span>
+        <span class="eval-meta" id="evalDatasetMeta"></span>
+      </div>
+      <p class="eval-note" id="evalRunHint"></p>
+      <div class="eval-section-title"><span data-i18n="config.eval.self.title">自检结果</span></div>
+      <div class="eval-self" id="evalSelf"><span class="eval-muted" data-i18n="config.eval.hint_empty">尚未运行；点击「运行离线评测」生成首份质量报告。</span></div>
+      <div class="eval-matrix-wrap" id="evalMatrixWrap" hidden>
+        <div class="eval-section-title"><span data-i18n="config.eval.matrix">混淆矩阵</span></div>
+        <div id="evalMatrix"></div>
+        <p class="eval-note" id="evalMatrixNote"></p>
+      </div>
+      <div class="eval-section-title"><span data-i18n="config.eval.precheck.title">最近提交前自检</span></div>
+      <div class="eval-precheck-wrap" id="evalPrecheck"><span class="eval-muted" data-i18n="config.eval.precheck.none">尚无提交前自检记录。</span></div>
     </div>
     <div class="glass pad" style="margin-top:20px">
       <div class="card-title"><i aria-hidden="true" data-lucide="folder-tree"></i><span data-i18n="config.card.ctx">项目上下文目录</span></div>
@@ -2681,6 +2753,7 @@ function goPage(p){
   if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
+  if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();
@@ -3731,6 +3804,8 @@ function showRecalcState(mode,job){
    与 AbortController 兜底、超时提示交织。抽出后处理器只剩「校验 → 发请求 → 落地结果」。
    字段口径与顺序完全不变（服务端按 key 取值，顺序无关但保持原样便于比对）。 */
 function buildGeneratePayload(job){
+  const q=window.lastEvalRun;
+  const qp=window.lastEvalPrecheck;
   return {
     items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})),
     method:$("#methodSel").value,
@@ -3742,6 +3817,8 @@ function buildGeneratePayload(job){
     brand_color:(localStorage.getItem('wl_brand')||'').trim(),
     gb_state:(gbState&&gbState.out)?gbState.out:undefined,
     template:tplSelected(),
+    quality:q?{run_id:q.run_id,created_at:q.created_at,dataset:q.dataset,metrics:q.metrics,gate:q.gate}:undefined,
+    quality_precheck:qp?{run_id:qp.run_id,created_at:qp.created_at,precheck:qp.precheck}:undefined,
   };
 }
 function genErrorMessage(err){
@@ -3752,6 +3829,13 @@ function genErrorMessage(err){
 $("#goRes").addEventListener("click",async ()=>{
   const pending=items.filter(x=>!x.ok).length;
   if(pending>0){toast(tf("gen.pending_confirm",{n:pending}));return;}  // 未全确认给反馈，避免静默无反应
+  // T06196：提交前自检留痕（重复/漏项/非法类型/无证据）；不阻断既有合法生成。
+  if(typeof qualityPrecheck==="function"){
+    try{
+      const q=await qualityPrecheck(items,{stage:"generate"});
+      if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
+    }catch(e){/* 自检不可用时不阻断生成 */}
+  }
   const btn=$("#goRes");btn.disabled=true;
   const prog=beginGenProgress();
   const ctl=new AbortController();
@@ -3769,6 +3853,7 @@ $("#goRes").addEventListener("click",async ()=>{
     }
     if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+    if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
     await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
     goStep("result");
@@ -7075,6 +7160,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const method=$("#methodSel");
     const rm=window.lastRecogMeta||null;
     const lm=(rm&&rm.llm)||{}, ev=(rm&&rm.evidence)||{};
+    let quality=window.lastEvalRun||null;
+    if(!quality){try{quality=JSON.parse(localStorage.getItem("wl_eval_latest")||"null");}catch(e){}}
+    const qualityPre=window.lastEvalPrecheck||null;
     const aiItems=(items||[]).map((it,i)=>{
       const ai=it.ai||{};
       let conf=it.confidence;
@@ -7116,6 +7204,8 @@ document.addEventListener('DOMContentLoaded', () => {
           created_at:lm.created_at||ev.created_at||new Date().toISOString(),
           rules_version:(rm&&rm.rules&&rm.rules.rules_version)||"rules-v1",
           evidence:ev,
+          quality:quality,
+          quality_precheck:qualityPre,
           adjustments:"无（结果页数值未经二次人工调整）",
           items:aiItems},
       signoff:{roles:[
@@ -8669,6 +8759,187 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     tsLoaded = true;
   });
+})();
+
+/* T06196 / REQ-019 / AC-20：离线 AI 质量评测与提交前自检 UI。 */
+(function(){
+  const TYPES=["ILF","EIF","EI","EO","EQ"];
+  let lastRun=null, lastPrecheck=null, loading=false;
+
+  const pct=v=>`${(Number(v||0)*100).toFixed(1)}%`;
+  const num=v=>Number(v||0).toLocaleString();
+
+  function badge(kind,key){
+    const el=document.querySelector("#evalBadge");
+    if(!el)return;
+    el.className="eval-badge "+kind;
+    el.textContent=t(key);
+  }
+
+  function saveSummary(run){
+    lastRun=run;
+    window.lastEvalRun=run;
+    try{
+      localStorage.setItem("wl_eval_latest",JSON.stringify({
+        run_id:run.run_id,created_at:run.created_at,
+        dataset:{samples:(run.dataset||{}).samples,groups:(run.dataset||{}).groups,version:(run.dataset||{}).version},
+        metrics:run.metrics,gate:run.gate,
+        counts:run.counts,self_check:run.self_check
+      }));
+    }catch(e){}
+  }
+
+  function renderDataset(ds){
+    if(!ds)return;
+    const el=$("#evalSampleBig"); if(el)el.textContent=ds.samples??"—";
+    const g=$("#evalGroups"); if(g)g.textContent=tf("config.eval.group_count",{n:ds.groups??0});
+    const meta=$("#evalDatasetMeta");
+    if(meta){
+      meta.textContent=tf("config.eval.dataset_meta",{version:ds.version||"—",hash:ds.sha256||"—"});
+    }
+  }
+
+  function renderSelf(sc,counts){
+    const el=$("#evalSelf"); if(!el)return;
+    const items=[
+      ["config.eval.self.duplicate",sc.duplicate_count||0,"dup"],
+      ["config.eval.self.missing",(sc.missing||[]).length,"miss"],
+      ["config.eval.self.extra",(sc.extra||[]).length,"extra"],
+      ["config.eval.self.wrong",(sc.wrong_types||[]).length,"wrong"],
+      ["config.eval.self.invalid",(sc.invalid||[]).length,"invalid"],
+      ["config.eval.self.evidence",(sc.evidence&&sc.evidence.missing||[]).length,"ev"]
+    ];
+    let html=items.map(([k,n])=>`<span class="eval-chip ${n?"warn":"ok"}"><b>${num(n)}</b> ${t(k)}</span>`).join("");
+    const wrong=(sc.wrong_types||[]).slice(0,6);
+    if(wrong.length){
+      html+=`<div class="eval-wrong"><b>${t("config.eval.self.wrong_list")}</b>`+
+        wrong.map(w=>`<span>${escAttr(w.name)} <em>${escAttr(w.gold)}→${escAttr(w.predicted)}</em></span>`).join("")+
+        `</div>`;
+    }
+    el.innerHTML=html;
+  }
+
+  function renderMatrix(run){
+    const box=$("#evalMatrixWrap"); if(!box)return;
+    const m=(run.confusion&&run.confusion.matrix)||{};
+    let h=`<table class="eval-matrix" aria-label="${escAttr(t("config.eval.matrix.aria"))}"><tr><th>${escAttr(t("config.eval.matrix.diag"))}</th>`+
+      TYPES.map(x=>`<th>${x}</th>`).join("")+`</tr>`;
+    TYPES.forEach(g=>{
+      h+=`<tr><th>${g}</th>`;
+      TYPES.forEach(p=>{
+        const n=Number((m[g]||{})[p]||0);
+        const cls=n===0?"zero":(g===p?"diag":"off");
+        h+=`<td class="${cls}">${n||"—"}</td>`;
+      });
+      h+=`</tr>`;
+    });
+    h+=`</table>`;
+    box.innerHTML=h;
+    box.hidden=false;
+    const note=$("#evalMatrixNote");
+    if(note)note.textContent=t("config.eval.matrix.note");
+  }
+
+  function render(run){
+    if(!run)return;
+    saveSummary(run);
+    const m=run.metrics||{},g=run.gate||{};
+    badge(g.passed?"pass":"fail",g.passed?"config.eval.pass":"config.eval.fail");
+    renderDataset(run.dataset||{});
+    $("#evalPrecision").textContent=pct(m.precision);
+    $("#evalRecall").textContent=pct(m.recall);
+    $("#evalF1").textContent=pct(m.f1);
+    $("#evalSampleBig").textContent=num((run.dataset||{}).samples||0);
+    $("#evalRunMeta").textContent=tf("config.eval.run_meta",{id:run.run_id||"—",ms:run.duration_ms||0});
+    $("#evalThreshold").textContent=tf("config.eval.threshold",{v:pct(m.threshold||0.85)});
+    renderSelf(run.self_check||{},run.counts||{});
+    renderMatrix(run);
+    const runHint=$("#evalRunHint");
+    if(runHint)runHint.textContent=g.passed?t("config.eval.hint_pass"):t("config.eval.hint_fail");
+  }
+
+  function renderPrecheck(p){
+    const el=$("#evalPrecheck"); if(!el)return;
+    if(!p||!p.precheck){el.innerHTML=`<span class="eval-muted">${t("config.eval.precheck.none")}</span>`;return;}
+    lastPrecheck=p;window.lastEvalPrecheck=p;
+    const q=p.precheck;
+    const state=q.ok?"ok":"warn";
+    const miss=Array.isArray(q.missing)?q.missing.length:(q.missing_count??q.missing??0);
+    const invalid=Array.isArray(q.invalid)?q.invalid.length:(q.invalid_count??q.invalid??0);
+    const ev=Array.isArray(q.evidence_missing)?q.evidence_missing.length:(q.evidence_missing_count??q.evidence_missing??0);
+    const parts=[
+      `${t("config.eval.self.duplicate")} ${num(q.duplicate_count||0)}`,
+      `${t("config.eval.self.missing")} ${num(miss)}`,
+      `${t("config.eval.self.invalid")} ${num(invalid)}`,
+      `${t("config.eval.self.evidence")} ${num(ev)}`
+    ].join(" · ");
+    el.innerHTML=`<span class="eval-precheck ${state}"><b>${t(q.ok?"config.eval.precheck.ok":"config.eval.precheck.warn")}</b>`+
+      `<span>${parts}</span><small>${escAttr(p.run_id||"")}</small></span>`;
+  }
+
+  async function loadLatest(){
+    try{
+      const r=await fetch(API+"/api/eval/latest",{cache:"no-store"});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.msg||"latest failed");
+      renderDataset(j.dataset||{});
+      if(j.latest){render(j.latest);}else{
+        badge("idle","config.eval.not_run");
+        $("#evalRunMeta").textContent="";
+        const hint=$("#evalRunHint");if(hint)hint.textContent=t("config.eval.hint_empty");
+      }
+      renderPrecheck(j.precheck||null);
+    }catch(e){
+      badge("idle","config.eval.not_run");
+      const hint=$("#evalRunHint");if(hint)hint.textContent=t("config.eval.load_fail");
+    }
+  }
+
+  async function runEval(){
+    if(loading)return;
+    loading=true;
+    const btn=$("#evalRunBtn");
+    if(btn){btn.disabled=true;btn.dataset.old=btn.innerHTML;btn.innerHTML=`<span class="eval-spin" aria-hidden="true"></span>${t("config.eval.running")}`;}
+    badge("idle","config.eval.running");
+    const hint=$("#evalRunHint");if(hint)hint.textContent=t("config.eval.running_hint");
+    try{
+      const r=await fetch(API+"/api/eval/run",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.msg||t("config.eval.run_fail"));
+      render(j);
+      toast(tf(j.gate&&j.gate.passed?"config.eval.run_ok":"config.eval.run_fail",{p:pct((j.metrics||{}).precision),r:pct((j.metrics||{}).recall)}));
+    }catch(e){
+      badge("fail","config.eval.fail");
+      if(hint)hint.textContent=t("config.eval.run_fail");
+      toast(e.message||t("config.eval.run_fail"));
+    }finally{
+      loading=false;
+      if(btn){btn.disabled=false;if(btn.dataset.old)btn.innerHTML=btn.dataset.old;delete btn.dataset.old;}
+    }
+  }
+
+  async function qualityPrecheck(items,extra){
+    try{
+      const r=await fetch(API+"/api/eval/precheck",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({items:items||[],stage:"generate",...(extra||{})})});
+      const j=await r.json();
+      if(j.ok){renderPrecheck(j);return j;}
+    }catch(e){}
+    return null;
+  }
+
+  function init(){
+    const page=document.querySelector("#pg-config");
+    if(!page)return;
+    loadLatest();
+  }
+
+  window.evalInit=init;
+  window.evalRun=runEval;
+  window.evalRender=render;
+  window.evalRenderDataset=renderDataset;
+  window.evalRenderPrecheck=renderPrecheck;
+  window.qualityPrecheck=qualityPrecheck;
 })();
 
 </script>

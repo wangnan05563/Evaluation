@@ -27,6 +27,7 @@ import diag_redact
 import secret_store
 import theme_tokens
 import evidence
+import ai_eval
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -39,6 +40,7 @@ else:
     _APP_ROOT = _RES
     _USER_DATA = _APP_ROOT / "data"          # dev：保持项目 data/（勿指项目根，会与源码混放）
 APP_DATA = Path(os.environ.get("WE_DATA") or _USER_DATA)
+EVAL_RUNS = APP_DATA / "eval_runs"          # T06196：AI 质量评测/提交前自检留痕
 
 # ---------------- 常量（T01501 / python:S1192） ----------------
 # 抽出的都是「同一语义在多处内联的字面量」：改一处须同步 N 处的年代，
@@ -2255,6 +2257,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "context_dir": cfg.get("context_dir", ""),
                              "rendered": _load_project_context()})
             return True
+        if u.path == "/api/eval/latest":
+            # T06196 / AC-20：最近一次离线评测 + 最近提交前自检 + 数据集摘要
+            try:
+                dataset = ai_eval.load_dataset()[1]
+            except Exception as e:
+                dataset = {"error": f"{type(e).__name__}: {e}"}
+            self._json(200, {"ok": True, "latest": ai_eval.latest_run(EVAL_RUNS),
+                             "precheck": ai_eval.latest_precheck(EVAL_RUNS),
+                             "dataset": dataset})
+            return True
         return False
 
     @staticmethod
@@ -2399,6 +2411,8 @@ class Handler(BaseHTTPRequestHandler):
         "/api/update/download": "_post_update_download",
         "/api/update/install": "_post_update_install",
         "/api/context/analyze": "_post_context_analyze",
+        "/api/eval/run": "_post_eval_run",
+        "/api/eval/precheck": "_post_eval_precheck",
         "/api/pickdir": "_post_pickdir",
         "/api/config/test": "_post_config_test",
         "/api/generate": "_post_generate",
@@ -2700,6 +2714,28 @@ class Handler(BaseHTTPRequestHandler):
     def _post_update_install(self):
         return self._json(200, install_update())
 
+    def _post_eval_run(self, raw):
+        """T06196/AC-20：运行 120 条标注样本的离线 P/R 评测，不调用在线 API。"""
+        try:
+            run = ai_eval.evaluate(recognize_local, save_dir=EVAL_RUNS)
+        except Exception as e:
+            return self._json(500, {"ok": False,
+                                    **_m("eval.srv_run_fail", "评测失败：{err}", err=f"{type(e).__name__}: {e}")})
+        self._json(200, run)
+
+    def _post_eval_precheck(self, raw):
+        """提交前自检：重复/漏字段/非法类型/无证据；结果落 eval_runs 留痕。"""
+        payload = json.loads(raw.decode("utf-8")) if raw else {}
+        items = payload.get("items") if isinstance(payload.get("items"), list) else []
+        trace = ai_eval.save_precheck(items, EVAL_RUNS, {
+            "stage": payload.get("stage") or "precheck",
+            "title": payload.get("title") or "",
+            "job": payload.get("job") or "",
+        })
+        self._json(200, {"ok": True, "run_id": trace.get("run_id"),
+                         "created_at": trace.get("created_at"),
+                         "precheck": trace.get("precheck")})
+
     def _post_context_analyze(self, raw):
         # 手动触发扫描/重算项目上下文；入参可选覆盖目录（不落盘）
         target = (json.loads(raw.decode("utf-8")).get("context_dir") or "").strip() or None
@@ -2879,6 +2915,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, **_m("gen.over_range", "确认功能点 {n} 条超出合理范围（>2000），请核对后再生成。",
                 n=len(its))})
         items = self._normalize_gen_items(its)
+        # T06196/REQ-019：提交前自检（重复/漏字段/非法类型/无证据）并留痕；
+        # 不阻断既有合法生成，硬性证据门仍由下方 validate_confirmable 执行。
+        q_check = ai_eval.precheck_items(items)
+        try:
+            q_trace = ai_eval.save_precheck(items, EVAL_RUNS, {"stage": "generate", "job": job})
+        except Exception as e:
+            print(f"[eval] 提交前自检留痕失败（不阻断生成）: {type(e).__name__}: {e}", flush=True)
+            q_trace = {"run_id": None, "created_at": None}
+        _gen_progress_set(job, 8, "提交前质量自检完成")
         # AC-19：AI 候选无原文证据不得确认，也不得进入成品表/自动出表。
         bad_evidence = evidence.validate_confirmable(items)
         if bad_evidence:
@@ -2936,7 +2981,20 @@ class Handler(BaseHTTPRequestHandler):
         hist = self._insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode)
         return self._json(200, {"ok": True, "sid": sid, "items": (hist or {}).get("items") or items,
                                 "summary": summary, "recalc": recalc_mode,
-                                "history_id": (hist or {}).get("id")})
+                                "history_id": (hist or {}).get("id"),
+                                "quality_precheck": {
+                                    "ok": q_check.get("ok"),
+                                    "run_id": q_trace.get("run_id"),
+                                    "created_at": q_trace.get("created_at"),
+                                    "duplicate_count": q_check.get("duplicate_count"),
+                                    "missing": len(q_check.get("missing") or []),
+                                    "missing_count": len(q_check.get("missing") or []),
+                                    "invalid": len(q_check.get("invalid") or []),
+                                    "invalid_count": len(q_check.get("invalid") or []),
+                                    "evidence_missing": len(q_check.get("evidence_missing") or []),
+                                    "evidence_missing_count": len(q_check.get("evidence_missing") or []),
+                                    "checked": q_check.get("checked"),
+                                }})
 
     @staticmethod
     def _normalize_gen_items(its):

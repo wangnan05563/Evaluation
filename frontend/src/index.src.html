@@ -408,6 +408,34 @@
         </div>
       </div>
     </div>
+    <div class="glass pad eval-panel" id="evalPanel" style="margin-top:20px">
+      <div class="card-title">
+        <i aria-hidden="true" data-lucide="gauge"></i><span data-i18n="config.eval.title">AI 评测与质量门（AC-20）</span>
+        <span class="eval-badge idle" id="evalBadge" data-i18n="config.eval.not_run">未运行</span>
+      </div>
+      <p class="eval-note" data-i18n="config.eval.note">用 120 条已标注功能点离线回放本地识别器，统计 Precision / Recall / F1 与五类混淆矩阵；不调用任何在线 API。生成成品前会自动做重复 / 漏项 / 非法类型自检并落盘留痕。</p>
+      <div class="eval-kpis">
+        <div class="eval-kpi"><span data-i18n="config.eval.sample_big">样本数</span><b id="evalSampleBig">—</b><small id="evalGroups"></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.precision">Precision</span><b id="evalPrecision">—</b><small id="evalThreshold"></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.recall">Recall</span><b id="evalRecall">—</b><small></small></div>
+        <div class="eval-kpi"><span data-i18n="config.eval.f1">F1</span><b id="evalF1">—</b><small id="evalThreshold2" hidden></small></div>
+      </div>
+      <div class="eval-actions">
+        <button class="btn btn-primary" id="evalRunBtn" onclick="evalRun()"><i aria-hidden="true" data-lucide="play"></i><span data-i18n="config.eval.run">运行离线评测</span></button>
+        <span class="eval-meta" id="evalRunMeta"></span>
+        <span class="eval-meta" id="evalDatasetMeta"></span>
+      </div>
+      <p class="eval-note" id="evalRunHint"></p>
+      <div class="eval-section-title"><span data-i18n="config.eval.self.title">自检结果</span></div>
+      <div class="eval-self" id="evalSelf"><span class="eval-muted" data-i18n="config.eval.hint_empty">尚未运行；点击「运行离线评测」生成首份质量报告。</span></div>
+      <div class="eval-matrix-wrap" id="evalMatrixWrap" hidden>
+        <div class="eval-section-title"><span data-i18n="config.eval.matrix">混淆矩阵</span></div>
+        <div id="evalMatrix"></div>
+        <p class="eval-note" id="evalMatrixNote"></p>
+      </div>
+      <div class="eval-section-title"><span data-i18n="config.eval.precheck.title">最近提交前自检</span></div>
+      <div class="eval-precheck-wrap" id="evalPrecheck"><span class="eval-muted" data-i18n="config.eval.precheck.none">尚无提交前自检记录。</span></div>
+    </div>
     <div class="glass pad" style="margin-top:20px">
       <div class="card-title"><i aria-hidden="true" data-lucide="folder-tree"></i><span data-i18n="config.card.ctx">项目上下文目录</span></div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">

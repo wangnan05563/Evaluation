@@ -171,6 +171,8 @@ function showRecalcState(mode,job){
    与 AbortController 兜底、超时提示交织。抽出后处理器只剩「校验 → 发请求 → 落地结果」。
    字段口径与顺序完全不变（服务端按 key 取值，顺序无关但保持原样便于比对）。 */
 function buildGeneratePayload(job){
+  const q=window.lastEvalRun;
+  const qp=window.lastEvalPrecheck;
   return {
     items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})),
     method:$("#methodSel").value,
@@ -182,6 +184,8 @@ function buildGeneratePayload(job){
     brand_color:(localStorage.getItem('wl_brand')||'').trim(),
     gb_state:(gbState&&gbState.out)?gbState.out:undefined,
     template:tplSelected(),
+    quality:q?{run_id:q.run_id,created_at:q.created_at,dataset:q.dataset,metrics:q.metrics,gate:q.gate}:undefined,
+    quality_precheck:qp?{run_id:qp.run_id,created_at:qp.created_at,precheck:qp.precheck}:undefined,
   };
 }
 function genErrorMessage(err){
@@ -192,6 +196,13 @@ function genErrorMessage(err){
 $("#goRes").addEventListener("click",async ()=>{
   const pending=items.filter(x=>!x.ok).length;
   if(pending>0){toast(tf("gen.pending_confirm",{n:pending}));return;}  // 未全确认给反馈，避免静默无反应
+  // T06196：提交前自检留痕（重复/漏项/非法类型/无证据）；不阻断既有合法生成。
+  if(typeof qualityPrecheck==="function"){
+    try{
+      const q=await qualityPrecheck(items,{stage:"generate"});
+      if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
+    }catch(e){/* 自检不可用时不阻断生成 */}
+  }
   const btn=$("#goRes");btn.disabled=true;
   const prog=beginGenProgress();
   const ctl=new AbortController();
@@ -209,6 +220,7 @@ $("#goRes").addEventListener("click",async ()=>{
     }
     if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+    if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
     await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
     goStep("result");

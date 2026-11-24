@@ -391,6 +391,7 @@ function goPage(p){
   if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
+  if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();

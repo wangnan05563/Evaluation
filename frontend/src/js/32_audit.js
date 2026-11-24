@@ -13,6 +13,9 @@
     const method=$("#methodSel");
     const rm=window.lastRecogMeta||null;
     const lm=(rm&&rm.llm)||{}, ev=(rm&&rm.evidence)||{};
+    let quality=window.lastEvalRun||null;
+    if(!quality){try{quality=JSON.parse(localStorage.getItem("wl_eval_latest")||"null");}catch(e){}}
+    const qualityPre=window.lastEvalPrecheck||null;
     const aiItems=(items||[]).map((it,i)=>{
       const ai=it.ai||{};
       let conf=it.confidence;
@@ -54,6 +57,8 @@
           created_at:lm.created_at||ev.created_at||new Date().toISOString(),
           rules_version:(rm&&rm.rules&&rm.rules.rules_version)||"rules-v1",
           evidence:ev,
+          quality:quality,
+          quality_precheck:qualityPre,
           adjustments:"无（结果页数值未经二次人工调整）",
           items:aiItems},
       signoff:{roles:[

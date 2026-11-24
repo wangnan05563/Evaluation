@@ -88,6 +88,13 @@ def _esc(value):
     return html.escape(str(value == None and "" or value), quote=True)
 
 
+def _pct(value):
+    try:
+        return f"{float(value) * 100:.1f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def _f(value, digits=2):
     try:
         return f"{float(value):.{digits}f}"
@@ -323,6 +330,35 @@ def _changes(ctx):
                ("识别时间", ai.get("created_at") or "—"),
                ("规则版本", ai.get("rules_version") or ctx["project"]["version"]),
                ("人工调整", ai.get("adjustments") or "—")]
+    quality = ai.get("quality") if isinstance(ai.get("quality"), dict) else {}
+    if quality:
+        m = quality.get("metrics") if isinstance(quality.get("metrics"), dict) else {}
+        ds = quality.get("dataset") if isinstance(quality.get("dataset"), dict) else {}
+        gate = quality.get("gate") if isinstance(quality.get("gate"), dict) else {}
+        ai_rows.append(("质量评测（AC-20）",
+                        f"P {_pct(m.get('precision'))} / R {_pct(m.get('recall'))} / F1 {_pct(m.get('f1'))}；"
+                        f"{ds.get('samples') or '—'} 样本；门禁{'通过' if gate.get('passed') else '未通过'}；"
+                        f"{quality.get('run_id') or '—'}"))
+        sc = quality.get("self_check") if isinstance(quality.get("self_check"), dict) else {}
+        ai_rows.append(("质量自检",
+                        f"重复 {sc.get('duplicate_count') or 0}；漏项 {len(sc.get('missing') or [])}；"
+                        f"多余 {len(sc.get('extra') or [])}；类型错误 {len(sc.get('wrong_types') or [])}；"
+                        f"证据缺失 {len((sc.get('evidence') or {}).get('missing') or [])}"))
+    pre = ai.get("quality_precheck") if isinstance(ai.get("quality_precheck"), dict) else {}
+    if pre:
+        q = pre.get("precheck") if isinstance(pre.get("precheck"), dict) else pre
+        miss = q.get("missing") if isinstance(q.get("missing"), list) else []
+        inv = q.get("invalid") if isinstance(q.get("invalid"), list) else []
+        evm = q.get("evidence_missing") if isinstance(q.get("evidence_missing"), list) else []
+        if not miss and isinstance(q.get("missing_count"), int):
+            miss = [None] * q["missing_count"]
+        if not inv and isinstance(q.get("invalid_count"), int):
+            inv = [None] * q["invalid_count"]
+        if not evm and isinstance(q.get("evidence_missing_count"), int):
+            evm = [None] * q["evidence_missing_count"]
+        ai_rows.append(("提交前自检",
+                        f"重复 {q.get('duplicate_count') or 0}；漏项 {len(miss)}；非法 {len(inv)}；"
+                        f"证据缺失 {len(evm)}；{pre.get('run_id') or q.get('run_id') or '—'}"))
     ai_html = "".join(f"<tr><td>{_esc(k)}</td><td>{_esc(v)}</td></tr>" for k, v in ai_rows)
     records = ai.get("items") if isinstance(ai.get("items"), list) else []
     if not records:
