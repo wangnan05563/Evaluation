@@ -81,6 +81,7 @@ export function checker(name) {
     const result = { suite: name, at: new Date().toISOString(), checks, pass: checks.filter(c => c.ok).length, total: checks.length, ...extra };
     fs.writeFileSync(path.join(OUT, 'results', `${name}.json`), JSON.stringify(result, null, 2));
     console.log(`\n${name}: ${result.pass}/${result.total} checks passed`);
+    if (result.pass !== result.total) process.exitCode = 1;
     return result;
   };
   return { check, finish, checks };

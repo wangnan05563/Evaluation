@@ -40,6 +40,8 @@
         date:new Date().toLocaleDateString("zh-CN"),
         source:gSid?`结果页正式结果 · ${gSid}`:"当前确认功能点快照"
       },
+      // T06198：若当前版本已登记项目状态，服务端将注入真实签收人/时间/意见/版本哈希。
+      workflow_project_id:window.lastWorkflowProject||(()=>{try{return localStorage.getItem("wl_last_project")||"";}catch(e){return "";}})(),
       method:(method&&method.value)||"估算功能点",
       timing:(timing&&timing.value)||"估算中期",
       cx_mode:(typeof cxMode!=="undefined"?cxMode:"企业母版"),

@@ -28,6 +28,7 @@ import secret_store
 import theme_tokens
 import evidence
 import ai_eval
+import project_workflow
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -785,6 +786,13 @@ try:
 except Exception as e:
     print(f"[history] 初始化失败，历史功能禁用: {type(e).__name__}: {e}", flush=True)
 
+# T06198：项目状态机与签收（REQ-020 / AC-23 / AC-24），独立 workflow.db。
+WORKFLOW = None
+try:
+    WORKFLOW = project_workflow.WorkflowStore(APP_DATA / "workflow.db")
+except Exception as e:
+    print(f"[workflow] 初始化失败，签收功能禁用: {type(e).__name__}: {e}", flush=True)
+
 # M8/FR-5.6：备份与 schema 迁移放在各存储初始化之后（保证 pert.db/estimation.db 已就绪）
 try:
     _bk = _dk.backup_on_start(APP_DATA)
@@ -809,6 +817,8 @@ DEFAULT_CONFIG = {
     # T05688：空 = 使用内置 GitHub Releases 源；"off" = 显式停用；其他值 = 自定义 JSON 更新源
     "update_url": "",    # 覆盖项：指向返回 {version,url,notes} 的 JSON 或 GitHub Release API
     "recalc": {"mode": "async", "timeout": 120},   # 成品表公式缓存重算策略（T00962）
+    # T06198：单机版默认隐藏项目签收；工作组版启用状态机/签收页
+    "deployment": {"mode": "standalone"},
 }
 PROVIDERS = {
     "openai":     {"label": "OpenAI",       "console": "https://platform.openai.com/api-keys",
@@ -877,7 +887,8 @@ def load_config():
                       "llm": {**DEFAULT_CONFIG["llm"], **(cfg.get("llm") or {})},
                       "context_dir": cfg.get("context_dir", DEFAULT_CONFIG["context_dir"]),
                       "update_url": cfg.get("update_url", DEFAULT_CONFIG["update_url"]),
-                      "recalc": {**DEFAULT_CONFIG["recalc"], **(cfg.get("recalc") or {})}}
+                      "recalc": {**DEFAULT_CONFIG["recalc"], **(cfg.get("recalc") or {})},
+                      "deployment": {**DEFAULT_CONFIG["deployment"], **(cfg.get("deployment") or {})}}
             return _decrypt_llm_key(merged)
         except Exception:
             pass
@@ -903,6 +914,14 @@ def _apply_recalc_overrides(cfg, rc):
             pass
 
 
+def _apply_deployment(cfg, deployment):
+    """T06198：部署模式只接受 standalone/workgroup；非法值回退单机版。"""
+    if not isinstance(deployment, dict) or "mode" not in deployment:
+        return
+    mode = str(deployment.get("mode") or "").strip().lower()
+    cfg["deployment"]["mode"] = mode if mode in ("standalone", "workgroup") else "standalone"
+
+
 def save_config(payload):
     """写入配置到磁盘；payload 中 llm 仅接受合法键，llm.key 加密为 key_enc 落盘。"""
     cfg = load_config()
@@ -913,6 +932,7 @@ def save_config(payload):
         if key in payload:
             cfg[key] = str(payload[key] or "").strip()
     _apply_recalc_overrides(cfg, payload.get("recalc") or {})
+    _apply_deployment(cfg, payload.get("deployment") or {})
     _encrypt_llm_key(cfg)
     CONF_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     return _decrypt_llm_key(cfg)
@@ -2267,6 +2287,33 @@ class Handler(BaseHTTPRequestHandler):
                              "precheck": ai_eval.latest_precheck(EVAL_RUNS),
                              "dataset": dataset})
             return True
+        if u.path == "/api/workflow/projects":
+            # T06198 / AC-23：项目状态、签收列表；首次访问把已有版本组补登记为草稿。
+            if WORKFLOW is None:
+                self._json(503, {"ok": False, **_m("workflow.srv_unavailable", "状态机未初始化")})
+                return True
+            try:
+                WORKFLOW.sync_from_history(HIST)
+                projects = WORKFLOW.list_projects()
+                counts = {s: 0 for s in project_workflow.STATUSES}
+                for p in projects:
+                    counts[p["status"]] = counts.get(p["status"], 0) + 1
+                mode = (load_config().get("deployment") or {}).get("mode", "standalone")
+                self._json(200, {"ok": True, "mode": mode, "projects": projects, "counts": counts})
+            except Exception as e:
+                self._json(500, {"ok": False, **_m("workflow.srv_list_fail", "项目列表读取失败"), "msg": str(e)})
+            return True
+        if u.path == "/api/workflow/project":
+            q = parse_qs(u.query)
+            pid = (q.get("project_id") or [""])[0]
+            try:
+                detail = self._workflow_project_payload(pid)
+                self._json(200, {"ok": True, "project": detail})
+            except project_workflow.WorkflowError as e:
+                self._json(e.status, {"ok": False, "code": e.code, "msg": e.message})
+            except Exception as e:
+                self._json(500, {"ok": False, "msg": str(e)})
+            return True
         return False
 
     @staticmethod
@@ -2413,6 +2460,8 @@ class Handler(BaseHTTPRequestHandler):
         "/api/context/analyze": "_post_context_analyze",
         "/api/eval/run": "_post_eval_run",
         "/api/eval/precheck": "_post_eval_precheck",
+        "/api/workflow/transition": "_post_workflow_transition",
+        "/api/workflow/signoff-package": "_post_workflow_signoff_package",
         "/api/pickdir": "_post_pickdir",
         "/api/config/test": "_post_config_test",
         "/api/generate": "_post_generate",
@@ -2736,6 +2785,53 @@ class Handler(BaseHTTPRequestHandler):
                          "created_at": trace.get("created_at"),
                          "precheck": trace.get("precheck")})
 
+    def _post_workflow_transition(self, raw):
+        """T06198/AC-23：状态流转；非法流转 409，字段缺失 400，落审计事件。"""
+        if WORKFLOW is None:
+            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": "状态机未初始化"})
+        try:
+            payload = json.loads(raw.decode("utf-8")) if raw else {}
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        try:
+            detail = WORKFLOW.transition(
+                payload.get("project_id"), payload.get("action"),
+                actor=payload.get("actor"), role=payload.get("role") or "评估师",
+                opinion=payload.get("opinion") or "",
+            )
+            detail = self._workflow_project_payload(detail["project_id"])
+            return self._json(200, {"ok": True, "project": detail})
+        except project_workflow.WorkflowError as e:
+            return self._json(e.status, {"ok": False, "code": e.code, "msg": e.message})
+
+    def _post_workflow_signoff_package(self, raw):
+        """T06198/AC-24：按已登记版本生成审计包；签收页使用冻结的签名与版本哈希。"""
+        if WORKFLOW is None:
+            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": "状态机未初始化"})
+        try:
+            payload = json.loads(raw.decode("utf-8")) if raw else {}
+        except Exception:
+            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        try:
+            bundle = self._workflow_audit_payload(payload.get("project_id"))
+            import audit_package
+            with AUDIT_LOCK:
+                result = audit_package.generate(bundle, AUDIT_DIR, budget_ms=120000)
+        except project_workflow.WorkflowError as e:
+            return self._json(e.status, {"ok": False, "code": e.code, "msg": e.message})
+        except ValueError as e:
+            return self._json(400, {"ok": False, "msg": str(e)})
+        except Exception as e:
+            return self._json(500, {"ok": False, "msg": f"签收报告生成失败：{e}"})
+        brief = {k: result.get(k) for k in ("ok", "pages", "elapsed_ms", "budget_ms", "budget_ok",
+                                           "toc_ok", "font_embedded", "trace_rows", "trace_links",
+                                           "version_hash", "pdf_sha256")}
+        if not result.get("ok"):
+            return self._json(500, {"ok": False, "msg": "签收报告未通过验收检查", "result": brief})
+        return self._json(200, {"ok": True, "file": result["download_name"],
+                                "download": "/api/audit/download?f=" + quote(result["download_name"]),
+                                **brief})
+
     def _post_context_analyze(self, raw):
         # 手动触发扫描/重算项目上下文；入参可选覆盖目录（不落盘）
         target = (json.loads(raw.decode("utf-8")).get("context_dir") or "").strip() or None
@@ -2843,6 +2939,20 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(raw.decode("utf-8"))
         except Exception:
             return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+        # T06198：当前版本已登记项目状态时，审计包签收页注入真实签名冻结信息。
+        wf_pid = str(payload.get("workflow_project_id") or "").strip()
+        if wf_pid and WORKFLOW is not None:
+            try:
+                detail = WORKFLOW.get(wf_pid)
+                if detail:
+                    payload["signoff"] = WORKFLOW.signoff(wf_pid)
+                    payload["version_hash"] = WORKFLOW.short_hash(detail.get("version_hash"))
+                    payload["workflow"] = {"project_id": wf_pid, "status": detail.get("status"),
+                                           "signer": detail.get("signer"), "signed_at": detail.get("signed_at"),
+                                           "opinion": detail.get("sign_opinion"),
+                                           "version_hash": detail.get("version_hash")}
+            except Exception as e:
+                print(f"[workflow] 审计包签收注入失败（继续生成）: {type(e).__name__}: {e}", flush=True)
         try:
             import audit_package
             with AUDIT_LOCK:
@@ -2982,6 +3092,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(200, {"ok": True, "sid": sid, "items": (hist or {}).get("items") or items,
                                 "summary": summary, "recalc": recalc_mode,
                                 "history_id": (hist or {}).get("id"),
+                                "version_group": (hist or {}).get("version_group"),
+                                "version_no": (hist or {}).get("version_no"),
                                 "quality_precheck": {
                                     "ok": q_check.get("ok"),
                                     "run_id": q_trace.get("run_id"),
@@ -3056,10 +3168,126 @@ class Handler(BaseHTTPRequestHandler):
                         "recalc_mode": recalc_mode},
                 items=hist_items,
                 summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)
+            # T06198：每个落库版本登记项目状态；新版本自动回到 draft，旧签收记录保留在事件表。
+            if hist and WORKFLOW is not None:
+                try:
+                    snap = HIST.get(hist.get("id")) if HIST is not None else None
+                    if snap:
+                        vhash = WORKFLOW.hash_snapshot(
+                            title=snap.get("title"), version_no=snap.get("version_no"),
+                            method=snap.get("method"), params=snap.get("params"),
+                            items=snap.get("items"), summary=snap.get("summary") or {},
+                        )
+                    else:
+                        snap_params = {"llm_enabled": payload.get("llm_enabled"),
+                                       "fee_version": payload.get("fee_version"),
+                                       "cx_mode": cx_mode,
+                                       "recalc_mode": recalc_mode}
+                        vhash = WORKFLOW.hash_snapshot(
+                            title=req_title or sid, version_no=hist.get("version_no"),
+                            method=method, params=snap_params,
+                            items=hist_items, summary=hist_summary,
+                        )
+                    WORKFLOW.ensure(project_id=hist.get("version_group"), title=req_title or sid,
+                                    version_no=hist.get("version_no"), history_id=hist.get("id"),
+                                    version_hash=vhash)
+                except Exception as e:
+                    print(f"[workflow] 版本登记失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
             return hist
         except Exception as e:
             print(f"[history] 落库失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
             return None
+
+    # ---------------- 项目状态机 / 签收（T06198） ----------------
+    @staticmethod
+    def _workflow_project_payload(project_id):
+        """项目详情：工作流状态 + 版本列表 + 签收段，供页面与 API 共用。"""
+        if WORKFLOW is None:
+            raise project_workflow.WorkflowError("workflow_unavailable", "状态机未初始化", 503)
+        detail = WORKFLOW.get(project_id)
+        if detail is None:
+            raise project_workflow.WorkflowError("not_found", "项目不存在", 404)
+        versions = []
+        if HIST is not None and detail.get("history_id"):
+            try:
+                versions = (HIST.group(detail["history_id"]) or {}).get("versions") or []
+            except Exception:
+                versions = []
+        detail["versions"] = versions
+        detail["signoff"] = WORKFLOW.signoff(project_id)
+        detail["short_hash"] = WORKFLOW.short_hash(detail.get("version_hash"))
+        return detail
+
+    @staticmethod
+    def _workflow_audit_payload(project_id):
+        """从 estimation.db 版本快照组装审计包 payload；签收页使用冻结的 workflow 哈希。"""
+        detail = Handler._workflow_project_payload(project_id)
+        if HIST is None:
+            raise project_workflow.WorkflowError("history_unavailable", "估算历史未初始化", 503)
+        hist = HIST.get(detail.get("history_id"))
+        if not hist:
+            raise project_workflow.WorkflowError("history_missing", "签收版本在估算历史中不存在", 404)
+        params = hist.get("params") or {}
+        items = hist.get("items") or []
+        status_label = {"draft": "草稿", "review": "评审中", "rejected": "已驳回", "signed": "已签收"}
+        action_label = {"create": "创建", "new_version": "新增版本", "submit_review": "提交评审",
+                        "reject": "驳回", "revise": "修订", "withdraw": "撤回", "sign": "签收"}
+        changes = []
+        for e in detail.get("events") or []:
+            changes.append({
+                "version": f"v{e.get('version_no') or detail.get('version_no')}",
+                "date": str(e.get("at") or "")[:10],
+                "type": action_label.get(e.get("action"), e.get("action")),
+                "detail": (f"{status_label.get(e.get('from_status'), e.get('from_status') or '—')} → "
+                           f"{status_label.get(e.get('to_status'), e.get('to_status') or '—')}；"
+                           f"对象 {e.get('object_ref')}；角色 {e.get('role') or '—'}；"
+                           f"意见 {e.get('opinion') or '—'}"),
+                "before": e.get("from_status") or "—",
+                "after": e.get("to_status") or "—",
+                "operator": e.get("actor") or "—",
+            })
+        signoff = detail.get("signoff") or {}
+        payload = {
+            "project": {
+                "name": detail.get("title") or hist.get("title") or "工作量评估项目",
+                "client": "内部",
+                "version": f"v{detail.get('version_no')}",
+                "classification": "内部",
+                "owner": detail.get("submitted_by") or "评估师",
+                "reviewer": detail.get("signer") or detail.get("reviewer") or "审核人",
+                "date": (detail.get("signed_at") or hist.get("created_at") or project_workflow.now_iso())[:10],
+                "source": f"估算历史 · {detail.get('history_id')}",
+            },
+            "method": hist.get("method") or engine.METHOD_ESTIMATE,
+            "timing": "估算中期",
+            "cx_mode": params.get("cx_mode") or engine.CX_MASTER,
+            "items": items,
+            "changes": changes,
+            "ai": {
+                "enabled": bool(params.get("llm_enabled")),
+                "model": "本地规则" if not params.get("llm_enabled") else "已配置模型",
+                "prompt_version": "rules-evidence-v1",
+                "created_at": hist.get("created_at") or now_iso(),
+                "rules_version": params.get("rules_version") or "rules-v1",
+                "evidence": {},
+                "adjustments": "签收版本来自估算历史快照，数值未二次调整",
+                "items": [],
+            },
+            "signoff": signoff,
+            "version_hash": detail.get("short_hash"),
+            "workflow": {"project_id": project_id, "status": detail.get("status"),
+                         "signer": detail.get("signer"), "signed_at": detail.get("signed_at"),
+                         "opinion": detail.get("sign_opinion"), "version_hash": detail.get("version_hash")},
+        }
+        try:
+            key = project_workflow.WorkflowStore.hash_snapshot(
+                title=detail.get("title"), version_no=detail.get("version_no"), method=hist.get("method"),
+                params=params, items=items, summary=hist.get("summary") or {})
+            if key != detail.get("version_hash"):
+                print(f"[workflow] 版本哈希不一致：store={detail.get('version_hash')[:12]} snapshot={key[:12]}", flush=True)
+        except Exception:
+            pass
+        return payload
 
     # ---------------- PERT 三点估算 ----------------
     def _post_pert_project(self, raw):

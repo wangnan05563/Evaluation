@@ -1,0 +1,139 @@
+{
+  "suite": "project-workflow-ui",
+  "at": "2026-11-24T11:46:47.007Z",
+  "checks": [
+    {
+      "title": "切到工作组版成功",
+      "ok": true,
+      "detail": "{\"mode\":\"workgroup\"}"
+    },
+    {
+      "title": "工作组版导航可见且部署徽标回显",
+      "ok": true,
+      "detail": "{\"deploy\":\"workgroup\",\"navHidden\":\"false\",\"navDisplay\":\"flex\",\"modeBadge\":\"工作组版\"}"
+    },
+    {
+      "title": "单机版隐藏项目签收入口",
+      "ok": true,
+      "detail": "{\"deploy\":\"standalone\",\"hidden\":\"true\",\"display\":\"none\",\"before\":\"work\"}"
+    },
+    {
+      "title": "单机版直接进入签收页被拦截",
+      "ok": true,
+      "detail": "work -> work / 项目签收仅在工作组版启用，请先在配置中心切换部署模式。"
+    },
+    {
+      "title": "工作组版签收页加载项目列表与详情",
+      "ok": true,
+      "detail": "{\"title\":\"—\",\"count\":\"0 个项目\",\"rows\":0,\"empty\":\"暂无项目。生成一次估算后会创建草稿项目。\",\"overflow\":0}"
+    },
+    {
+      "title": "UI 专属草稿项目生成成功",
+      "ok": true,
+      "detail": "{\"ok\":true,\"pid\":\"3cd568cf7bb6442881af12b6cdfe9106\",\"title\":\"T06198 UI 签收验收 194455\",\"items\":6}"
+    },
+    {
+      "title": "新版本在 UI 中显示为草稿并自动选中",
+      "ok": true,
+      "detail": "T06198 UI 签收验收 194455"
+    },
+    {
+      "title": "草稿页显示 64 位版本哈希与创建审计轨迹",
+      "ok": true,
+      "detail": "2586ea2fb0911d75 events=1"
+    },
+    {
+      "title": "草稿仅允许提交评审，签收按钮禁用",
+      "ok": true,
+      "detail": "{\"hash\":\"2586ea2fb0911d75e83abd2c6dd11d1977aba73d2b32a76c8f44b1c1231613d3\",\"status\":\"草稿\",\"events\":1,\"eventText\":\"\\n      \\n        \\n        \\n          创建\\n            草稿 → 草稿\\n            2026-11-24 19:44\\n          操作人：系统 · 角色：系统 · 对象：v1 / 4c4de9eecf384bca8ff6316550276c70\\n          “首版估算生成，进入草稿”\\n        \\n      \",\"submitDisabled\":false,\"signDisabled\":true,\"actor\":\"评估师\"}"
+    },
+    {
+      "title": "UI 提交评审后状态变为评审中",
+      "ok": true,
+      "detail": "提交评审成功。"
+    },
+    {
+      "title": "UI 驳回后状态变为已驳回",
+      "ok": true,
+      "detail": "驳回成功。"
+    },
+    {
+      "title": "UI 修订后回到草稿",
+      "ok": true,
+      "detail": "修订成功。"
+    },
+    {
+      "title": "UI 再次提交进入评审中",
+      "ok": true,
+      "detail": "提交评审成功。"
+    },
+    {
+      "title": "UI 签收后状态变为已签收",
+      "ok": true,
+      "detail": "签收成功。"
+    },
+    {
+      "title": "签收后审计轨迹 6 条且含驳回/签收意见",
+      "ok": true,
+      "detail": "events=6"
+    },
+    {
+      "title": "签收卡显示签收人/时间/意见/完整哈希",
+      "ok": true,
+      "detail": "{\"visible\":true,\"hash\":\"2586ea2fb0911d75\",\"text\":\"已签收并冻结\\n        \\n          签收人王签收\\n          签收时间2026-11-24 19:45\\n          签收意见UI 同意签收\\n          版本哈希\"}"
+    },
+    {
+      "title": "签收后表单只读且仅报告按钮可用",
+      "ok": true,
+      "detail": "{\"events\":6,\"signedVisible\":true,\"signedText\":\"已签收并冻结\\n        \\n          签收人王签收\\n          签收时间2026-11-24 19:45\\n          签收意见UI 同意签收\\n          版本哈希（完整）2586ea2fb0911d75e83abd2c"
+    },
+    {
+      "title": "1440px 签收详情无横向溢出",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "title": "UI 触发生成签收报告并回显页数",
+      "ok": true,
+      "detail": "签收报告已生成：9 页。"
+    },
+    {
+      "title": "1024px 签收页无横向溢出且列表/详情可见",
+      "ok": true,
+      "detail": "{\"overflow\":0,\"list\":true,\"detail\":true,\"reportBtn\":true,\"cols\":\"320px 635px\"}"
+    },
+    {
+      "title": "768px 签收页无横向溢出且列表/详情可见",
+      "ok": true,
+      "detail": "{\"overflow\":0,\"list\":true,\"detail\":true,\"reportBtn\":true,\"cols\":\"717px\"}"
+    },
+    {
+      "title": "项目签收页无 critical/serious 可访问性问题",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "title": "页面运行无 JS 异常",
+      "ok": true,
+      "detail": "[]"
+    }
+  ],
+  "pass": 23,
+  "total": 23,
+  "project_id": "3cd568cf7bb6442881af12b6cdfe9106",
+  "title": "T06198 UI 签收验收 194455",
+  "events": 6,
+  "version_hash": "2586ea2fb0911d75e83abd2c6dd11d1977aba73d2b32a76c8f44b1c1231613d3",
+  "screenshots": [
+    "project_workflow_1440.png",
+    "project_workflow_report_1440.png",
+    "project_workflow_1024.png",
+    "project_workflow_768.png"
+  ],
+  "axe": {
+    "label": "flow-signoff",
+    "violations": [],
+    "passes": 24,
+    "incomplete": 1
+  }
+}

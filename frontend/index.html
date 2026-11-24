@@ -1257,9 +1257,104 @@ tr.bad .ts-state { color: var(--danger-ink); }
 @media (max-width:1100px){.eval-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.eval-kpis{grid-template-columns:1fr 1fr}.eval-matrix{min-width:280px;font-size:11px}.eval-matrix th,.eval-matrix td{padding:5px 6px}.eval-badge{margin-left:0}}
 
+/* T06198：项目状态与签收（工作组版）。单机版默认隐藏入口。 */
+body[data-deploy-mode="standalone"] #mi-flow{display:none!important}
+body[data-page="flow"] #pg-flow{display:block}
+
+.wf-mode{font-size:11px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.wf-summary{display:grid;grid-template-columns:repeat(4,minmax(110px,150px)) 1fr;gap:10px;margin-bottom:18px}
+.wf-stat{border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);padding:12px 14px;box-shadow:var(--shadow)}
+.wf-stat b{display:block;font-size:24px;line-height:1.2;color:var(--ink);font-variant-numeric:tabular-nums}
+.wf-stat span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.wf-hint{align-self:center;font-size:12px;color:var(--muted);background:var(--surface-2);border-left:3px solid var(--brand);border-radius:6px;padding:10px 12px;line-height:1.7}
+.wf-grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}
+.wf-list{min-height:620px}
+.wf-projects{display:flex;flex-direction:column;gap:6px;max-height:560px;overflow:auto;padding-right:2px}
+.wf-project{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);border-radius:var(--r-md);padding:11px 12px;text-align:left;cursor:pointer;font-family:var(--ff);transition:.15s}
+.wf-project:hover{border-color:var(--brand);background:var(--brand-soft)}
+.wf-project.on{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 2px var(--brand-soft)}
+.wf-project-main{min-width:0}
+.wf-project-main b{display:block;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf-project-main small{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.wf-badge{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-size:11px;font-weight:700;border-radius:999px;padding:4px 9px;border:1px solid var(--line)}
+.wf-badge-draft{color:var(--muted);background:var(--surface-2)}
+.wf-badge-review{color:#8A5A00;background:#FFF7E0;border-color:#F3D27A}
+.wf-badge-rejected{color:var(--danger);background:var(--danger-soft);border-color:var(--danger)}
+.wf-badge-signed{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-border)}
+.wf-detail{min-height:620px}
+.wf-empty{display:flex;align-items:center;gap:10px;padding:28px 16px;color:var(--muted);font-size:13px;line-height:1.8;justify-content:center;text-align:center}
+.wf-empty .lic{width:22px;height:22px;color:var(--brand)}
+.wf-error{color:var(--danger)}
+.wf-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.wf-kicker{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.wf-detail-head h2{font-size:19px;margin:3px 0 0;line-height:1.35;word-break:break-word}
+.wf-meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--muted);margin:12px 0}
+.wf-meta span{display:inline-flex;gap:4px;min-width:0;word-break:break-all}
+.wf-hash-row{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px;font-size:12px}
+.wf-hash-row span{flex:none;color:var(--muted)}
+.wf-hash-row code{font-family:var(--ff-mono,monospace);font-size:10.5px;word-break:break-all;line-height:1.55;color:var(--ink-2)}
+.wf-versions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.wf-ver{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;color:var(--muted);background:var(--card)}
+.wf-ver.on{border-color:var(--brand);color:var(--brand-ink);background:var(--brand-soft);font-weight:700}
+.wf-signed{border:1px solid var(--ok-border);background:var(--ok-soft);border-radius:var(--r-md);padding:12px 14px;margin:4px 0 14px}
+.wf-signed-title{display:flex;align-items:center;gap:7px;color:var(--ok);font-size:13px}
+.wf-signed-title .lic{width:17px;height:17px}
+.wf-signed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:9px;font-size:12px;color:var(--muted)}
+.wf-signed-grid span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wf-signed-grid .wide{grid-column:1/-1}
+.wf-signed-grid b{color:var(--ink);font-size:13px;font-weight:600;word-break:break-word}
+.wf-signed-grid code{font-size:10.5px;word-break:break-all;color:var(--ink-2)}
+.wf-h3{font-size:13px;margin:14px 0 8px;color:var(--ink-2)}
+.wf-timeline{position:relative;border-left:1px solid var(--line);padding-left:18px;max-height:300px;overflow:auto}
+.wf-event{position:relative;padding:0 0 14px}
+.wf-event-dot{position:absolute;left:-24px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--brand);border:2px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.wf-event-signed .wf-event-dot{background:var(--ok)}
+.wf-event-rejected .wf-event-dot{background:var(--danger)}
+.wf-event-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;font-size:12.5px}
+.wf-event-head b{color:var(--ink)}
+.wf-event-status{font-size:11px;color:var(--muted);background:var(--surface-2);border-radius:5px;padding:2px 5px}
+.wf-event-head time{margin-left:auto;font-size:11px;color:var(--muted)}
+.wf-event-meta{font-size:11px;color:var(--muted);line-height:1.7;margin-top:2px;word-break:break-word}
+.wf-event-opinion{font-size:12px;color:var(--ink-2);background:var(--surface-2);border-left:3px solid var(--brand-soft);padding:6px 9px;margin-top:5px;border-radius:0 6px 6px 0;word-break:break-word}
+.wf-form{border-top:1px dashed var(--line);margin-top:14px;padding-top:2px}
+.wf-form-grid{display:grid;grid-template-columns:1fr 180px;gap:10px}
+.wf-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+.wf-form input,.wf-form select,.wf-form textarea{width:100%;border:1px solid var(--line);border-radius:var(--r-md);padding:9px 10px;font-family:var(--ff);font-size:13px;color:var(--ink);background:var(--card);outline:none}
+.wf-form input:focus,.wf-form select:focus,.wf-form textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.wf-opinion{margin-top:9px}
+.wf-opinion textarea{resize:vertical;min-height:64px;line-height:1.6}
+.wf-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.wf-actions .btn{font-size:12.5px;padding:8px 12px}
+.wf-readonly{opacity:1}
+.wf-readonly input,.wf-readonly select,.wf-readonly textarea{background:var(--surface-2);color:var(--ink-2);border-style:dashed}
+.wf-readonly .wf-actions .btn:disabled{opacity:.55}
+.wf-msg{font-size:12px;margin-top:8px;min-height:18px;color:var(--muted);line-height:1.7}
+.wf-msg.ok{color:var(--ok)}
+.wf-msg.err{color:var(--danger)}
+.wf-deploy-card .card-title{margin-bottom:10px}
+.wf-deploy-row{display:flex;align-items:center;gap:18px;justify-content:space-between}
+.wf-seg{display:flex;gap:6px;flex:none}
+.wf-seg .btn{font-size:12px;padding:7px 12px}
+
+@media(max-width:1100px){
+  .wf-summary{grid-template-columns:repeat(4,1fr)}
+  .wf-hint{grid-column:1/-1}
+  .wf-grid{grid-template-columns:320px minmax(0,1fr)}
+}
+@media(max-width:820px){
+  .wf-summary{grid-template-columns:repeat(2,1fr)}
+  .wf-grid{grid-template-columns:1fr}
+  .wf-list{min-height:0}
+  .wf-projects{max-height:280px}
+  .wf-detail{min-height:0}
+  .wf-form-grid{grid-template-columns:1fr}
+  .wf-deploy-row{align-items:flex-start;flex-direction:column}
+}
+
+
 </style>
 </head>
-<body data-page="work" data-step="upload" data-pertstep="in">
+<body data-page="work" data-step="upload" data-pertstep="in" data-deploy-mode="standalone">
 <!-- T06184 / AC-17：Ctrl/Cmd+K 全局命令面板。索引完全本地构建（页面/当前功能项/PERT 项目），
      不发起网络搜索；最近与收藏存 localStorage（we_cmd_recent / we_cmd_fav），换主题自动跟随令牌。 -->
 <div id="cmdk" class="cmdk" hidden>
@@ -1329,6 +1424,7 @@ tr.bad .ts-state { color: var(--danger-ink); }
       <button class="m-item on" id="mi-work" data-page="work" aria-label="IFPUG 估算" data-i18n="aria-label=nav.work" onclick="goPage('work')"><i aria-hidden="true" data-lucide="calculator" class="lic"></i><span class="lbl" data-i18n="nav.work">IFPUG 估算</span><span class="tip" data-i18n="nav.work.tip">上传需求 → 审核功能点 → 生成成品造价表</span></button>
       <button class="m-item" id="mi-pert" data-page="pert" aria-label="PERT 估算" data-i18n="aria-label=nav.pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
       <button class="m-item" id="mi-fast" data-page="fast" aria-label="快速估算" data-i18n="aria-label=nav.fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
+      <button class="m-item" id="mi-flow" data-page="flow" aria-label="项目签收" data-i18n="aria-label=nav.flow" onclick="goPage('flow')"><i aria-hidden="true" data-lucide="badge-check" class="lic"></i><span class="lbl" data-i18n="nav.flow">项目签收</span><span class="tip" data-i18n="nav.flow.tip">草稿 → 评审 → 驳回/修订 → 签收，全程留审计轨迹</span></button>
       <button class="m-item" id="mi-config" data-page="config" aria-label="配置中心" data-i18n="aria-label=nav.config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
       <button class="m-item" id="mi-help" data-page="help" aria-label="帮助文档" data-i18n="aria-label=nav.help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
     </nav>
@@ -1615,6 +1711,18 @@ tr.bad .ts-state { color: var(--danger-ink); }
 
   <!-- ============ 页面二：配置中心 ============ -->
   <main class="page" id="pg-config">
+    <div class="glass pad wf-deploy-card" style="margin-bottom:16px">
+      <div class="card-title"><i aria-hidden="true" data-lucide="users"></i><span data-i18n="config.deploy.title">部署模式与协作签收</span><span style="flex:1"></span><span class="wf-mode" id="cfgDeployBadge">—</span></div>
+      <div class="wf-deploy-row">
+        <div>
+          <p class="cfg-note" style="margin:0" data-i18n="config.deploy.note">单机版默认隐藏「项目签收」；工作组版启用草稿/评审/驳回/签收状态机与审计轨迹。切换只影响入口与流程，不改动既有估算数据。</p>
+        </div>
+        <div class="wf-seg" role="group" aria-label="部署模式">
+          <button class="btn btn-ghost" id="cfgModeStandalone" onclick="saveDeployMode('standalone')" data-i18n="config.deploy.standalone">单机版</button>
+          <button class="btn btn-ghost" id="cfgModeWorkgroup" onclick="saveDeployMode('workgroup')" data-i18n="config.deploy.workgroup">工作组版</button>
+        </div>
+      </div>
+    </div>
     <div class="cfg-grid">
       <div class="glass pad">
         <div class="card-title"><i aria-hidden="true" data-lucide="sparkles"></i><span data-i18n="config.card.llm">大模型识别增强</span></div>
@@ -2073,6 +2181,65 @@ tr.bad .ts-state { color: var(--danger-ink); }
           </div>
         </div>
       </div>
+    </div>
+  </main>
+
+  <!-- ============ 页面四：项目状态与签收（工作组版） ============ -->
+  <main class="page" id="pg-flow">
+    <div class="card-title" style="margin-bottom:14px">
+      <i aria-hidden="true" data-lucide="badge-check"></i><span data-i18n="flow.title">项目状态与签收</span>
+      <span style="font-size:12px;color:var(--muted);font-weight:400" data-i18n="flow.subtitle">草稿 → 评审 → 驳回/修订 → 签收；每次变更写入人、时间、对象与意见</span>
+      <span style="flex:1"></span>
+      <span class="wf-mode" id="wfModeBadge" data-i18n="flow.mode.workgroup">工作组版</span>
+      <button class="btn btn-ghost" id="wfRefreshBtn" onclick="flowInit(true)" data-i18n="title=flow.refresh_title" title="刷新项目与审计轨迹"><i aria-hidden="true" data-lucide="refresh-cw" style="width:15px;height:15px"></i><span data-i18n="flow.refresh">刷新</span></button>
+    </div>
+    <div class="wf-summary" id="wfSummary">
+      <div class="wf-stat"><b id="wfCountDraft">—</b><span data-i18n="flow.status.draft">草稿</span></div>
+      <div class="wf-stat"><b id="wfCountReview">—</b><span data-i18n="flow.status.review">评审中</span></div>
+      <div class="wf-stat"><b id="wfCountRejected">—</b><span data-i18n="flow.status.rejected">已驳回</span></div>
+      <div class="wf-stat"><b id="wfCountSigned">—</b><span data-i18n="flow.status.signed">已签收</span></div>
+      <div class="wf-hint" data-i18n="flow.summary_hint">单机版不显示此页；工作组版可在配置中心启用。</div>
+    </div>
+    <div class="wf-grid">
+      <section class="glass pad wf-list" aria-labelledby="wfListTitle">
+        <div class="card-title"><i aria-hidden="true" data-lucide="folder-clock"></i><span id="wfListTitle" data-i18n="flow.list.title">项目列表</span><span style="flex:1"></span><span class="tcount" id="wfProjectCount">—</span></div>
+        <div class="search" style="margin-bottom:10px"><i aria-hidden="true" data-lucide="search"></i><input id="wfSearch" data-i18n-ph="flow.search.ph" placeholder="搜索项目标题…" oninput="flowRenderList()"></div>
+        <div id="wfProjects" class="wf-projects"><div class="wf-empty" data-i18n="common.loading">加载中…</div></div>
+      </section>
+      <section class="glass pad wf-detail" aria-labelledby="wfDetailTitle">
+        <div id="wfEmpty" class="wf-empty">
+          <i aria-hidden="true" data-lucide="mouse-pointer-click"></i>
+          <span data-i18n="flow.empty">从左侧选择一个项目，查看状态、版本哈希与完整审计轨迹。</span>
+        </div>
+        <div id="wfDetail" hidden>
+          <div class="wf-detail-head">
+            <div><div class="wf-kicker" data-i18n="flow.detail.kicker">当前项目</div><h2 id="wfDetailTitle">—</h2></div>
+            <span class="wf-badge" id="wfDetailStatus">—</span>
+          </div>
+          <div class="wf-meta" id="wfDetailMeta">—</div>
+          <div class="wf-hash-row"><span data-i18n="flow.hash">版本哈希</span><code id="wfHash">—</code></div>
+          <div class="wf-versions" id="wfVersions"></div>
+          <div class="wf-signed" id="wfSigned" hidden></div>
+          <h3 class="wf-h3" id="wfTimelineTitle" data-i18n="flow.timeline">审计轨迹</h3>
+          <div class="wf-timeline" id="wfTimeline" tabindex="0" role="region" aria-labelledby="wfTimelineTitle"></div>
+          <div class="wf-form" id="wfForm">
+            <h3 class="wf-h3" data-i18n="flow.action.title">状态操作</h3>
+            <div class="wf-form-grid">
+              <label><span data-i18n="flow.actor">操作人</span><input id="wfActor" value="评估师" data-i18n-ph="flow.actor.ph" placeholder="填写姓名"></label>
+              <label><span data-i18n="flow.role">角色</span><select id="wfRole"><option value="评估师" data-i18n="flow.role.evaluator">评估师</option><option value="项目经理" data-i18n="flow.role.pm">项目经理</option><option value="产品经理" data-i18n="flow.role.product">产品经理</option><option value="财务审核" data-i18n="flow.role.finance">财务审核</option></select></label>
+            </div>
+            <label class="wf-opinion"><span data-i18n="flow.opinion">意见</span><textarea id="wfOpinion" rows="3" data-i18n-ph="flow.opinion.ph" placeholder="驳回与签收必填；提交评审可填写说明"></textarea></label>
+            <div class="wf-actions">
+              <button class="btn btn-primary" id="wfSubmitBtn" onclick="flowAct('submit_review')"><i aria-hidden="true" data-lucide="send" style="width:14px;height:14px"></i><span data-i18n="flow.btn.submit">提交评审</span></button>
+              <button class="btn btn-ghost" id="wfRejectBtn" onclick="flowAct('reject')"><i aria-hidden="true" data-lucide="circle-x" style="width:14px;height:14px"></i><span data-i18n="flow.btn.reject">驳回</span></button>
+              <button class="btn btn-ghost" id="wfReviseBtn" onclick="flowAct('revise')"><i aria-hidden="true" data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span data-i18n="flow.btn.revise">修订</span></button>
+              <button class="btn btn-primary" id="wfSignBtn" onclick="flowAct('sign')"><i aria-hidden="true" data-lucide="badge-check" style="width:14px;height:14px"></i><span data-i18n="flow.btn.sign">签收</span></button>
+              <button class="btn btn-ghost" id="wfReportBtn" onclick="flowReport()"><i aria-hidden="true" data-lucide="file-down" style="width:14px;height:14px"></i><span data-i18n="flow.btn.report">生成签收报告</span></button>
+            </div>
+            <div class="wf-msg" id="wfMsg" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -2746,6 +2913,7 @@ function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
 function goPage(p){
+  if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
   if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
@@ -2754,6 +2922,7 @@ function goPage(p){
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
   if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
+  if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();
@@ -3102,6 +3271,7 @@ async function bindConfig(){
     llmCfg=res.config||{llm:LLM_DEFAULTS,provider:"openai"};
     llmCfg.llm=llmCfg.llm||LLM_DEFAULTS;
     renderConfigFields();
+    if(typeof applyDeploymentMode==="function")applyDeploymentMode((llmCfg.deployment||{}).mode||"standalone");   // T06198：部署模式回显
     // 回显项目上下文目录配置与已渲染摘要
     await bindContextSection();
     renderUpdateSection(res);
@@ -3853,6 +4023,8 @@ $("#goRes").addEventListener("click",async ()=>{
     }
     if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+    if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
+    window.lastWorkflowProject=res.version_group||"";
     if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
     await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
@@ -7187,6 +7359,8 @@ document.addEventListener('DOMContentLoaded', () => {
         date:new Date().toLocaleDateString("zh-CN"),
         source:gSid?`结果页正式结果 · ${gSid}`:"当前确认功能点快照"
       },
+      // T06198：若当前版本已登记项目状态，服务端将注入真实签收人/时间/意见/版本哈希。
+      workflow_project_id:window.lastWorkflowProject||(()=>{try{return localStorage.getItem("wl_last_project")||"";}catch(e){return "";}})(),
       method:(method&&method.value)||"估算功能点",
       timing:(timing&&timing.value)||"估算中期",
       cx_mode:(typeof cxMode!=="undefined"?cxMode:"企业母版"),
@@ -8940,6 +9114,244 @@ document.addEventListener('DOMContentLoaded', () => {
   window.evalRenderDataset=renderDataset;
   window.evalRenderPrecheck=renderPrecheck;
   window.qualityPrecheck=qualityPrecheck;
+})();
+
+/* ===== T06198：项目状态机与签收（REQ-020 / AC-23 / AC-24） =====
+   工作组版启用；单机版隐藏入口。状态写入服务端 workflow.db，页面只读状态与审计轨迹。 */
+(function(){
+  const STATUS_LABEL={draft:"flow.status.draft",review:"flow.status.review",rejected:"flow.status.rejected",signed:"flow.status.signed"};
+  const ACTION_LABEL={create:"flow.act.create",new_version:"flow.act.new_version",submit_review:"flow.act.submit",
+                      reject:"flow.act.reject",revise:"flow.act.revise",withdraw:"flow.act.withdraw",sign:"flow.act.sign"};
+  let projects=[], selected=null, detail=null, mode="standalone";
+
+  function $flow(id){return document.getElementById(id);}
+  function esc(v){return String(v==null?"":v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");}
+  function statusText(s){return t(STATUS_LABEL[s]||"flow.status.draft");}
+  function statusClass(s){return `wf-badge wf-badge-${esc(s||"draft")}`;}
+  function fmtTime(v){
+    if(!v)return "—";
+    const s=String(v).replace("T"," ");
+    return s.length>=16?s.slice(0,16):s;
+  }
+
+  async function api(path,payload){
+    const resp=await fetch(API+path,{method:payload===undefined?"GET":"POST",
+      headers:{"Content-Type":"application/json"},body:payload===undefined?undefined:JSON.stringify(payload)});
+    const data=await resp.json().catch(()=>({ok:false,msg:"响应不是合法 JSON"}));
+    if(!resp.ok||!data.ok)throw new Error(data.msg||`HTTP ${resp.status}`);
+    return data;
+  }
+
+  function applyDeploymentMode(next){
+    mode=next==="workgroup"?"workgroup":"standalone";
+    document.body.dataset.deployMode=mode;
+    const nav=$flow("mi-flow");
+    if(nav)nav.setAttribute("aria-hidden",mode==="standalone"?"true":"false");
+    const modeBadge=$flow("wfModeBadge");
+    if(modeBadge)modeBadge.textContent=t(mode==="workgroup"?"flow.mode.workgroup":"flow.mode.standalone");
+    ["cfgModeStandalone","cfgModeWorkgroup"].forEach(id=>{
+      const b=$flow(id);if(!b)return;
+      const on=(id==="cfgModeWorkgroup"&&mode==="workgroup")||(id==="cfgModeStandalone"&&mode==="standalone");
+      b.classList.toggle("btn-primary",on);b.classList.toggle("btn-ghost",!on);
+      b.setAttribute("aria-pressed",on?"true":"false");
+    });
+    const cfgBadge=$flow("cfgDeployBadge");
+    if(cfgBadge)cfgBadge.textContent=t(mode==="workgroup"?"config.deploy.workgroup":"config.deploy.standalone");
+    if(mode==="standalone"&&document.body.dataset.page==="flow"){
+      document.body.dataset.page="work";
+      document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page==="work"));
+    }
+  }
+
+  async function flowInit(force){
+    if(mode!=="workgroup"){
+      try{
+        const cfg=await api("/api/config");
+        applyDeploymentMode((cfg.config&&cfg.config.deployment&&cfg.config.deployment.mode)||"standalone");
+      }catch(e){/* 保持默认单机版 */}
+    }
+    if(mode!=="workgroup")return;
+    const box=$flow("wfProjects");
+    if(box&&!projects.length)box.innerHTML=`<div class="wf-empty">${esc(t("common.loading"))}</div>`;
+    try{
+      const data=await api("/api/workflow/projects");
+      projects=data.projects||[];
+      renderSummary(data.counts||{});
+      flowRenderList();
+      const keep=projects.find(p=>p.project_id===selected)||null;
+      if(force&&keep)await flowSelect(keep.project_id,true);
+      else if(!detail&&projects.length)await flowSelect(projects[0].project_id,true);
+    }catch(e){
+      if(box)box.innerHTML=`<div class="wf-empty wf-error">${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderSummary(counts){
+    $flow("wfCountDraft").textContent=counts.draft||0;
+    $flow("wfCountReview").textContent=counts.review||0;
+    $flow("wfCountRejected").textContent=counts.rejected||0;
+    $flow("wfCountSigned").textContent=counts.signed||0;
+    $flow("wfProjectCount").textContent=tf("flow.list.count",{n:projects.length});
+  }
+
+  function flowRenderList(){
+    const box=$flow("wfProjects");if(!box)return;
+    const q=($flow("wfSearch")&&$flow("wfSearch").value||"").trim().toLowerCase();
+    const rows=projects.filter(p=>!q||String(p.title||"").toLowerCase().includes(q));
+    if(!rows.length){
+      box.innerHTML=`<div class="wf-empty">${esc(projects.length?t("flow.list.no_match"):t("flow.list.empty"))}</div>`;
+      return;
+    }
+    box.innerHTML=rows.map(p=>`
+      <button type="button" class="wf-project${p.project_id===selected?" on":""}" data-pid="${esc(p.project_id)}" onclick="flowSelect('${esc(p.project_id)}')">
+        <span class="wf-project-main"><b>${esc(p.title)}</b><small>v${esc(p.version_no)} · ${esc(fmtTime(p.updated_at))}</small></span>
+        <span class="${statusClass(p.status)}">${esc(statusText(p.status))}</span>
+      </button>`).join("");
+    window.lucide&&lucide.createIcons();
+  }
+
+  async function flowSelect(pid,silent){
+    selected=pid;
+    flowRenderList();
+    const empty=$flow("wfEmpty"),panel=$flow("wfDetail");
+    if(empty)empty.hidden=true;if(panel)panel.hidden=false;
+    try{
+      const data=await api("/api/workflow/project?project_id="+encodeURIComponent(pid));
+      detail=data.project;
+      renderDetail(detail);
+    }catch(e){
+      if(!silent)toast(e.message);
+      if(panel)panel.innerHTML=`<div class="wf-empty wf-error">${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderDetail(d){
+    $flow("wfDetailTitle").textContent=d.title||"—";
+    const st=$flow("wfDetailStatus");st.className=statusClass(d.status);st.textContent=statusText(d.status);
+    $flow("wfDetailMeta").innerHTML=
+      `<span>v${esc(d.version_no)}</span><span>${esc(t("flow.detail.history"))} ${esc(d.history_id||"—")}</span>`+
+      `<span>${esc(t("flow.detail.updated"))} ${esc(fmtTime(d.updated_at))}</span>`+
+      `<span>${esc(t("flow.detail.revision"))} ${esc(d.revision||0)}</span>`;
+    $flow("wfHash").textContent=d.version_hash||"—";
+    const vers=$flow("wfVersions");
+    const list=(d.versions||[]).map(v=>`<span class="wf-ver${v.version_no===d.version_no?" on":""}">v${esc(v.version_no)} · ${esc(fmtTime(v.created_at))}</span>`).join("");
+    vers.innerHTML=list||`<span class="wf-ver on">v${esc(d.version_no)}</span>`;
+    const signed=$flow("wfSigned");
+    if(d.status==="signed"&&d.signed_at){
+      signed.hidden=false;
+      signed.innerHTML=`<div class="wf-signed-title"><i aria-hidden="true" data-lucide="badge-check"></i><b>${esc(t("flow.signed.title"))}</b></div>
+        <div class="wf-signed-grid">
+          <span>${esc(t("flow.signed.signer"))}<b>${esc(d.signer||"—")}</b></span>
+          <span>${esc(t("flow.signed.time"))}<b>${esc(fmtTime(d.signed_at))}</b></span>
+          <span class="wide">${esc(t("flow.signed.opinion"))}<b>${esc(d.sign_opinion||"—")}</b></span>
+          <span class="wide">${esc(t("flow.signed.hash"))}<code>${esc(d.version_hash||"—")}</code></span>
+        </div>`;
+    }else signed.hidden=true;
+    renderTimeline(d.events||[]);
+    setButtons(d.status);
+    const actor=$flow("wfActor");if(actor&&!actor.value.trim())actor.value=d.submitted_by||t("flow.role.evaluator");
+    const role=$flow("wfRole");if(role&&d.status==="review")role.value="项目经理";
+    window.lucide&&lucide.createIcons();
+  }
+
+  function renderTimeline(events){
+    const box=$flow("wfTimeline");if(!box)return;
+    if(!events.length){box.innerHTML=`<div class="wf-empty">${esc(t("flow.timeline.empty"))}</div>`;return;}
+    box.innerHTML=events.slice().reverse().map(e=>`
+      <div class="wf-event">
+        <div class="wf-event-dot wf-event-${esc(e.to_status||"draft")}"></div>
+        <div class="wf-event-body">
+          <div class="wf-event-head"><b>${esc(t(ACTION_LABEL[e.action]||"flow.act.change"))}</b>
+            <span class="wf-event-status">${esc(statusText(e.from_status))} → ${esc(statusText(e.to_status))}</span>
+            <time>${esc(fmtTime(e.at))}</time></div>
+          <div class="wf-event-meta">${esc(t("flow.event.actor"))}：${esc(e.actor||"—")} · ${esc(t("flow.event.role"))}：${esc(e.role||"—")} · ${esc(t("flow.event.object"))}：${esc(e.object_ref||"—")}</div>
+          ${e.opinion?`<div class="wf-event-opinion">“${esc(e.opinion)}”</div>`:""}
+        </div>
+      </div>`).join("");
+  }
+
+  function setButtons(status){
+    const map={draft:["submit"],review:["reject","revise","sign"],rejected:["submit","revise"],signed:[]};
+    const ok=map[status]||[];
+    const set=(id,key)=>$flow(id).disabled=!ok.includes(key);
+    set("wfSubmitBtn","submit");set("wfRejectBtn","reject");set("wfReviseBtn","revise");set("wfSignBtn","sign");
+    const form=$flow("wfForm");if(form)form.classList.toggle("wf-readonly",status==="signed");
+    $flow("wfReportBtn").disabled=!detail;
+  }
+
+  async function flowAct(action){
+    if(!detail)return;
+    const actor=($flow("wfActor").value||"").trim(),role=($flow("wfRole").value||"").trim();
+    const opinion=($flow("wfOpinion").value||"").trim();
+    if(!actor){toast(t("flow.err.actor"));$flow("wfActor").focus();return;}
+    if((action==="reject"||action==="sign")&&!opinion){
+      toast(t("flow.err.opinion"));$flow("wfOpinion").focus();return;
+    }
+    const btns=["wfSubmitBtn","wfRejectBtn","wfReviseBtn","wfSignBtn","wfReportBtn"].map($flow).filter(Boolean);
+    btns.forEach(b=>b.disabled=true);
+    const msg=$flow("wfMsg");if(msg){msg.className="wf-msg";msg.textContent=t("flow.msg.busy");}
+    try{
+      const data=await api("/api/workflow/transition",{
+        project_id:detail.project_id,action,actor,role,opinion
+      });
+      detail=data.project;
+      renderDetail(detail);
+      const p=projects.find(x=>x.project_id===detail.project_id);
+      if(p){Object.assign(p,{status:detail.status,updated_at:detail.updated_at,version_no:detail.version_no});}
+      renderSummary(projects.reduce((a,p)=>{a[p.status]=(a[p.status]||0)+1;return a;},{}));
+      flowRenderList();
+      if(msg){msg.className="wf-msg ok";msg.textContent=tf("flow.msg.ok",{action:t(ACTION_LABEL[action]||"flow.act.change")});}
+      $flow("wfOpinion").value="";
+      toast(msg&&msg.textContent);
+    }catch(e){
+      if(msg){msg.className="wf-msg err";msg.textContent=e.message;}
+      toast(e.message);
+      setButtons(detail.status);
+    }
+  }
+
+  async function flowReport(){
+    if(!detail)return;
+    const btn=$flow("wfReportBtn");if(btn)btn.disabled=true;
+    const msg=$flow("wfMsg");if(msg){msg.className="wf-msg";msg.textContent=t("flow.msg.report_busy");}
+    try{
+      const res=await api("/api/workflow/signoff-package",{project_id:detail.project_id});
+      const a=document.createElement("a");
+      a.href=API+res.download;a.download=res.file||"audit_package.pdf";
+      document.body.appendChild(a);a.click();a.remove();
+      if(msg){msg.className="wf-msg ok";msg.textContent=tf("flow.msg.report_ok",{pages:String(res.pages||"—")});}
+      toast(msg&&msg.textContent);
+    }catch(e){
+      if(msg){msg.className="wf-msg err";msg.textContent=e.message;}
+      toast(e.message);
+    }finally{setButtons(detail.status);}
+  }
+
+  async function saveDeployMode(next){
+    try{
+      const data=await api("/api/config",{deployment:{mode:next}});
+      applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||next);
+      toast(t(mode==="workgroup"?"config.deploy.on":"config.deploy.off"));
+      if(mode==="workgroup"&&document.body.dataset.page==="flow")flowInit(true);
+    }catch(e){toast(e.message);}
+  }
+
+  async function flowBootDeployment(){
+    try{
+      const data=await api("/api/config");
+      applyDeploymentMode((data.config&&data.config.deployment&&data.config.deployment.mode)||"standalone");
+    }catch(e){applyDeploymentMode("standalone");}
+  }
+
+  window.flowInit=flowInit;
+  window.flowSelect=flowSelect;
+  window.flowRenderList=flowRenderList;
+  window.flowAct=flowAct;
+  window.flowReport=flowReport;
+  window.saveDeployMode=saveDeployMode;
+  window.applyDeploymentMode=applyDeploymentMode;
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",flowBootDeployment,{once:true});
+  else flowBootDeployment();
 })();
 
 </script>

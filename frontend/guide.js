@@ -193,8 +193,8 @@
 
   // 由 body.data-page 或 data-step 推断当前应引导的 menuId
   function menuOfPage(page) {
-    var map = { work: 'work', pert: 'pert', fast: 'fast', config: 'config', help: 'help' };
-    return map[page] || 'work';
+    var map = { work: 'work', pert: 'pert', fast: 'fast', config: 'config', help: 'help', flow: 'flow' };
+    return map[page] || null;
   }
 
   // ---------- 高亮单个目标元素 ----------
@@ -327,6 +327,7 @@
   // ---------- 首访触发：进入某页时若未引导过且未关闭过则唤起一次 ----------
   function guideMaybe(page) {
     var menuId = menuOfPage(page);
+    if (!menuId || !stepList(menuId).length) return;   // 无引导配置的页面（如项目签收）不叠加遮罩
     // T06183：首次角色引导优先；已选角色的用户不再自动叠加旧菜单引导（评估师路径不含高级引导）。
     var rw = document.querySelector('#roleWelcome');
     if (rw && !rw.hidden) return;

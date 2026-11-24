@@ -12,7 +12,7 @@
 <!--BUILD:VENDOR_LUCIDE-->
 <!--BUILD:CSS-->
 </head>
-<body data-page="work" data-step="upload" data-pertstep="in">
+<body data-page="work" data-step="upload" data-pertstep="in" data-deploy-mode="standalone">
 <!-- T06184 / AC-17：Ctrl/Cmd+K 全局命令面板。索引完全本地构建（页面/当前功能项/PERT 项目），
      不发起网络搜索；最近与收藏存 localStorage（we_cmd_recent / we_cmd_fav），换主题自动跟随令牌。 -->
 <div id="cmdk" class="cmdk" hidden>
@@ -82,6 +82,7 @@
       <button class="m-item on" id="mi-work" data-page="work" aria-label="IFPUG 估算" data-i18n="aria-label=nav.work" onclick="goPage('work')"><i aria-hidden="true" data-lucide="calculator" class="lic"></i><span class="lbl" data-i18n="nav.work">IFPUG 估算</span><span class="tip" data-i18n="nav.work.tip">上传需求 → 审核功能点 → 生成成品造价表</span></button>
       <button class="m-item" id="mi-pert" data-page="pert" aria-label="PERT 估算" data-i18n="aria-label=nav.pert" onclick="goPage('pert')"><i aria-hidden="true" data-lucide="activity" class="lic"></i><span class="lbl" data-i18n="nav.pert">PERT 估算</span><span class="tip" data-i18n="nav.pert.tip">三点估算，输入乐观/最可能/悲观自动算预期</span></button>
       <button class="m-item" id="mi-fast" data-page="fast" aria-label="快速估算" data-i18n="aria-label=nav.fast" onclick="goPage('fast')"><i aria-hidden="true" data-lucide="zap" class="lic"></i><span class="lbl" data-i18n="nav.fast">快速估算</span><span class="tip" data-i18n="nav.fast.tip">NESMA 预估/估算法，数 ILF/EIF 即出规模与费用（FR-2.1）</span></button>
+      <button class="m-item" id="mi-flow" data-page="flow" aria-label="项目签收" data-i18n="aria-label=nav.flow" onclick="goPage('flow')"><i aria-hidden="true" data-lucide="badge-check" class="lic"></i><span class="lbl" data-i18n="nav.flow">项目签收</span><span class="tip" data-i18n="nav.flow.tip">草稿 → 评审 → 驳回/修订 → 签收，全程留审计轨迹</span></button>
       <button class="m-item" id="mi-config" data-page="config" aria-label="配置中心" data-i18n="aria-label=nav.config" onclick="goPage('config')"><i aria-hidden="true" data-lucide="settings" class="lic"></i><span class="lbl" data-i18n="nav.config">配置中心</span><span class="tip" data-i18n="nav.config.tip">大模型识别增强、连接测试与模型管理</span></button>
       <button class="m-item" id="mi-help" data-page="help" aria-label="帮助文档" data-i18n="aria-label=nav.help" onclick="goPage('help')"><i aria-hidden="true" data-lucide="book-open" class="lic"></i><span class="lbl" data-i18n="nav.help">帮助文档</span><span class="tip" data-i18n="nav.help.tip">评估方法论与计算算法说明</span></button>
     </nav>
@@ -368,6 +369,18 @@
 
   <!-- ============ 页面二：配置中心 ============ -->
   <main class="page" id="pg-config">
+    <div class="glass pad wf-deploy-card" style="margin-bottom:16px">
+      <div class="card-title"><i aria-hidden="true" data-lucide="users"></i><span data-i18n="config.deploy.title">部署模式与协作签收</span><span style="flex:1"></span><span class="wf-mode" id="cfgDeployBadge">—</span></div>
+      <div class="wf-deploy-row">
+        <div>
+          <p class="cfg-note" style="margin:0" data-i18n="config.deploy.note">单机版默认隐藏「项目签收」；工作组版启用草稿/评审/驳回/签收状态机与审计轨迹。切换只影响入口与流程，不改动既有估算数据。</p>
+        </div>
+        <div class="wf-seg" role="group" aria-label="部署模式">
+          <button class="btn btn-ghost" id="cfgModeStandalone" onclick="saveDeployMode('standalone')" data-i18n="config.deploy.standalone">单机版</button>
+          <button class="btn btn-ghost" id="cfgModeWorkgroup" onclick="saveDeployMode('workgroup')" data-i18n="config.deploy.workgroup">工作组版</button>
+        </div>
+      </div>
+    </div>
     <div class="cfg-grid">
       <div class="glass pad">
         <div class="card-title"><i aria-hidden="true" data-lucide="sparkles"></i><span data-i18n="config.card.llm">大模型识别增强</span></div>
@@ -826,6 +839,65 @@
           </div>
         </div>
       </div>
+    </div>
+  </main>
+
+  <!-- ============ 页面四：项目状态与签收（工作组版） ============ -->
+  <main class="page" id="pg-flow">
+    <div class="card-title" style="margin-bottom:14px">
+      <i aria-hidden="true" data-lucide="badge-check"></i><span data-i18n="flow.title">项目状态与签收</span>
+      <span style="font-size:12px;color:var(--muted);font-weight:400" data-i18n="flow.subtitle">草稿 → 评审 → 驳回/修订 → 签收；每次变更写入人、时间、对象与意见</span>
+      <span style="flex:1"></span>
+      <span class="wf-mode" id="wfModeBadge" data-i18n="flow.mode.workgroup">工作组版</span>
+      <button class="btn btn-ghost" id="wfRefreshBtn" onclick="flowInit(true)" data-i18n="title=flow.refresh_title" title="刷新项目与审计轨迹"><i aria-hidden="true" data-lucide="refresh-cw" style="width:15px;height:15px"></i><span data-i18n="flow.refresh">刷新</span></button>
+    </div>
+    <div class="wf-summary" id="wfSummary">
+      <div class="wf-stat"><b id="wfCountDraft">—</b><span data-i18n="flow.status.draft">草稿</span></div>
+      <div class="wf-stat"><b id="wfCountReview">—</b><span data-i18n="flow.status.review">评审中</span></div>
+      <div class="wf-stat"><b id="wfCountRejected">—</b><span data-i18n="flow.status.rejected">已驳回</span></div>
+      <div class="wf-stat"><b id="wfCountSigned">—</b><span data-i18n="flow.status.signed">已签收</span></div>
+      <div class="wf-hint" data-i18n="flow.summary_hint">单机版不显示此页；工作组版可在配置中心启用。</div>
+    </div>
+    <div class="wf-grid">
+      <section class="glass pad wf-list" aria-labelledby="wfListTitle">
+        <div class="card-title"><i aria-hidden="true" data-lucide="folder-clock"></i><span id="wfListTitle" data-i18n="flow.list.title">项目列表</span><span style="flex:1"></span><span class="tcount" id="wfProjectCount">—</span></div>
+        <div class="search" style="margin-bottom:10px"><i aria-hidden="true" data-lucide="search"></i><input id="wfSearch" data-i18n-ph="flow.search.ph" placeholder="搜索项目标题…" oninput="flowRenderList()"></div>
+        <div id="wfProjects" class="wf-projects"><div class="wf-empty" data-i18n="common.loading">加载中…</div></div>
+      </section>
+      <section class="glass pad wf-detail" aria-labelledby="wfDetailTitle">
+        <div id="wfEmpty" class="wf-empty">
+          <i aria-hidden="true" data-lucide="mouse-pointer-click"></i>
+          <span data-i18n="flow.empty">从左侧选择一个项目，查看状态、版本哈希与完整审计轨迹。</span>
+        </div>
+        <div id="wfDetail" hidden>
+          <div class="wf-detail-head">
+            <div><div class="wf-kicker" data-i18n="flow.detail.kicker">当前项目</div><h2 id="wfDetailTitle">—</h2></div>
+            <span class="wf-badge" id="wfDetailStatus">—</span>
+          </div>
+          <div class="wf-meta" id="wfDetailMeta">—</div>
+          <div class="wf-hash-row"><span data-i18n="flow.hash">版本哈希</span><code id="wfHash">—</code></div>
+          <div class="wf-versions" id="wfVersions"></div>
+          <div class="wf-signed" id="wfSigned" hidden></div>
+          <h3 class="wf-h3" id="wfTimelineTitle" data-i18n="flow.timeline">审计轨迹</h3>
+          <div class="wf-timeline" id="wfTimeline" tabindex="0" role="region" aria-labelledby="wfTimelineTitle"></div>
+          <div class="wf-form" id="wfForm">
+            <h3 class="wf-h3" data-i18n="flow.action.title">状态操作</h3>
+            <div class="wf-form-grid">
+              <label><span data-i18n="flow.actor">操作人</span><input id="wfActor" value="评估师" data-i18n-ph="flow.actor.ph" placeholder="填写姓名"></label>
+              <label><span data-i18n="flow.role">角色</span><select id="wfRole"><option value="评估师" data-i18n="flow.role.evaluator">评估师</option><option value="项目经理" data-i18n="flow.role.pm">项目经理</option><option value="产品经理" data-i18n="flow.role.product">产品经理</option><option value="财务审核" data-i18n="flow.role.finance">财务审核</option></select></label>
+            </div>
+            <label class="wf-opinion"><span data-i18n="flow.opinion">意见</span><textarea id="wfOpinion" rows="3" data-i18n-ph="flow.opinion.ph" placeholder="驳回与签收必填；提交评审可填写说明"></textarea></label>
+            <div class="wf-actions">
+              <button class="btn btn-primary" id="wfSubmitBtn" onclick="flowAct('submit_review')"><i aria-hidden="true" data-lucide="send" style="width:14px;height:14px"></i><span data-i18n="flow.btn.submit">提交评审</span></button>
+              <button class="btn btn-ghost" id="wfRejectBtn" onclick="flowAct('reject')"><i aria-hidden="true" data-lucide="circle-x" style="width:14px;height:14px"></i><span data-i18n="flow.btn.reject">驳回</span></button>
+              <button class="btn btn-ghost" id="wfReviseBtn" onclick="flowAct('revise')"><i aria-hidden="true" data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span data-i18n="flow.btn.revise">修订</span></button>
+              <button class="btn btn-primary" id="wfSignBtn" onclick="flowAct('sign')"><i aria-hidden="true" data-lucide="badge-check" style="width:14px;height:14px"></i><span data-i18n="flow.btn.sign">签收</span></button>
+              <button class="btn btn-ghost" id="wfReportBtn" onclick="flowReport()"><i aria-hidden="true" data-lucide="file-down" style="width:14px;height:14px"></i><span data-i18n="flow.btn.report">生成签收报告</span></button>
+            </div>
+            <div class="wf-msg" id="wfMsg" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 

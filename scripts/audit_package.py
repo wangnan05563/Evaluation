@@ -78,6 +78,7 @@ td.rm, td.det { white-space:nowrap; }
 .watermark { position:fixed; top:42%; left:12%; transform:rotate(-24deg); font-size:38pt; font-weight:800; letter-spacing:.1em; color:#2563eb; opacity:.07; z-index:-1; }
 .sign { display:grid; grid-template-columns:repeat(2,1fr); gap:4mm; margin-top:4mm; }
 .sign div { border:1px solid var(--line); min-height:22mm; padding:2.5mm; color:var(--muted); }
+table.signoff-fixed .hash { font-family:monospace; font-size:6.4pt; word-break:break-all; }
 .footer-note { color:var(--muted); font-size:8.3pt; margin-top:5mm; }
 @page { size:A4; margin:16mm 14mm 18mm; }
 @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
@@ -171,6 +172,10 @@ def _normalize(payload):
     canonical = json.dumps({"project": project, "items": normalized, "method": method, "timing": timing,
                             "cx_mode": cx_mode}, ensure_ascii=False, sort_keys=True)
     version_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+    # T06198：签收报告使用 workflow 冻结的版本哈希，保证签收页与项目状态页一致。
+    override = str(payload.get("version_hash") or "").strip().lower()
+    if re.fullmatch(r"[0-9a-f]{16}", override):
+        version_hash = override
     return {
         "project": project, "items": normalized, "summary": totals, "trace_rows": trace_rows,
         "method": method, "timing": timing, "cx_mode": cx_mode, "version_hash": version_hash,
@@ -421,10 +426,19 @@ def _signoff(ctx):
     ]) + "</tr>" for r in roles if isinstance(r, dict))
     opinions = s.get("opinions") if isinstance(s.get("opinions"), list) else []
     ops = "".join(f"<li>{_esc(x)}</li>" for x in opinions) or "<li>无驳回意见；待签收。</li>"
+    signed_at = str(s.get("signed_at") or "").strip()
+    conclusion = ""
+    if signed_at:
+        conclusion = f'''<h3>签收结论</h3>
+<table class="signoff-fixed"><tr><th>签收人</th><th>签收时间</th><th>签收意见</th><th>版本哈希（完整）</th></tr>
+<tr><td>{_esc(s.get("signer") or "—")}</td><td>{_esc(signed_at)}</td><td>{_esc(s.get("opinion") or "—")}</td>
+<td class="hash">{_esc(s.get("version_hash") or "—")}</td></tr></table>
+<div class="note">该签收记录由项目状态机写入 workflow_events，PDF 与本版本快照绑定；签收后当前版本冻结。</div>'''
     return f'''<section class="part"><h2>7. 签收页</h2>
 <p>签收后版本冻结；任何范围、费率或模型变更须走变更单并生成新版本。版本哈希用于确认本 PDF 对应的输入快照。</p>
 <table><tr><th>角色</th><th>姓名</th><th>状态</th><th>时间</th></tr>{rows}</table>
 <h3>评审意见</h3><ul>{ops}</ul>
+{conclusion}
 <div class="note">版本：{_esc(ctx["project"]["version"])}　｜　版本哈希：{_esc(ctx["version_hash"])}　｜　页数：以页脚 n / N 为准　｜　密级：{_esc(ctx["project"]["classification"])}</div>
 <div class="sign"><div>项目经理签字：<br><br></div><div>审核人签字：<br><br></div><div>财务签字：<br><br></div><div>客户代表签字：<br><br></div></div>
 <div class="footer-note">— 本审计包由本地引擎生成；无外部链接；字体随 PDF 子集嵌入。—</div>
@@ -516,7 +530,7 @@ def _outline_and_links(pdf_path, pages, html_rows):
     return links
 
 
-def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows):
+def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows, budget_ms=30000):
     import fitz
     doc = fitz.open(pdf_path)
     text = "\n".join(p.get_text("text") for p in doc)
@@ -546,13 +560,13 @@ def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows):
     trace_ok = len(ctx["trace_rows"]) == len(ctx["items"]) and all(
         t["paragraph"] and t["rule"] and t["formula"] and t["version"] and t["req"] and t["ac"]
         for t in ctx["trace_rows"])
-    budget_ok = elapsed_ms <= 30000
+    budget_ok = elapsed_ms <= budget_ms
     result = {
         "ok": bool(parts_present and toc_ok and watermark_pages == doc.page_count and footer_pages >= doc.page_count - 1
                    and embedded and len(links_now) >= detail_rows * 2 and trace_ok and budget_ok),
         "engine": "chromium-printToPDF + PyMuPDF links",
         "pdf": str(pdf_path), "pages": doc.page_count, "size_bytes": os.path.getsize(pdf_path),
-        "elapsed_ms": elapsed_ms, "budget_ms": 30000, "budget_ok": budget_ok,
+        "elapsed_ms": elapsed_ms, "budget_ms": budget_ms, "budget_ok": budget_ok,
         "render_ms_pass1": render_meta.get("render_ms"),
         "render_ms_pass2": render_meta.get("render_ms"), "detail_rows": detail_rows,
         "trace_rows": len(ctx["trace_rows"]), "trace_links": len(links_now),
@@ -567,8 +581,12 @@ def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows):
     return result
 
 
-def generate(payload, out_dir, filename=None):
-    """生成七部分审计包；返回指标 dict。测试/服务端共用同一入口。"""
+def generate(payload, out_dir, filename=None, budget_ms=30000):
+    """生成七部分审计包；返回指标 dict。测试/服务端共用同一入口。
+
+    budget_ms 由调用方决定：常规审计包保持 30 秒验收线；签收报告允许冷启动
+    更宽的时间窗，但仍记录实际耗时，便于后续收敛。
+    """
     t0 = time.time()
     # 清理上次渲染遗留的 Chrome profile；Windows 下浏览器占用时不强删。
     for old in Path(tempfile.gettempdir()).glob("we_pdf_*"):
@@ -604,7 +622,7 @@ def generate(payload, out_dir, filename=None):
             tmp.unlink()
         except OSError:
             pass
-    result = _inspect(final, ctx, pages, int((time.time() - t0) * 1000), links, meta2, detail_rows)
+    result = _inspect(final, ctx, pages, int((time.time() - t0) * 1000), links, meta2, detail_rows, budget_ms)
     result["html"] = str(html_path)
     result["download_name"] = final.name
     result["version_hash"] = ctx["version_hash"]

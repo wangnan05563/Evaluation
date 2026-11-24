@@ -220,6 +220,8 @@ $("#goRes").addEventListener("click",async ()=>{
     }
     if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
     if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+    if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
+    window.lastWorkflowProject=res.version_group||"";
     if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
     const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
     await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");

@@ -384,6 +384,7 @@ function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
 function goPage(p){
+  if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
   if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
@@ -392,6 +393,7 @@ function goPage(p){
   if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
   if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
   if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
+  if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
   if(p==="fast")fastRender();     // M6/FR-2.1：快算页
   if(p==="pert")pertInit();
   if(p==="help")loadAppInfo();
@@ -740,6 +742,7 @@ async function bindConfig(){
     llmCfg=res.config||{llm:LLM_DEFAULTS,provider:"openai"};
     llmCfg.llm=llmCfg.llm||LLM_DEFAULTS;
     renderConfigFields();
+    if(typeof applyDeploymentMode==="function")applyDeploymentMode((llmCfg.deployment||{}).mode||"standalone");   // T06198：部署模式回显
     // 回显项目上下文目录配置与已渲染摘要
     await bindContextSection();
     renderUpdateSection(res);
