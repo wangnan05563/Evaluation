@@ -29,6 +29,7 @@ const suites = [
   { id: 'theme-studio', script: 'tests/phase3/ui_theme_studio.mjs', timeout: 180000 },
   { id: 'ui-kit', script: 'tests/phase3/ui_ui_kit.mjs', timeout: 120000 },
   { id: 'review-workbench', script: 'tests/phase3/ui_review_workbench.mjs', timeout: 180000 },
+  { id: 'evidence-confidence', script: 'tests/phase3/ui_evidence_confidence.mjs', timeout: 180000 },
   { id: 'long-task', script: 'tests/phase3/ui_long_task.mjs', timeout: 120000 },
   { id: 'audit-package', script: 'tests/phase3/ui_audit_package.mjs', timeout: 120000 },
   { id: 'present-share', script: 'tests/phase3/ui_present_share.mjs', timeout: 120000 },

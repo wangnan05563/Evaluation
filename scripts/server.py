@@ -26,6 +26,7 @@ import pert
 import diag_redact
 import secret_store
 import theme_tokens
+import evidence
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -431,6 +432,7 @@ def _recog_job_run(job_id, run_id):
             source = "request" if ("llm_enabled" in params or params.get("enabled")) else "saved"
             meta = {"params_received": params, "llm": llm_meta, "llm_source": source,
                     "llm_enabled_effective": bool((job.get("llm") or {}).get("enabled")),
+                    "evidence": evidence.summary(local_items),
                     "rules": (RULES.version() if RULES else {"rules_version": 0})}
             _recog_job_progress(job_id, run_id, 100, "识别完成")
             _recog_job_patch_current(job_id, run_id, status="done", canceled=False,
@@ -1474,12 +1476,14 @@ def _llm_enhance(path, items, llm):
         return {"enabled": True, "error": f"{type(e).__name__}: {e}", "added": 0}
     if not extra:
         llm_meta["added"] = 0
-        return llm_meta
-    # LLM 补全的项追加到尾部，basis 标记来源
-    for x in extra:
-        x["basis"] = (x.get("basis") or "") + " [LLM补全]"
-    items.extend(extra)
-    llm_meta["added"] = len(extra)
+    else:
+        # LLM 补全的项追加到尾部，basis 标记来源
+        for x in extra:
+            x["basis"] = (x.get("basis") or "") + " [LLM补全]"
+        items.extend(extra)
+        llm_meta["added"] = len(extra)
+    stats = evidence.attach(items, path, llm_meta=llm_meta)
+    llm_meta["evidence"] = stats
     return llm_meta
 
 
@@ -1518,6 +1522,12 @@ def recognize_local(path, progress=None):
 
     for i, it in enumerate(items, 1):
         it["seq"] = i
+    # T06195：所有规则候选先绑定真实原文证据与置信度；LLM 补全项在 _llm_enhance 中再校验
+    try:
+        evidence.attach(items, path, model=evidence.LOCAL_MODEL,
+                        prompt_version=evidence.RULES_PROMPT_VERSION)
+    except Exception as e:
+        print(f"[evidence] 规则候选证据绑定失败（不阻断识别）: {type(e).__name__}: {e}", flush=True)
     # T01481 P0-3 防御性释放：识别结果已是纯 dict，doc 的 lxml/libxml2 解析树
     # 不再被引用；显式 del + 强制 GC，避免大文档并发下工作集漂移（原生内存 tracemalloc 不可见）
     del doc
@@ -1797,6 +1807,10 @@ def _normalize_extras(arr, local_items):
             "m1": x.get("count_item", ""), "m2": "", "desc": x.get("desc", ""),
             "count_item": x.get("count_item", ""), "type": t,
             "reuse": "中", "modify": "新增",
+            "confidence": x.get("confidence"),
+            "evidence": x.get("evidence") if isinstance(x.get("evidence"), list) else [],
+            "evidence_quote": x.get("evidence_quote") or x.get("quote") or "",
+            "origin": "llm", "_llm_added": True,
         })
     return extras
 
@@ -1815,14 +1829,19 @@ def _llm_refine(path, local_items, llm):
                     "type": it.get("type"), "system": it.get("system")} for it in local_items]
     system = _llm_system_prompt(
         "你是 IFPUG 功能点识别助手。基于需求文档片段和本地初识结果，"
-        "指出本地漏检的功能点（最多补充 5 条），每条只输出 JSON 对象，不要任何解释。"
-        "字段：count_item(计数项名称), desc(一句话说明), type(ILF/EIF/EI/EO/EQ 之一), system(子系统名)。"
+        "指出本地漏检的功能点（最多补充 5 条）。每条建议必须附带文档原文证据："
+        "evidence_quote 必须是【文档片段】中逐字出现的连续文本，不得改写或编造；"
+        "并给出 0~1 的置信度 confidence。找不到原文证据时不要输出该条。"
+        "每条只输出 JSON 对象，不要任何解释。"
+        "字段：count_item(计数项名称), desc(一句话说明), type(ILF/EIF/EI/EO/EQ 之一), "
+        "system(子系统名), confidence(0~1), evidence_quote(逐字原文片段)。"
     )
     user = (
         _project_prompt_prefix() +
         "【本地初识】\n" + json.dumps(local_brief, ensure_ascii=False) +
         "\n\n【文档片段】\n" + excerpt +
-        "\n\n【输出】仅返回一个 JSON 数组，元素形如 {count_item, desc, type, system}；无补充则返回 []。"
+        "\n\n【输出】仅返回一个 JSON 数组，元素形如 "
+        "{count_item, desc, type, system, confidence, evidence_quote}；无补充则返回 []。"
     )
     body = json.dumps({
         "model": llm["model"],
@@ -1839,7 +1858,9 @@ def _llm_refine(path, local_items, llm):
     dt = round(time.time() - t0, 2)
     content = resp["choices"][0]["message"]["content"].strip()
     extras = _normalize_extras(_extract_json_array(content), local_items)
-    meta = {"enabled": True, "url": url, "model": llm["model"], "elapsed_s": dt, "added": len(extras)}
+    meta = {"enabled": True, "url": url, "model": llm["model"], "elapsed_s": dt,
+            "added": len(extras), "prompt_version": evidence.PROMPT_VERSION,
+            "created_at": evidence.now_iso(), "evidence_required": True}
     return extras, meta
 
 
@@ -2473,6 +2494,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "items": items, "summary": summary,
                                     "meta": {"params_received": params, "llm": llm_meta, "llm_source": source,
                                              "llm_enabled_effective": llm["enabled"],
+                                             "evidence": evidence.summary(items),
                                              "rules": (RULES.version() if RULES else {"rules_version": 0})}})
 
     def _post_recognize_jobs(self, raw):
@@ -2857,6 +2879,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, **_m("gen.over_range", "确认功能点 {n} 条超出合理范围（>2000），请核对后再生成。",
                 n=len(its))})
         items = self._normalize_gen_items(its)
+        # AC-19：AI 候选无原文证据不得确认，也不得进入成品表/自动出表。
+        bad_evidence = evidence.validate_confirmable(items)
+        if bad_evidence:
+            _gen_progress_set(job, 100, "生成失败：存在无原文证据的 AI 候选", done=True,
+                              error=f"无原文证据候选 {len(bad_evidence)} 项")
+            return self._json(400, {"ok": False,
+                                    **_m("gen.evidence_required",
+                                        "存在 {n} 项 AI 候选没有原文证据，不能确认或生成结果。请回到复核页补充证据。",
+                                        n=len(bad_evidence)),
+                                    "items": bad_evidence})
         method = payload.get("method", "估算功能点")
         try:
             cx_mode = engine.normalize_cx_mode(payload.get("cx_mode"))

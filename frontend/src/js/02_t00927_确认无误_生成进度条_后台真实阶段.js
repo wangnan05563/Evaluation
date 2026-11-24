@@ -172,7 +172,7 @@ function showRecalcState(mode,job){
    字段口径与顺序完全不变（服务端按 key 取值，顺序无关但保持原样便于比对）。 */
 function buildGeneratePayload(job){
   return {
-    items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx})),
+    items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})),
     method:$("#methodSel").value,
     cx_mode:(typeof cxMode!=='undefined'?cxMode:'企业母版'),
     title:(reopenCtx&&reopenCtx.title)?reopenCtx.title:(curFile&&curFile.name)?curFile.name.replace(/\.(docx|doc|pdf)$/i,''):"",

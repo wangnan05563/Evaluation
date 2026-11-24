@@ -42,7 +42,7 @@
   }
   function lowPending(){
     if(typeof items === 'undefined' || !items) return [];
-    return items.filter(it => !it.ok && RWB.level(it) === 'low');
+    return items.filter(it => !it.ok && RWB.level(it) === 'low' && (typeof window.canConfirmItem!=='function'||window.canConfirmItem(it)));
   }
   function updateSmartBtn(){
     const btn = document.getElementById('smartReview');

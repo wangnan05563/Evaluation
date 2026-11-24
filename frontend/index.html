@@ -719,6 +719,14 @@ body.cmdk-lock{overflow:hidden}
 .rwb-risk-item.medium .rwb-risk-dot{background:var(--warn)}
 .rwb-risk-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rwb-risk-score{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rwb-risk-conf{font-size:9px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--line-2);border-radius:4px;padding:1px 4px}
+.rwb-risk-conf.low{color:var(--danger-ink);background:var(--danger-soft)}
+.rwb-risk-conf.mid{color:var(--warn-ink);background:var(--warn-soft)}
+.rwb-conf-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.rwb-conf-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--ff)}
+.rwb-conf-btn.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.rwb-conf-btn b{font-size:10px;font-variant-numeric:tabular-nums;margin-left:4px}
+.rwb-noev{font-size:10px;color:var(--danger-ink);margin-left:auto}
 .rwb-risk-clear{margin-top:8px;border:0;background:transparent;color:var(--brand);font-size:11px;cursor:pointer;padding:4px 6px}
 .rwb-empty{font-size:12px;color:var(--muted);padding:8px 4px}
 
@@ -760,6 +768,34 @@ body.cmdk-lock{overflow:hidden}
 .rwb-state{font-size:11px;font-weight:600;margin-left:auto}
 .rwb-state.ok{color:var(--ok)}
 .rwb-state.pending{color:var(--warn)}
+.rwb-state.blocked{color:var(--danger-ink)}
+.rwb-conf-badge{display:inline-flex;align-items:center;margin-left:4px;padding:1px 6px;border-radius:5px;background:var(--line-2);color:var(--ink-2);font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rwb-conf-badge.low{background:var(--danger-soft);color:var(--danger-ink)}
+.rwb-conf-badge.mid{background:var(--warn-soft);color:var(--warn-ink)}
+.rwb-conf-badge.high{background:var(--ok-soft);color:var(--ok-ink)}
+.rwb-evidence-list{display:flex;flex-direction:column;gap:7px}
+.rwb-evidence-card{display:grid;grid-template-columns:1fr auto;gap:3px 8px;width:100%;text-align:left;border:1px solid var(--line-2);border-left:3px solid var(--brand);border-radius:0 8px 8px 0;background:var(--surface-2);padding:8px 9px;font-family:var(--ff);cursor:pointer}
+.rwb-evidence-card:hover{border-color:var(--brand)}
+.rwb-evidence-loc{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--brand-ink);font-weight:700}
+.rwb-evidence-loc .lic{width:12px;height:12px}
+.rwb-evidence-quote{grid-column:1 / -1;font-size:12px;line-height:1.6;color:var(--ink-2);overflow-wrap:anywhere}
+.rwb-evidence-open{font-size:10px;color:var(--brand);white-space:nowrap}
+.rwb-ev-count{font-size:10px;color:var(--muted);font-weight:600;background:var(--line-2);border-radius:5px;padding:1px 5px}
+.rwb-source-view{margin-top:8px;border:1px solid var(--brand);border-radius:8px;background:var(--brand-soft);padding:8px 9px}
+.rwb-source-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:11px;color:var(--brand-ink)}
+.rwb-source-close{border:0;background:transparent;color:var(--ink-2);cursor:pointer;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px}
+.rwb-source-close:hover{background:var(--line-2)}
+.rwb-source-close .lic{width:13px;height:13px}
+.rwb-source-context{font-size:12px;line-height:1.8;color:var(--ink);overflow-wrap:anywhere;white-space:pre-wrap}
+.rwb-source-context mark{background:#fde68a;color:var(--ink);padding:1px 2px;border-radius:3px}
+.rwb-noev-box{margin-top:6px;border:1px dashed var(--danger-soft);border-radius:8px;padding:8px 9px;background:var(--danger-soft)}
+.rwb-noev-box p{font-size:11px;line-height:1.6;margin:0 0 7px;color:var(--danger-ink)}
+.rwb-add-label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}
+.rwb-add-quote,.rwb-add-locator{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-family:var(--ff);font-size:11px;padding:6px 7px}
+.rwb-add-quote{resize:vertical;min-height:56px}
+.rwb-add-row{display:flex;gap:6px;margin-top:6px;align-items:center}
+.rwb-add-row .rwb-add-locator{flex:1;min-width:0}
+.rwb-add-row .btn{padding:5px 8px;font-size:11px;white-space:nowrap}
 .rwb-ev-sec{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}
 .rwb-ev-sec h3{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 8px}
 .rwb-ev-sec h3 .lic{width:14px;height:14px;color:var(--brand)}
@@ -2320,7 +2356,38 @@ function a11yLabelControls(root=document){
 }
 a11yLabelControls();
 document.addEventListener("DOMContentLoaded",()=>{a11yLabelControls();setTimeout(()=>a11yLabelControls(),600);});
-function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
+function confidenceOf(it){
+  if(!it)return null;
+  const v=it.confidence;
+  if(v==null||v==="")return null;
+  const n=Number(v);
+  if(!Number.isFinite(n))return null;
+  return Math.max(0,Math.min(1,n>1?n/100:n));
+}
+function confBadge(it){
+  const c=confidenceOf(it);
+  if(c==null)return "";
+  const pct=Math.round(c*100), lv=c<0.70?"low":c<0.85?"mid":"high";
+  const label=(typeof tf==="function")?tf("review.confidence.short",{n:pct}):"置信 "+pct+"%";
+  return `<span class="rwb-conf-badge ${lv}" title="${escAttr(label)}">${escAttr(label)}</span>`;
+}
+function isAiOrigin(it){
+  return !!it && (it.origin==="ai"||it.origin==="llm"||it.origin==="rule");
+}
+window.isAiOrigin=isAiOrigin;
+function canConfirmItem(it){
+  if(!it)return false;
+  if(it.can_confirm===false)return false;
+  if(it.origin==="manual")return true;
+  if(isAiOrigin(it)){
+    return Array.isArray(it.evidence)&&it.evidence.some(e=>e&&String(e.quote||"").trim());
+  }
+  return true;   // 历史数据/粘贴导入未标记来源，保持旧交互不变
+}
+window.canConfirmItem=canConfirmItem;
+window.confidenceOf=confidenceOf;
+window.confBadge=confBadge;
+function badge(it){return (it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>')+confBadge(it);}
 function cxInt(v,d){const n=Number.parseInt(v,10);return Number.isFinite(n)?n:d;}
 function cxDefaultDet(type){return (type==='ILF'||type==='EIF')?20:10;}
 function stdComplexity(it){
@@ -2418,6 +2485,7 @@ function visibleItems(){  // 筛选（叠加 AND，仅隐藏不丢数据）+ 搜
     arr=[...arr].sort((a,b)=>{const va=key==="us"?us(a):a[key],vb=key==="us"?us(b):b[key];
       return (va>vb?1:va<vb?-1:0)*dir;});}
   else if(window.RWB&&RWB.riskSort) arr=[...arr].sort((a,b)=>RWB.score(b)-RWB.score(a));
+  else if(window.RWB&&RWB.confSort) arr=RWB.sortByConfidence(arr);
   return arr;
 }
 function syncSysFilter(){const sel=$("#fSys");if(!sel)return;
@@ -2453,8 +2521,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
 function rowHTML(it,lite){
+  const blocked=!canConfirmItem(it);
+  const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
   if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
-      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
       <div class="ct-c" role="gridcell">${escAttr(it.cx||'')}</div>
@@ -2462,7 +2532,7 @@ function rowHTML(it,lite){
       <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
     </div>`;
   return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
-      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div>${it.stable_id?`<div style="font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px" title="稳定功能ID">${escAttr(it.stable_id)}</div>`:''}<div class="basis">${it.basis||''}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap">${typeCell(it)}${cxMode==='标准IFPUG'?stdCxHTML(it):cxCellHTML(it)}</div></div>
@@ -2504,9 +2574,15 @@ $("#tbody").addEventListener("change",e=>{
   const ck=e.target.closest(".ck");
   if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
     if(!it)return;
+    if(ck.checked && !canConfirmItem(it)){
+      ck.checked=false;
+      if(window.toast)toast(t("review.evidence.no_confirm"));
+      return;
+    }
     if(it.ok===ck.checked)return;
     pushUndo("确认状态");
     it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+    if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
     const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
     window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
     if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
@@ -2557,10 +2633,20 @@ function filterSys(node){
 function toggleAllCk(v){
   if(!items.length)return;
   pushUndo("批量确认");
-  items.forEach(it=>it.ok=!!v);
+  let blocked=0;
+  const nowIso=()=>new Date().toISOString();
+  items.forEach(it=>{
+    if(v && !canConfirmItem(it)){blocked++;return;}
+    it.ok=!!v;
+    if(isAiOrigin(it)){
+      it.human_decision=v?"confirmed":"unconfirmed";
+      it.decision_at=v?nowIso():null;
+    }
+  });
   render();
   saveFormState();updateUndoUI();
-  toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
+  if(blocked)toast((typeof tf==="function")?tf("review.evidence.blocked_n",{n:blocked}):("有 "+blocked+" 项无原文证据，已跳过确认"));
+  else toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
 }
 function goStep(s){document.body.dataset.step=s;
   const v=document.querySelector(`#v-${s}`);if(v){v.classList.remove("step-anim");void v.offsetWidth;v.classList.add("step-anim");}   // FR-3.4：步骤过渡（reduced-motion 下自动禁用）
@@ -2578,6 +2664,7 @@ function goStepNav(s){
 
 /* ============ 页面导航 ============ */
 let llmCfg=null;  // 配置中心当前配置（含 provider 与 llm）
+let lastRecogMeta=null;  // T06195：最近一次识别的 meta（模型/提示词版本/证据覆盖），审计同源
 let providers={};
 let PERT_PHASES=["需求分析","系统设计","开发","实施","公共及远程","现场维护"];
 /* T01556（批次6）：阶段名是数据域值（随项目落库），迁移口径与 GEN_STAGE_KEYS 相同——
@@ -3420,7 +3507,13 @@ document.querySelectorAll(".switch").forEach(s=>{
 // T06180：识别结果落地从点击处理器抽出，供同步旧路径与长任务续跑共用。
 function applyRecognitionResult(res,mk){
   if(items.length)pushUndo("重新识别");
-  items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
+  lastRecogMeta=res.meta||null;
+  window.lastRecogMeta=lastRecogMeta;
+  items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,
+    origin:it.origin||"",confidence:it.confidence,
+    evidence:Array.isArray(it.evidence)?it.evidence:[],
+    can_confirm:it.can_confirm!==false,
+    _ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
   redoStack.length=0;updateUndoUI();
   if(mk)dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
   render();goStep("review");
@@ -3639,7 +3732,7 @@ function showRecalcState(mode,job){
    字段口径与顺序完全不变（服务端按 key 取值，顺序无关但保持原样便于比对）。 */
 function buildGeneratePayload(job){
   return {
-    items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx})),
+    items:items.map(({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})=>({system,m1,desc,count_item,type,reuse,modify,det,ret,ftr,cx,stable_id,origin,confidence,evidence,can_confirm,ai,human_decision,decision_at,basis})),
     method:$("#methodSel").value,
     cx_mode:(typeof cxMode!=='undefined'?cxMode:'企业母版'),
     title:(reopenCtx&&reopenCtx.title)?reopenCtx.title:(curFile&&curFile.name)?curFile.name.replace(/\.(docx|doc|pdf)$/i,''):"",
@@ -4207,10 +4300,11 @@ function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function batchConfirm(){const arr=visibleItems();pushUndo("批量确认");arr.forEach(it=>it.ok=true);render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_confirm",{n:arr.length});toast(tf("batch.confirmed",{n:arr.length}));}
+function markDecision(it,ok){if(!it)return;if((window.isAiOrigin?window.isAiOrigin(it):(it.origin==="ai"||it.origin==="llm"||it.origin==="rule"))||it.origin==="manual"){it.human_decision=ok?"confirmed":"unconfirmed";it.decision_at=new Date().toISOString();}}
+function batchConfirm(){const arr=visibleItems().filter(it=>window.canConfirmItem?window.canConfirmItem(it):true);const skipped=visibleItems().length-arr.length;pushUndo("批量确认");arr.forEach(it=>{it.ok=true;markDecision(it,true);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_confirm",{n:arr.length});toast(skipped?tf("review.evidence.blocked_n",{n:skipped}):tf("batch.confirmed",{n:arr.length}));}
 function batchUnconfirm(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.unconfirm_confirm",{n:arr.length})))return;
-  pushUndo("批量取消确认");arr.forEach(it=>it.ok=false);render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_unconfirm",{n:arr.length});toast(tf("batch.unconfirmed",{n:arr.length}));}
+  pushUndo("批量取消确认");arr.forEach(it=>{it.ok=false;markDecision(it,false);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_unconfirm",{n:arr.length});toast(tf("batch.unconfirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
   pushUndo("批量删除");
@@ -4269,7 +4363,7 @@ function pasteParse(){
 function pasteApply(){
   pushUndo("粘贴导入");
   let seq=items.length?Math.max(...items.map(x=>x.seq)):0;
-  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
+  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,origin:"manual",can_confirm:true,confidence:0.90,evidence:[{kind:"manual",locator:"粘贴导入",quote:r.desc||r.count_item||"人工录入",context:r.desc||r.count_item||"人工录入",verified:true}],_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
   const n=pasteRows.length;pasteClose();render();saveFormState();
   dynClear("#pastePreview");
   toast(tf("batch.paste_applied",{n}));}
@@ -4475,6 +4569,7 @@ function saveFormState(){
       step: document.body.dataset.step || 'upload',
       pertstep: document.body.dataset.pertstep || 'in',
       items, gSummary, gSid, curFile,
+      recogMeta: window.lastRecogMeta||null,
       pertPid, pertItems, pertSummary,
       pertPhase: v('#pertPhase'), pertO: v('#pertO'), pertM: v('#pertM'),
       pertP: v('#pertP'), pertD: v('#pertD'), pertEst: v('#pertEst'),
@@ -4490,6 +4585,7 @@ function saveFormState(){
    恢复口径与调用顺序完全不变。 */
 function assignIfpugState(s){
   items=s.items;gSummary=s.gSummary||null;gSid=s.gSid||null;curFile=s.curFile||null;
+  window.lastRecogMeta=s.recogMeta||null;
   if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel)sel.value=s.cxMode;if(typeof refreshCxHint==='function')refreshCxHint();}
 }
 function renderIfpugState(s){
@@ -6361,7 +6457,7 @@ document.addEventListener('DOMContentLoaded', () => {
    与 01_core.js 的 items/render 协作，不改复核逻辑；证据为同步渲染，点击行到抽屉可见 <300ms。 */
 (function () {
   "use strict";
-  var selSeq = null, filter = "", riskSort = false, dupCache = null, dupSig = "";
+  var selSeq = null, filter = "", riskSort = false, confSort = true, dupCache = null, dupSig = "";
   var drawer = document.getElementById("evidenceDrawer");
   var scrim = document.getElementById("evidenceScrim");
   var outline = document.getElementById("riskOutline");
@@ -6373,6 +6469,34 @@ document.addEventListener('DOMContentLoaded', () => {
     return s.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; });
   }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function isAI(it) {
+    if (window.isAiOrigin) return window.isAiOrigin(it);
+    return !!(it && (it.origin === "ai" || it.origin === "llm" || it.origin === "rule"));
+  }
+  function confidence(it) {
+    if (!it || it.confidence == null || it.confidence === "") return null;
+    var n = Number(it.confidence);
+    if (!isFinite(n)) return null;
+    return clamp(n > 1 ? n / 100 : n, 0, 1);
+  }
+  function confidenceLevel(it) {
+    var c = confidence(it);
+    return c == null ? "none" : c < 0.70 ? "low" : c < 0.85 ? "mid" : "high";
+  }
+  function hasEvidence(it) {
+    return !!(it && Array.isArray(it.evidence) && it.evidence.some(function (e) { return e && String(e.quote || "").trim(); }));
+  }
+  function canConfirm(it) {
+    if (typeof window.canConfirmItem === "function") return window.canConfirmItem(it);
+    return true;
+  }
+  function markDecision(it, ok) {
+    if (!it) return;
+    if (isAI(it) || it.origin === "manual") {
+      it.human_decision = ok ? "confirmed" : "unconfirmed";
+      it.decision_at = new Date().toISOString();
+    }
+  }
   function duplicateSet() {
     var sig = items.length + "|" + (items[0] ? items[0].seq : "") + "|" + (items[items.length - 1] ? items[items.length - 1].seq : "");
     if (dupCache && dupSig === sig) return dupCache;
@@ -6394,6 +6518,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!it.modify) s += 5;
     if (!it.ok) s += 8;
     if (!it.basis) s += 8;
+    var c = confidence(it);
+    if (c != null) s += Math.round((1 - c) * 30);      // 低置信度优先进入高风险队列
+    if (isAI(it) && !hasEvidence(it)) s += 20;
     if (String(it.desc || "").length > 120) s += 5;
     var d = String(it.desc || "").trim();
     if (d && duplicateSet().has(d)) s += 15;
@@ -6414,10 +6541,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return lv === filter;
   }
   function sortRows(arr) { return arr.slice().sort(function (a, b) { return score(b) - score(a); }); }
+  function sortByConfidence(arr) {
+    var withConf = arr.filter(function (it) { return confidence(it) != null; });
+    if (!withConf.length) return arr.slice();
+    return arr.slice().sort(function (a, b) {
+      var ca = confidence(a), cb = confidence(b);
+      if (ca == null && cb != null) return 1;
+      if (cb == null && ca != null) return -1;
+      if (ca != null && cb != null && ca !== cb) return ca - cb;
+      return score(b) - score(a);
+    });
+  }
 
   function counts() {
-    var c = { high: 0, medium: 0, low: 0, pending: 0, done: 0 };
-    items.forEach(function (it) { c[level(it)]++; it.ok ? c.done++ : c.pending++; });
+    var c = { high: 0, medium: 0, low: 0, pending: 0, done: 0, lowConf: 0, noEvidence: 0 };
+    items.forEach(function (it) {
+      c[level(it)]++; it.ok ? c.done++ : c.pending++;
+      if (confidenceLevel(it) === "low") c.lowConf++;
+      if (isAI(it) && !hasEvidence(it)) c.noEvidence++;
+    });
     return c;
   }
 
@@ -6433,26 +6575,24 @@ document.addEventListener('DOMContentLoaded', () => {
     var top = items.slice().sort(function (a, b) { return score(b) - score(a); }).slice(0, 5);
     outline.innerHTML =
       '<div class="rwb-risk-pills">' + riskPill("high", "高风险", c.high) + riskPill("medium", "中风险", c.medium) + riskPill("pending", "待复核", c.pending) + '</div>' +
-      '<div class="rwb-sort-row"><span>按风险优先</span><button type="button" class="rwb-sort-btn' + (riskSort ? " on" : "") + '" onclick="RWB.toggleSort()" aria-pressed="' + riskSort + '">风险排序 ' + (riskSort ? "开" : "关") + '</button></div>' +
+      '<div class="rwb-sort-row"><span>按风险优先</span><button type="button" class="rwb-sort-btn' + (riskSort ? " on" : "") + '" onclick="RWB.toggleSort()" aria-pressed="' + riskSort + '">风险排序 ' + (riskSort ? tl("common.on", "开") : tl("common.off", "关")) + '</button></div>' +
+      '<div class="rwb-conf-row"><button type="button" class="rwb-conf-btn' + (confSort ? " on" : "") + '" onclick="RWB.toggleConfSort()" aria-pressed="' + confSort + '">' +
+      tl("review.confidence.priority", "低置信优先") + ' ' + (confSort ? tl("common.on", "开") : tl("common.off", "关")) + '<b>' + c.lowConf + '</b></button>' +
+      (c.noEvidence ? '<span class="rwb-noev">' + tl("review.evidence.blocked", "无证据") + ' ' + c.noEvidence + '</span>' : '') + '</div>' +
       '<div class="rwb-risk-list-items">' + top.map(function (it) {
-        var lv = level(it), s = score(it);
+        var lv = level(it), s = score(it), cf = confidence(it);
         return '<button type="button" class="rwb-risk-item ' + lv + '" data-seq="' + it.seq + '" onclick="RWB.select(' + it.seq + ')" title="查看证据">' +
-          '<span class="rwb-risk-dot" aria-hidden="true"></span><span class="rwb-risk-name">' + esc(it.desc || it.count_item || "（无描述）") + '</span><span class="rwb-risk-score">' + s + '</span></button>';
+          '<span class="rwb-risk-dot" aria-hidden="true"></span><span class="rwb-risk-name">' + esc(it.desc || it.count_item || "（无描述）") + '</span>' +
+          (cf != null ? '<span class="rwb-risk-conf ' + confidenceLevel(it) + '">' + Math.round(cf * 100) + '%</span>' : '') +
+          '<span class="rwb-risk-score">' + s + '</span></button>';
       }).join("") + '</div>' +
       (filter ? '<button type="button" class="rwb-risk-clear" onclick="RWB.setFilter(\'' + filter + '\')">清除风险筛选</button>' : "");
   }
 
   function aiSuggestion(it) {
     if (it.aiSuggestion || it.ai_suggestion) {
-      return { text: it.aiSuggestion || it.ai_suggestion, confidence: Number(it.confidence || it.aiConfidence || 0.8), source: it.aiSource || "AI 模型", model: it.aiModel || "" };
+      return { text: it.aiSuggestion || it.ai_suggestion, confidence: confidence(it) != null ? confidence(it) : Number(it.confidence || 0.8), source: it.aiSource || "AI 模型", model: it.aiModel || "" };
     }
-    var conf = 0.55;
-    if (it.desc) conf += 0.1;
-    if (it.count_item) conf += 0.06;
-    if (it.system) conf += 0.05;
-    if (it.type) conf += 0.08;
-    if (it.basis) conf += 0.04;
-    conf = clamp(conf, 0.35, 0.92);
     var text;
     if (it.type === "ILF" || it.type === "EIF") {
       text = "建议核对 RET 与 DET 是否覆盖全部记录/数据项；若为外部维护文件，确认 EIF 而非 ILF。";
@@ -6463,34 +6603,127 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       text = "建议先确认功能类别（ILF/EIF/EI/EO/EQ），再核对计数项、重用度与修改类型。";
     }
+    if (isAI(it) || it.evidence) {
+      var c = confidence(it);
+      var ai = it.ai || {};
+      return { text: text, confidence: c == null ? 0 : c,
+        source: it.origin === "llm" || it.origin === "ai" ? "AI 模型" : (it.origin === "manual" ? "人工录入" : "规则识别"),
+        model: ai.model || "", promptVersion: ai.prompt_version || "" };
+    }
+    var conf = 0.55;
+    if (it.desc) conf += 0.1;
+    if (it.count_item) conf += 0.06;
+    if (it.system) conf += 0.05;
+    if (it.type) conf += 0.08;
+    if (it.basis) conf += 0.04;
+    conf = clamp(conf, 0.35, 0.92);
     return { text: text, confidence: conf, source: "本地规则（占位）", model: "" };
   }
 
   function kv(k, v) { return '<div class="rwb-kv"><span>' + k + '</span><b>' + esc(v == null || v === "" ? "—" : v) + '</b></div>'; }
 
+  function evidenceCards(it) {
+    var evs = Array.isArray(it.evidence) ? it.evidence : [];
+    return evs.map(function (ev, idx) {
+      var loc = ev.locator || ("证据 " + (idx + 1));
+      return '<button type="button" class="rwb-evidence-card" onclick="RWB.showSource(' + it.seq + ',' + idx + ')" title="定位原文：' + esc(loc) + '">' +
+        '<span class="rwb-evidence-loc"><i data-lucide="crosshair" aria-hidden="true"></i>' + esc(loc) + '</span>' +
+        '<span class="rwb-evidence-quote">' + esc(ev.quote || "") + '</span>' +
+        '<span class="rwb-evidence-open">' + tl("review.evidence.locate", "定位") + '</span></button>';
+    }).join("");
+  }
+
+  function evidenceSection(it) {
+    var aiOrigin = isAI(it);
+    var evs = Array.isArray(it.evidence) ? it.evidence : [];
+    if (!evs.length && !aiOrigin) return "";
+    var head = '<section class="rwb-ev-sec" id="rwbSecEvidence"><h3><i data-lucide="quote" aria-hidden="true"></i>' +
+      tl("review.evidence.title", "原文证据") + ' <span class="rwb-ev-count">' + evs.length + '</span></h3>';
+    if (evs.length) {
+      return head + '<div class="rwb-evidence-list">' + evidenceCards(it) + '</div>' +
+        '<div id="rwbSourceView" class="rwb-source-view" hidden></div></section>';
+    }
+    return head +
+      '<div class="rwb-noev-box"><p>' + tl("review.evidence.none", "未在原文中定位到证据；该候选不能确认，也不会进入成品表。") + '</p>' +
+      '<label class="rwb-add-label" for="rwbAddQuote">' + tl("review.evidence.add", "补充原文摘录") + '</label>' +
+      '<textarea id="rwbAddQuote" class="rwb-add-quote" rows="3" placeholder="' + tl("review.evidence.add_ph", "粘贴需求文档中的原文片段…") + '"></textarea>' +
+      '<div class="rwb-add-row"><input id="rwbAddLocator" class="rwb-add-locator" value="' + tl("review.evidence.manual", "人工补录") + '" aria-label="证据位置">' +
+      '<button type="button" class="btn btn-ghost" onclick="RWB.addEvidence(' + it.seq + ')">' + tl("review.evidence.save", "补充证据") + '</button></div></div></section>';
+  }
+
   function evidenceHTML(it) {
     var s = score(it), lv = level(it), ai = aiSuggestion(it), pct = Math.round(ai.confidence * 100);
     var catClass = (typeof CATCOLOR !== "undefined" && CATCOLOR[it.type]) ? CATCOLOR[it.type] : "";
+    var aiItem = isAI(it);
+    var blocked = aiItem && !hasEvidence(it);
     var rule = '<div class="rwb-rule-line"><span class="cat ' + catClass + '">' + esc(it.type || "未分类") + '</span>' +
       '<span>复杂度 <b>' + esc(it.cx || "—") + '</b></span><span>UFP <b>' + (window.ufp ? ufp(it) : "—") + '</b></span><span>US <b>' + (window.us ? us(it).toFixed(2) : "—") + '</b></span></div>';
     if (typeof cxMode !== "undefined" && cxMode === "标准IFPUG") {
       rule += '<div class="rwb-kv"><span>DET / RET / FTR</span><b>' + esc(it.det || "—") + ' / ' + esc((it.type === "ILF" || it.type === "EIF") ? (it.ret || "—") : "—") + ' / ' + esc(["EI", "EO", "EQ"].indexOf(it.type) >= 0 ? (it.ftr || "—") : "—") + '</b></div>';
     }
     if (it.basis) rule += '<div class="rwb-basis">' + it.basis + '</div>';
+    var note = ai.model ? '模型：' + esc(ai.model) + ' · ' : '';
+    if (ai.promptVersion) note += '提示词：' + esc(ai.promptVersion) + ' · ';
+    note += aiItem
+      ? '证据来自上传文档的真实段落/表格行；低置信度优先复核。'
+      : '来源为本机规则占位，T06195 接入模型证据后替换；低置信度优先复核。';
     return '<div class="rwb-ev-title">' + esc(it.desc || it.count_item || "（无描述）") + '</div>' +
       '<div class="rwb-ev-meta"><span class="rwb-risk-chip ' + lv + '">' + levelText(lv) + ' ' + s + '/100</span>' +
       (it.stable_id ? '<span class="rwb-sid">' + esc(it.stable_id) + '</span>' : '') +
-      '<span class="rwb-state ' + (it.ok ? "ok" : "pending") + '">' + (it.ok ? "已确认" : "待复核") + '</span></div>' +
+      '<span class="rwb-state ' + (it.ok ? "ok" : blocked ? "blocked" : "pending") + '">' + (it.ok ? "已确认" : blocked ? "无证据" : "待复核") + '</span></div>' +
       '<section class="rwb-ev-sec" id="rwbSecRaw"><h3><i data-lucide="file-text" aria-hidden="true"></i>原文</h3>' +
       '<div class="rwb-quote">' + esc(it.desc || "（无描述）") + '</div>' +
       kv("所属模块", it.system) + kv("计数项", it.count_item) +
       '</section>' +
       '<section class="rwb-ev-sec" id="rwbSecRule"><h3><i data-lucide="ruler" aria-hidden="true"></i>规则</h3>' + rule +
       kv("重用度 / 修改类型", (it.reuse || "—") + " / " + (it.modify || "—")) + '</section>' +
+      evidenceSection(it) +
       '<section class="rwb-ev-sec" id="rwbSecAi"><h3><i data-lucide="sparkles" aria-hidden="true"></i>AI 建议</h3>' +
       '<div class="rwb-ai-head"><span class="rwb-ai-badge">' + esc(ai.source) + '</span><span class="rwb-conf">置信度 ' + pct + '%</span></div>' +
       '<p class="rwb-ai-text">' + esc(ai.text) + '</p>' +
-      '<div class="rwb-ai-note">' + (ai.model ? '模型：' + esc(ai.model) + ' · ' : '') + '来源为本机规则占位，T06195 接入模型证据后替换；低置信度优先复核。</div></section>';
+      '<div class="rwb-ai-note">' + note + '</div></section>';
+  }
+
+  function highlightHTML(context, quote) {
+    context = String(context || ""), quote = String(quote || "");
+    if (!quote) return esc(context);
+    var pos = context.indexOf(quote);
+    if (pos < 0) return esc(context);
+    return esc(context.slice(0, pos)) + '<mark>' + esc(quote) + '</mark>' + esc(context.slice(pos + quote.length));
+  }
+
+  function showSource(seq, idx) {
+    var it = items.find(function (x) { return x.seq === seq; });
+    var ev = it && Array.isArray(it.evidence) ? it.evidence[idx] : null;
+    var box = document.getElementById("rwbSourceView");
+    if (!ev || !box) return;
+    box.hidden = false;
+    box.innerHTML = '<div class="rwb-source-head"><b>' + esc(ev.locator || "原文位置") + '</b>' +
+      '<button type="button" class="rwb-source-close" onclick="RWB.hideSource()" aria-label="关闭原文定位"><i data-lucide="x" aria-hidden="true"></i></button></div>' +
+      '<div class="rwb-source-context">' + highlightHTML(ev.context || ev.quote, ev.quote) + '</div>';
+    if (window.lucide) try { lucide.createIcons({ root: box }); } catch (e) { /* noop */ }
+    if (box.scrollIntoView) box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function hideSource() {
+    var box = document.getElementById("rwbSourceView");
+    if (box) { box.hidden = true; box.innerHTML = ""; }
+  }
+
+  function addEvidence(seq) {
+    var it = items.find(function (x) { return x.seq === seq; });
+    if (!it) return;
+    var quoteEl = document.getElementById("rwbAddQuote");
+    var locEl = document.getElementById("rwbAddLocator");
+    var quote = quoteEl ? String(quoteEl.value || "").trim() : "";
+    if (!quote) { toast(tl("review.evidence.need_quote", "请先粘贴原文摘录")); return; }
+    it.evidence = [{ kind: "manual", locator: (locEl && locEl.value || "人工补录"), quote: quote,
+      context: quote, verified: true }];
+    it.can_confirm = true;
+    if (it.confidence == null || Number(it.confidence) < 0.5) it.confidence = 0.5;
+    if (window.render) render();
+    renderEvidence(it);
+    toast(tl("review.evidence.added", "已补充原文证据，可继续复核"));
   }
 
   function renderEvidence(it) {
@@ -6499,12 +6732,15 @@ document.addEventListener('DOMContentLoaded', () => {
       body.innerHTML = '<div class="rwb-ev-empty"><i data-lucide="panel-right" aria-hidden="true"></i><h3>点击任一行查看证据</h3><p>左侧按风险排序，中间表格点击功能项，这里同步显示原文、规则、AI 建议与置信度。</p></div>';
     } else {
       body.innerHTML = evidenceHTML(it);
+      var blocked = isAI(it) && !hasEvidence(it);
       var acts = document.createElement("div"); acts.className = "rwb-ev-actions";
       if (window.UIKIT) {
-        acts.appendChild(UIKIT.button({ label: "定位原文", icon: "crosshair", variant: "secondary", size: "sm", onClick: function () { locate(it.seq); } }));
-        acts.appendChild(UIKIT.button({ label: it.ok ? "取消确认" : "标记确认", icon: it.ok ? "rotate-ccw" : "check", variant: "primary", size: "sm", onClick: function () { toggleConfirm(it.seq); } }));
+        acts.appendChild(UIKIT.button({ label: "定位原文", icon: "crosshair", variant: "secondary", size: "sm", disabled: blocked,
+          title: blocked ? "无原文证据，无法定位" : "定位到原文证据", onClick: function () { if (!blocked) locate(it.seq); } }));
+        acts.appendChild(UIKIT.button({ label: it.ok ? "取消确认" : "标记确认", icon: it.ok ? "rotate-ccw" : "check", variant: "primary", size: "sm", disabled: blocked && !it.ok,
+          title: blocked ? "无原文证据，不能确认" : "确认该项", onClick: function () { toggleConfirm(it.seq); } }));
       } else {
-        acts.innerHTML = '<button class="btn btn-ghost" onclick="RWB.locate(' + it.seq + ')">定位原文</button><button class="btn btn-primary" onclick="RWB.toggleConfirm(' + it.seq + ')">' + (it.ok ? "取消确认" : "标记确认") + '</button>';
+        acts.innerHTML = '<button class="btn btn-ghost"' + (blocked ? " disabled" : "") + ' onclick="RWB.locate(' + it.seq + ')">定位原文</button><button class="btn btn-primary"' + (blocked && !it.ok ? " disabled" : "") + ' onclick="RWB.toggleConfirm(' + it.seq + ')">' + (it.ok ? "取消确认" : "标记确认") + '</button>';
       }
       body.appendChild(acts);
     }
@@ -6542,6 +6778,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__rwbLastMs = Math.round(performance.now() - t0);
   }
   function locate(seq) {
+    var it = items.find(function (x) { return x.seq === seq; });
+    if (it && hasEvidence(it)) showSource(seq, 0);
     var row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]');
     if (!row) { render(); row = document.querySelector('#tbody .rowr[data-seq="' + seq + '"]'); }
     if (!row) return;
@@ -6552,14 +6790,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function toggleConfirm(seq) {
     var it = items.find(function (x) { return x.seq === seq; });
     if (!it) return;
+    if (!it.ok && !canConfirm(it)) {
+      toast(tl("review.evidence.no_confirm", "该项没有原文证据，不能确认；请先补充证据。"));
+      return;
+    }
     if (window.pushUndo) pushUndo("证据抽屉确认");
     it.ok = !it.ok;
+    markDecision(it, it.ok);
     if (window.render) render();
     if (window.ReviewPerf) ReviewPerf.action("toggle_confirm", { seq: it.seq, ok: it.ok });
     if (window.toast) toast(it.ok ? "已确认" : "已取消确认");
   }
   function setFilter(k) { filter = filter === k ? "" : k; render(); }
   function toggleSort() { riskSort = !riskSort; render(); }
+  function toggleConfSort() { confSort = !confSort; render(); }
 
   function bindRows() {
     document.querySelectorAll("#tbody .rowr").forEach(function (row) {
@@ -6600,10 +6844,14 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener("resize", syncInert);
 
   window.RWB = {
-    score: score, level: level, match: match, sortRows: sortRows, onRender: onRender,
+    score: score, level: level, match: match, sortRows: sortRows, sortByConfidence: sortByConfidence, onRender: onRender,
     renderOutline: renderOutline, select: select, locate: locate, toggleConfirm: toggleConfirm,
-    setFilter: setFilter, toggleSort: toggleSort, close: closePanel,
-    get filter() { return filter; }, get riskSort() { return riskSort; }, get selected() { return selSeq; }
+    setFilter: setFilter, toggleSort: toggleSort, toggleConfSort: toggleConfSort,
+    showSource: showSource, hideSource: hideSource, addEvidence: addEvidence,
+    confidence: confidence, confidenceLevel: confidenceLevel, hasEvidence: hasEvidence, canConfirm: canConfirm,
+    close: closePanel,
+    get filter() { return filter; }, get riskSort() { return riskSort; },
+    get confSort() { return confSort; }, get selected() { return selSeq; }
   };
 })();
 
@@ -6825,6 +7073,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildPayload(){
     const timing=$("#timingSel");
     const method=$("#methodSel");
+    const rm=window.lastRecogMeta||null;
+    const lm=(rm&&rm.llm)||{}, ev=(rm&&rm.evidence)||{};
+    const aiItems=(items||[]).map((it,i)=>{
+      const ai=it.ai||{};
+      let conf=it.confidence;
+      let confText="—";
+      if(conf!=null&&conf!==""){const n=Number(conf);if(Number.isFinite(n))confText=Math.round((n>1?n/100:n)*100)+"%";}
+      return {stable_id:it.stable_id||`FP-${String(i+1).padStart(3,"0")}`,
+        model:ai.model||lm.model||"本地规则",
+        prompt_version:ai.prompt_version||lm.prompt_version||"rules-evidence-v1",
+        created_at:ai.created_at||lm.created_at||ev.created_at||"—",
+        confidence:confText,
+        decision:it.human_decision||(it.ok?"confirmed":"pending"),
+        decision_at:it.decision_at||"—"};
+    });
     return {
       project:{
         name:(typeof baseName==="function"?baseName():gSid||"工作量评估").replace(/\.xlsx$/i,""),
@@ -6843,11 +7106,18 @@ document.addEventListener('DOMContentLoaded', () => {
         seq:it.seq||i+1, system:it.system||"", m1:it.m1||"", desc:it.desc||it.count_item||"",
         count_item:it.count_item||"", type:it.type, reuse:it.reuse||"中", modify:it.modify||"新增",
         stable_id:it.stable_id||`FP-${String(i+1).padStart(3,"0")}`,
-        det:it.det, ret:it.ret, ftr:it.ftr, cx:it.cx, basis:it.basis, req:it.req, ac:it.ac
+        det:it.det, ret:it.ret, ftr:it.ftr, cx:it.cx, basis:it.basis, req:it.req, ac:it.ac,
+        origin:it.origin, confidence:it.confidence, evidence:it.evidence,
+        can_confirm:it.can_confirm, ai:it.ai, human_decision:it.human_decision, decision_at:it.decision_at
       })),
       changes:[{type:"首版",detail:"由结果页当前确认清单生成七部分审计包",before:"—",after:"首版"}],
-      ai:{enabled:false,model:"本地规则",prompt_version:"identify-v4",rules_version:"rules-v1",
-          adjustments:"无（结果页数值未经二次人工调整）"},
+      ai:{enabled:!!lm.enabled, model:lm.model||"本地规则",
+          prompt_version:lm.prompt_version||"rules-evidence-v1",
+          created_at:lm.created_at||ev.created_at||new Date().toISOString(),
+          rules_version:(rm&&rm.rules&&rm.rules.rules_version)||"rules-v1",
+          evidence:ev,
+          adjustments:"无（结果页数值未经二次人工调整）",
+          items:aiItems},
       signoff:{roles:[
         {role:"项目经理",name:"—",status:"待签收",time:"—"},
         {role:"产品经理",name:"—",status:"待签收",time:"—"},
@@ -7427,7 +7697,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function lowPending(){
     if(typeof items === 'undefined' || !items) return [];
-    return items.filter(it => !it.ok && RWB.level(it) === 'low');
+    return items.filter(it => !it.ok && RWB.level(it) === 'low' && (typeof window.canConfirmItem!=='function'||window.canConfirmItem(it)));
   }
   function updateSmartBtn(){
     const btn = document.getElementById('smartReview');

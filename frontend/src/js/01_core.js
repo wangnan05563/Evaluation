@@ -66,7 +66,38 @@ function a11yLabelControls(root=document){
 }
 a11yLabelControls();
 document.addEventListener("DOMContentLoaded",()=>{a11yLabelControls();setTimeout(()=>a11yLabelControls(),600);});
-function badge(it){return it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>';}
+function confidenceOf(it){
+  if(!it)return null;
+  const v=it.confidence;
+  if(v==null||v==="")return null;
+  const n=Number(v);
+  if(!Number.isFinite(n))return null;
+  return Math.max(0,Math.min(1,n>1?n/100:n));
+}
+function confBadge(it){
+  const c=confidenceOf(it);
+  if(c==null)return "";
+  const pct=Math.round(c*100), lv=c<0.70?"low":c<0.85?"mid":"high";
+  const label=(typeof tf==="function")?tf("review.confidence.short",{n:pct}):"置信 "+pct+"%";
+  return `<span class="rwb-conf-badge ${lv}" title="${escAttr(label)}">${escAttr(label)}</span>`;
+}
+function isAiOrigin(it){
+  return !!it && (it.origin==="ai"||it.origin==="llm"||it.origin==="rule");
+}
+window.isAiOrigin=isAiOrigin;
+function canConfirmItem(it){
+  if(!it)return false;
+  if(it.can_confirm===false)return false;
+  if(it.origin==="manual")return true;
+  if(isAiOrigin(it)){
+    return Array.isArray(it.evidence)&&it.evidence.some(e=>e&&String(e.quote||"").trim());
+  }
+  return true;   // 历史数据/粘贴导入未标记来源，保持旧交互不变
+}
+window.canConfirmItem=canConfirmItem;
+window.confidenceOf=confidenceOf;
+window.confBadge=confBadge;
+function badge(it){return (it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>')+confBadge(it);}
 function cxInt(v,d){const n=Number.parseInt(v,10);return Number.isFinite(n)?n:d;}
 function cxDefaultDet(type){return (type==='ILF'||type==='EIF')?20:10;}
 function stdComplexity(it){
@@ -164,6 +195,7 @@ function visibleItems(){  // 筛选（叠加 AND，仅隐藏不丢数据）+ 搜
     arr=[...arr].sort((a,b)=>{const va=key==="us"?us(a):a[key],vb=key==="us"?us(b):b[key];
       return (va>vb?1:va<vb?-1:0)*dir;});}
   else if(window.RWB&&RWB.riskSort) arr=[...arr].sort((a,b)=>RWB.score(b)-RWB.score(a));
+  else if(window.RWB&&RWB.confSort) arr=RWB.sortByConfidence(arr);
   return arr;
 }
 function syncSysFilter(){const sel=$("#fSys");if(!sel)return;
@@ -199,8 +231,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
 function rowHTML(it,lite){
+  const blocked=!canConfirmItem(it);
+  const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
   if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
-      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
       <div class="ct-c" role="gridcell">${escAttr(it.cx||'')}</div>
@@ -208,7 +242,7 @@ function rowHTML(it,lite){
       <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
     </div>`;
   return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
-      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''}></div>
+      <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div>${it.stable_id?`<div style="font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px" title="稳定功能ID">${escAttr(it.stable_id)}</div>`:''}<div class="basis">${it.basis||''}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap">${typeCell(it)}${cxMode==='标准IFPUG'?stdCxHTML(it):cxCellHTML(it)}</div></div>
@@ -250,9 +284,15 @@ $("#tbody").addEventListener("change",e=>{
   const ck=e.target.closest(".ck");
   if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
     if(!it)return;
+    if(ck.checked && !canConfirmItem(it)){
+      ck.checked=false;
+      if(window.toast)toast(t("review.evidence.no_confirm"));
+      return;
+    }
     if(it.ok===ck.checked)return;
     pushUndo("确认状态");
     it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+    if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
     const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
     window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
     if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
@@ -303,10 +343,20 @@ function filterSys(node){
 function toggleAllCk(v){
   if(!items.length)return;
   pushUndo("批量确认");
-  items.forEach(it=>it.ok=!!v);
+  let blocked=0;
+  const nowIso=()=>new Date().toISOString();
+  items.forEach(it=>{
+    if(v && !canConfirmItem(it)){blocked++;return;}
+    it.ok=!!v;
+    if(isAiOrigin(it)){
+      it.human_decision=v?"confirmed":"unconfirmed";
+      it.decision_at=v?nowIso():null;
+    }
+  });
   render();
   saveFormState();updateUndoUI();
-  toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
+  if(blocked)toast((typeof tf==="function")?tf("review.evidence.blocked_n",{n:blocked}):("有 "+blocked+" 项无原文证据，已跳过确认"));
+  else toast(t(v?"review.toast.all_ok":"review.toast.all_no"));
 }
 function goStep(s){document.body.dataset.step=s;
   const v=document.querySelector(`#v-${s}`);if(v){v.classList.remove("step-anim");void v.offsetWidth;v.classList.add("step-anim");}   // FR-3.4：步骤过渡（reduced-motion 下自动禁用）
@@ -324,6 +374,7 @@ function goStepNav(s){
 
 /* ============ 页面导航 ============ */
 let llmCfg=null;  // 配置中心当前配置（含 provider 与 llm）
+let lastRecogMeta=null;  // T06195：最近一次识别的 meta（模型/提示词版本/证据覆盖），审计同源
 let providers={};
 let PERT_PHASES=["需求分析","系统设计","开发","实施","公共及远程","现场维护"];
 /* T01556（批次6）：阶段名是数据域值（随项目落库），迁移口径与 GEN_STAGE_KEYS 相同——
@@ -1166,7 +1217,13 @@ document.querySelectorAll(".switch").forEach(s=>{
 // T06180：识别结果落地从点击处理器抽出，供同步旧路径与长任务续跑共用。
 function applyRecognitionResult(res,mk){
   if(items.length)pushUndo("重新识别");
-  items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,_ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
+  lastRecogMeta=res.meta||null;
+  window.lastRecogMeta=lastRecogMeta;
+  items=res.items.map((it,i)=>({...it,seq:i+1,cx:it.cx||"中",ok:false,
+    origin:it.origin||"",confidence:it.confidence,
+    evidence:Array.isArray(it.evidence)?it.evidence:[],
+    can_confirm:it.can_confirm!==false,
+    _ai:{type:it.type,reuse:it.reuse||"中",modify:it.modify||"修改"}}));
   redoStack.length=0;updateUndoUI();
   if(mk)dynText(mk,()=>tf("work.recog.done",{n:items.length})+(res.meta&&res.meta.llm_enabled_effective?t("work.recog.llm_on"):""));
   render();goStep("review");

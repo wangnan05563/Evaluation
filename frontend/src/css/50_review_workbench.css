@@ -20,6 +20,14 @@
 .rwb-risk-item.medium .rwb-risk-dot{background:var(--warn)}
 .rwb-risk-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rwb-risk-score{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rwb-risk-conf{font-size:9px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--line-2);border-radius:4px;padding:1px 4px}
+.rwb-risk-conf.low{color:var(--danger-ink);background:var(--danger-soft)}
+.rwb-risk-conf.mid{color:var(--warn-ink);background:var(--warn-soft)}
+.rwb-conf-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.rwb-conf-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--ff)}
+.rwb-conf-btn.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.rwb-conf-btn b{font-size:10px;font-variant-numeric:tabular-nums;margin-left:4px}
+.rwb-noev{font-size:10px;color:var(--danger-ink);margin-left:auto}
 .rwb-risk-clear{margin-top:8px;border:0;background:transparent;color:var(--brand);font-size:11px;cursor:pointer;padding:4px 6px}
 .rwb-empty{font-size:12px;color:var(--muted);padding:8px 4px}
 
@@ -61,6 +69,34 @@
 .rwb-state{font-size:11px;font-weight:600;margin-left:auto}
 .rwb-state.ok{color:var(--ok)}
 .rwb-state.pending{color:var(--warn)}
+.rwb-state.blocked{color:var(--danger-ink)}
+.rwb-conf-badge{display:inline-flex;align-items:center;margin-left:4px;padding:1px 6px;border-radius:5px;background:var(--line-2);color:var(--ink-2);font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rwb-conf-badge.low{background:var(--danger-soft);color:var(--danger-ink)}
+.rwb-conf-badge.mid{background:var(--warn-soft);color:var(--warn-ink)}
+.rwb-conf-badge.high{background:var(--ok-soft);color:var(--ok-ink)}
+.rwb-evidence-list{display:flex;flex-direction:column;gap:7px}
+.rwb-evidence-card{display:grid;grid-template-columns:1fr auto;gap:3px 8px;width:100%;text-align:left;border:1px solid var(--line-2);border-left:3px solid var(--brand);border-radius:0 8px 8px 0;background:var(--surface-2);padding:8px 9px;font-family:var(--ff);cursor:pointer}
+.rwb-evidence-card:hover{border-color:var(--brand)}
+.rwb-evidence-loc{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--brand-ink);font-weight:700}
+.rwb-evidence-loc .lic{width:12px;height:12px}
+.rwb-evidence-quote{grid-column:1 / -1;font-size:12px;line-height:1.6;color:var(--ink-2);overflow-wrap:anywhere}
+.rwb-evidence-open{font-size:10px;color:var(--brand);white-space:nowrap}
+.rwb-ev-count{font-size:10px;color:var(--muted);font-weight:600;background:var(--line-2);border-radius:5px;padding:1px 5px}
+.rwb-source-view{margin-top:8px;border:1px solid var(--brand);border-radius:8px;background:var(--brand-soft);padding:8px 9px}
+.rwb-source-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:11px;color:var(--brand-ink)}
+.rwb-source-close{border:0;background:transparent;color:var(--ink-2);cursor:pointer;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px}
+.rwb-source-close:hover{background:var(--line-2)}
+.rwb-source-close .lic{width:13px;height:13px}
+.rwb-source-context{font-size:12px;line-height:1.8;color:var(--ink);overflow-wrap:anywhere;white-space:pre-wrap}
+.rwb-source-context mark{background:#fde68a;color:var(--ink);padding:1px 2px;border-radius:3px}
+.rwb-noev-box{margin-top:6px;border:1px dashed var(--danger-soft);border-radius:8px;padding:8px 9px;background:var(--danger-soft)}
+.rwb-noev-box p{font-size:11px;line-height:1.6;margin:0 0 7px;color:var(--danger-ink)}
+.rwb-add-label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}
+.rwb-add-quote,.rwb-add-locator{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-family:var(--ff);font-size:11px;padding:6px 7px}
+.rwb-add-quote{resize:vertical;min-height:56px}
+.rwb-add-row{display:flex;gap:6px;margin-top:6px;align-items:center}
+.rwb-add-row .rwb-add-locator{flex:1;min-width:0}
+.rwb-add-row .btn{padding:5px 8px;font-size:11px;white-space:nowrap}
 .rwb-ev-sec{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}
 .rwb-ev-sec h3{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 8px}
 .rwb-ev-sec h3 .lic{width:14px;height:14px;color:var(--brand)}

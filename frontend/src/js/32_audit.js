@@ -11,6 +11,21 @@
   function buildPayload(){
     const timing=$("#timingSel");
     const method=$("#methodSel");
+    const rm=window.lastRecogMeta||null;
+    const lm=(rm&&rm.llm)||{}, ev=(rm&&rm.evidence)||{};
+    const aiItems=(items||[]).map((it,i)=>{
+      const ai=it.ai||{};
+      let conf=it.confidence;
+      let confText="—";
+      if(conf!=null&&conf!==""){const n=Number(conf);if(Number.isFinite(n))confText=Math.round((n>1?n/100:n)*100)+"%";}
+      return {stable_id:it.stable_id||`FP-${String(i+1).padStart(3,"0")}`,
+        model:ai.model||lm.model||"本地规则",
+        prompt_version:ai.prompt_version||lm.prompt_version||"rules-evidence-v1",
+        created_at:ai.created_at||lm.created_at||ev.created_at||"—",
+        confidence:confText,
+        decision:it.human_decision||(it.ok?"confirmed":"pending"),
+        decision_at:it.decision_at||"—"};
+    });
     return {
       project:{
         name:(typeof baseName==="function"?baseName():gSid||"工作量评估").replace(/\.xlsx$/i,""),
@@ -29,11 +44,18 @@
         seq:it.seq||i+1, system:it.system||"", m1:it.m1||"", desc:it.desc||it.count_item||"",
         count_item:it.count_item||"", type:it.type, reuse:it.reuse||"中", modify:it.modify||"新增",
         stable_id:it.stable_id||`FP-${String(i+1).padStart(3,"0")}`,
-        det:it.det, ret:it.ret, ftr:it.ftr, cx:it.cx, basis:it.basis, req:it.req, ac:it.ac
+        det:it.det, ret:it.ret, ftr:it.ftr, cx:it.cx, basis:it.basis, req:it.req, ac:it.ac,
+        origin:it.origin, confidence:it.confidence, evidence:it.evidence,
+        can_confirm:it.can_confirm, ai:it.ai, human_decision:it.human_decision, decision_at:it.decision_at
       })),
       changes:[{type:"首版",detail:"由结果页当前确认清单生成七部分审计包",before:"—",after:"首版"}],
-      ai:{enabled:false,model:"本地规则",prompt_version:"identify-v4",rules_version:"rules-v1",
-          adjustments:"无（结果页数值未经二次人工调整）"},
+      ai:{enabled:!!lm.enabled, model:lm.model||"本地规则",
+          prompt_version:lm.prompt_version||"rules-evidence-v1",
+          created_at:lm.created_at||ev.created_at||new Date().toISOString(),
+          rules_version:(rm&&rm.rules&&rm.rules.rules_version)||"rules-v1",
+          evidence:ev,
+          adjustments:"无（结果页数值未经二次人工调整）",
+          items:aiItems},
       signoff:{roles:[
         {role:"项目经理",name:"—",status:"待签收",time:"—"},
         {role:"产品经理",name:"—",status:"待签收",time:"—"},

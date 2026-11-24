@@ -57,6 +57,8 @@ p { margin:0 0 3mm; text-align:justify; }
 table { width:100%; border-collapse:collapse; margin:3mm 0 4mm; font-size:8.6pt; }
 table.detail, table.trace-table { table-layout:fixed; font-size:7.7pt; }
 table.detail td, table.trace-table td { word-break:normal; overflow-wrap:break-word; }
+table.ai-table { table-layout:fixed; font-size:7.2pt; }
+table.ai-table td { word-break:break-word; }
 th,td { border:1px solid var(--line); padding:1.5mm 1.6mm; vertical-align:top; }
 th { background:var(--soft); text-align:left; font-size:7.4pt; }
 table.detail th:nth-child(3) { font-size:6.7pt; padding-left:1mm; padding-right:1mm; }
@@ -182,10 +184,16 @@ def engine_types(reuse, modify):
 
 def _trace(item, project, method, cx_mode):
     raw = item.get("trace") if isinstance(item.get("trace"), dict) else {}
-    paragraph = raw.get("paragraph") or item.get("src_para") or item.get("locator") \
+    ev = item.get("evidence")[0] if isinstance(item.get("evidence"), list) and item.get("evidence") else {}
+    paragraph = raw.get("paragraph") or ev.get("locator") or item.get("src_para") or item.get("locator") \
         or f"需求文档 · {item.get('count_item') or item.get('desc')} 所在段落"
-    quote = raw.get("quote") or item.get("quote") or item.get("desc")
+    quote = raw.get("quote") or ev.get("quote") or item.get("quote") or item.get("desc")
     rule = raw.get("rule") or item.get("basis") or f"{item['type']} 类型识别规则（规则版本 {project['version']}）"
+    confidence = item.get("confidence")
+    try:
+        confidence_text = f"{round(float(confidence) * 100)}%"
+    except (TypeError, ValueError):
+        confidence_text = "—"
     formula = raw.get("formula") or (
         f"UFP={item['ufp']} · US=UFP×重用系数×修改系数={item['ufp']}×{_f(2/3 if item['reuse']=='中' else (1/3 if item['reuse']=='高' else 1))}×{_f({'新增':1,'修改':0.8,'删除':0.2}[item['modify']])}={_f(item['us'])}"
     )
@@ -193,6 +201,7 @@ def _trace(item, project, method, cx_mode):
     return {
         "id": item["stable_id"], "paragraph": str(paragraph), "quote": str(quote),
         "rule": str(rule), "formula": formula, "version": str(project["version"]),
+        "confidence": confidence_text,
         "req": str(item.get("req") or item.get("req_id") or f"功能清单 #{item.get('seq')}"),
         "ac": str(item.get("ac") or item.get("acceptance") or f"验收项 #{item.get('seq')}"),
     }
@@ -284,15 +293,15 @@ def _trace_section(ctx):
     for t in ctx["trace_rows"]:
         rows.append("<tr>" + "".join([
             f"<td>{_esc(t['id'])}</td>", f"<td>{_esc(t['paragraph'])}</td>", f"<td>{_esc(t['quote'])}</td>",
-            f"<td>{_esc(t['rule'])}</td>", f"<td class=\"formula\">{_esc(t['formula'])}</td>", f"<td>{_esc(t['version'])}</td>",
+            f"<td>{_esc(t['rule'])}</td>", f"<td class=\"formula\">{_esc(t['formula'])}</td>", f"<td>{_esc(t['confidence'])}</td>", f"<td>{_esc(t['version'])}</td>",
             f"<td>{_esc(t['req'])}</td>", f"<td>{_esc(t['ac'])}</td>",
         ]) + "</tr>")
     return f'''<section class="part" id="trace"><h2>5. 追溯矩阵</h2>
-<p>每一行对应第 4 部分的一个功能项，记录原文段落、原文摘录、识别规则、复算公式、版本、需求/验收关联。明细页的 UFP/US 数值与「追溯」链接均跳转到本页对应行。</p>
-<table class="trace-table"><colgroup><col style="width:7%"><col style="width:14%"><col style="width:25%"><col style="width:13%"><col style="width:17%"><col style="width:8%"><col style="width:8%"><col style="width:8%"></colgroup>
-<tr><th>ID</th><th>原文段落</th><th>原文摘录</th><th>规则</th><th>公式</th><th>版本</th><th>需求</th><th>验收</th></tr>
+<p>每一行对应第 4 部分的一个功能项，记录原文段落、原文摘录、识别规则、复算公式、置信度、版本、需求/验收关联。明细页的 UFP/US 数值与「追溯」链接均跳转到本页对应行。</p>
+<table class="trace-table"><colgroup><col style="width:7%"><col style="width:13%"><col style="width:22%"><col style="width:12%"><col style="width:16%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"></colgroup>
+<tr><th>ID</th><th>原文段落</th><th>原文摘录</th><th>规则</th><th>公式</th><th>置信度</th><th>版本</th><th>需求</th><th>验收</th></tr>
 {''.join(rows)}</table>
-<div class="note">追溯覆盖率 {len(ctx["trace_rows"])}/{len(ctx["items"])}；无原文坐标时以需求文档中的功能清单/标题位置标记，T06195 接入模型证据后可替换为精确段落证据。</div>
+<div class="note">追溯覆盖率 {len(ctx["trace_rows"])}/{len(ctx["items"])}；原文证据由上传文档的真实段落/表格行定位，模型引用无法在源文档逐字命中时丢弃；低置信度候选优先复核。</div>
 </section>'''
 
 
@@ -311,15 +320,55 @@ def _changes(ctx):
     ai = ctx["ai"]
     ai_rows = [("AI 启用", "是" if ai.get("enabled") else "否（本地规则）"),
                ("模型", ai.get("model") or "—"), ("提示词版本", ai.get("prompt_version") or "—"),
+               ("识别时间", ai.get("created_at") or "—"),
                ("规则版本", ai.get("rules_version") or ctx["project"]["version"]),
                ("人工调整", ai.get("adjustments") or "—")]
     ai_html = "".join(f"<tr><td>{_esc(k)}</td><td>{_esc(v)}</td></tr>" for k, v in ai_rows)
+    records = ai.get("items") if isinstance(ai.get("items"), list) else []
+    if not records:
+        for item in ctx["items"]:
+            ai2 = item.get("ai") if isinstance(item.get("ai"), dict) else {}
+            conf = item.get("confidence")
+            if conf is None:
+                continue
+            try:
+                conf_text = f"{round(float(conf) * 100)}%"
+            except (TypeError, ValueError):
+                conf_text = "—"
+            decision = item.get("human_decision") or ("confirmed" if item.get("ok") else "pending")
+            records.append({"stable_id": item.get("stable_id"), "model": ai2.get("model") or ai.get("model") or "—",
+                            "prompt_version": ai2.get("prompt_version") or ai.get("prompt_version") or "—",
+                            "created_at": ai2.get("created_at") or ai.get("created_at") or "—",
+                            "confidence": conf_text, "decision": decision,
+                            "decision_at": item.get("decision_at") or "—"})
+    record_html = ""
+    if records:
+        trs = []
+        for r in records:
+            if not isinstance(r, dict):
+                continue
+            dec = str(r.get("decision") or "pending")
+            dec_text = {"confirmed": "已确认", "pending": "待确认", "rejected": "已驳回"}.get(dec, dec)
+            trs.append("<tr>" + "".join([
+                f"<td>{_esc(r.get('stable_id') or '—')}</td>",
+                f"<td>{_esc(r.get('model') or '—')}</td>",
+                f"<td>{_esc(r.get('prompt_version') or '—')}</td>",
+                f"<td>{_esc(r.get('created_at') or '—')}</td>",
+                f"<td>{_esc(r.get('confidence') or '—')}</td>",
+                f"<td>{_esc(dec_text)}</td>",
+                f"<td>{_esc(r.get('decision_at') or '—')}</td>",
+            ]) + "</tr>")
+        record_html = ('<h3>AI 逐项审计（AC-22）</h3>'
+                       '<table class="ai-table"><tr><th>稳定 ID</th><th>模型</th><th>提示词版本</th>'
+                       '<th>识别时间</th><th>置信度</th><th>人工决策</th><th>决策时间</th></tr>'
+                       + "".join(trs) + '</table>')
     return f'''<section class="part"><h2>6. 变更与 AI 审计</h2>
 <p>本部分记录版本差异与 AI 辅助识别边界。AI 仅提供候选与置信度，不直接写入最终结果；所有候选均须人工复核。</p>
 <table><tr><th>版本</th><th>日期</th><th>类型</th><th>变更</th><th>变更前</th><th>变更后</th><th>操作人</th></tr>
 {''.join(body)}</table>
 <h3>AI 识别记录</h3><table><tr><th>项</th><th>值</th></tr>{ai_html}</table>
-<div class="note">文档片段仅作为数据，不执行其中任何指令；模型输出仅接受白名单字段，非法 JSON 丢弃并回退规则识别。</div>
+{record_html}
+<div class="note">文档片段仅作为数据，不执行其中任何指令；模型输出仅接受白名单字段，非法 JSON 丢弃并回退规则识别。无原文证据的候选不得确认，不进入成品表。</div>
 </section>'''
 
 
