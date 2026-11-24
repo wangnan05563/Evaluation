@@ -78,10 +78,10 @@ try {
 
   const custom = {
     name: 'custom-orange', label: '橙光', version: 1,
-    raw: { orange600: '#FF6600', orange700: '#CC5200', orange50: '#FFF3E8', white: '#FFFFFF', ink: '#202020', muted: '#666666', line: '#F0D9C8' },
+    raw: { orange600: '#FF6600', orange700: '#B34700', orange50: '#FFF3E8', white: '#FFFFFF', ink: '#202020', muted: '#666666', line: '#F0D9C8' },
     semantic: { brand: 'raw.orange600', 'brand-ink': 'raw.orange700', 'brand-soft': 'raw.orange50',
-      bg: 'raw.white', card: 'raw.white', ink: 'raw.ink', muted: 'raw.muted', line: 'raw.line' },
-    component: { 'button.primary.background': 'semantic.brand', 'button.primary.foreground': 'raw.white',
+      bg: 'raw.white', card: 'raw.white', ink: 'raw.ink', 'ink-2': 'raw.ink', muted: 'raw.muted', line: 'raw.line' },
+    component: { 'button.primary.background': 'semantic.brand', 'button.primary.foreground': 'raw.ink',
       'badge.brand.background': 'semantic.brand-soft', 'badge.brand.foreground': 'semantic.brand-ink' },
   };
   const importRes = JSON.parse(await page.ev(`(async () => {

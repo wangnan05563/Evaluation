@@ -137,6 +137,8 @@ async function setLang(lang){
   if(typeof dynPaint === "function") dynPaint();
   // 帮助页更新区的动态状态（检测中/发现新版本/下载进度…）按保存的状态重绘（T01548 批次4a）
   if(typeof verPaint === "function") verPaint();
+  // T06193：主题工作室打开时按新语言重绘动态标签/对比度表
+  if(typeof themeStudioRefresh === "function") themeStudioRefresh();
   // T01556：外置引导脚本若正在演示，按新语言重绘当前卡片
   if(window.WLGuide && window.WLGuide.refresh) window.WLGuide.refresh();
   toast(t("common.lang_switched"));

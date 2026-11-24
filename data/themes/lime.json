@@ -33,7 +33,7 @@
   },
   "component": {
     "button.primary.background": "semantic.brand",
-    "button.primary.foreground": "raw.white",
+    "button.primary.foreground": "raw.slate900",
     "badge.brand.background": "semantic.brand-soft",
     "badge.brand.foreground": "semantic.brand-ink",
     "card.background": "semantic.card",

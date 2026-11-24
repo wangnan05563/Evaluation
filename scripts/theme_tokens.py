@@ -18,8 +18,25 @@ MAX_BYTES = 50 * 1024
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
 VAR_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 REF_RE = re.compile(r"^\{(raw|semantic)\.([A-Za-z0-9_.-]+)\}$")
+HEX_RE = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
 CATEGORIES = ("color", "font", "space", "radius", "shadow", "motion")
+MIN_CONTRAST = 4.5
+
+# T06193：主题工作室保存前的 WCAG 2.2 AA 文字对比度阻断表。
+# 前景/背景都取自 validate() 解析后的 semantic/component 值，避免只校验原始引用。
+CONTRAST_PAIRS = (
+    ("ink_bg", "正文 / 页面背景", ("semantic", "ink"), ("semantic", "bg")),
+    ("ink2_bg", "次级正文 / 页面背景", ("semantic", "ink-2"), ("semantic", "bg")),
+    ("muted_bg", "弱化文字 / 页面背景", ("semantic", "muted"), ("semantic", "bg")),
+    ("ink_card", "正文 / 卡片背景", ("semantic", "ink"), ("semantic", "card")),
+    ("button", "主按钮文字 / 主按钮背景",
+     ("component", "button.primary.foreground"),
+     ("component", "button.primary.background")),
+    ("badge", "品牌徽标文字 / 品牌徽标背景",
+     ("component", "badge.brand.foreground"),
+     ("component", "badge.brand.background")),
+)
 
 
 class ThemeError(ValueError):
@@ -81,6 +98,68 @@ def _resolve(ref, theme, depth=0):
     return ref
 
 
+def _hex_rgb(value):
+    """把 #RGB / #RRGGBB 解析为 0..255 三元组；非十六进制返回 None。"""
+    text = str(value or "").strip()
+    if not HEX_RE.match(text):
+        return None
+    h = text[1:]
+    if len(h) == 3:
+        h = "".join(ch * 2 for ch in h)
+    try:
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def _luminance(rgb):
+    def channel(c):
+        x = c / 255.0
+        return x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4
+    r, g, b = (channel(x) for x in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(fg, bg):
+    """WCAG 相对亮度对比度；任一颜色不可解析时返回 None。"""
+    a, b = _hex_rgb(fg), _hex_rgb(bg)
+    if a is None or b is None:
+        return None
+    la, lb = _luminance(a), _luminance(b)
+    light, dark = max(la, lb), min(la, lb)
+    return (light + 0.05) / (dark + 0.05)
+
+
+def _resolved_pair(layer, key, resolved):
+    return resolved.get(layer, {}).get(key)
+
+
+def contrast_checks(resolved):
+    """返回 (checks, errors)。checks 用于 API/前端展示，errors 用于阻断保存。"""
+    checks, errors = [], []
+    for key, label, fg_ref, bg_ref in CONTRAST_PAIRS:
+        fg = _resolved_pair(fg_ref[0], fg_ref[1], resolved)
+        bg = _resolved_pair(bg_ref[0], bg_ref[1], resolved)
+        if fg is None or bg is None:
+            errors.append(f"对比度检查缺少令牌：{label}")
+            checks.append({"key": key, "label": label, "fg": fg, "bg": bg,
+                           "ratio": None, "min": MIN_CONTRAST, "ok": False})
+            continue
+        ratio = contrast_ratio(fg, bg)
+        if ratio is None:
+            errors.append(f"对比度检查无法解析颜色：{label}（{fg} / {bg}）")
+            checks.append({"key": key, "label": label, "fg": fg, "bg": bg,
+                           "ratio": None, "min": MIN_CONTRAST, "ok": False})
+            continue
+        rounded = round(ratio, 2)
+        ok = ratio >= MIN_CONTRAST
+        if not ok:
+            errors.append(f"对比度不足：{label} = {rounded:.2f}:1（要求 ≥ {MIN_CONTRAST}:1）")
+        checks.append({"key": key, "label": label, "fg": fg, "bg": bg,
+                       "ratio": rounded, "min": MIN_CONTRAST, "ok": ok})
+    return checks, errors
+
+
 def validate(theme):
     """返回 (errors, normalized)。errors 为空才算合法；normalized 带解析后的 css 变量。"""
     errors = []
@@ -132,6 +211,10 @@ def validate(theme):
             errors.append(f"component.{k}: {e}")
     if errors:
         return errors, None
+    resolved = {"semantic": resolved_sem, "component": resolved_comp}
+    checks, contrast_errors = contrast_checks(resolved)
+    if contrast_errors:
+        errors.extend(contrast_errors)
     try:
         if len(json.dumps(theme, ensure_ascii=False).encode("utf-8")) > MAX_BYTES:
             errors.append("主题 JSON 超过 50KB")
@@ -146,8 +229,8 @@ def validate(theme):
         "raw": raw,
         "semantic": sem,
         "component": comp,
-        "resolved": {"semantic": resolved_sem,
-                     "component": {k: v for k, v in resolved_comp.items()}},
+        "resolved": resolved,
+        "contrast": checks,
     }
     return [], normalized
 

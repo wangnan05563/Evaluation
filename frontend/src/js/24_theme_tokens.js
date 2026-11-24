@@ -17,6 +17,8 @@ function themeTokenResolve(theme) {
   Object.keys(comp).forEach(k => { vars["--c-" + k.replace(/\./g, "-")] = String(comp[k]); });
   const brand = comp["button.primary.background"] || sem.brand;
   if (brand) vars["--brand"] = String(brand);
+  const brandFg = comp["button.primary.foreground"];
+  if (brandFg) vars["--on-brand"] = String(brandFg);
   return vars;
 }
 
@@ -26,6 +28,11 @@ function applyThemeTokens(theme) {
   const root = document.documentElement;
   Object.keys(vars).forEach(k => root.style.setProperty(k, vars[k]));
   root.dataset.tokens = theme.name || "custom";
+  // T06193：主题主色同步到报告生成读取的 wl_brand，保证 UI 与报告表头同源。
+  if (theme.resolved && theme.resolved.semantic && theme.resolved.semantic.brand) {
+    localStorage.setItem("wl_brand", String(theme.resolved.semantic.brand));
+    if (typeof brandPaint === "function") brandPaint();
+  }
   if (typeof refreshCharts === "function" && typeof _charts !== "undefined" && Object.keys(_charts || {}).length) {
     try { refreshCharts(); } catch (e) {}
   }
@@ -37,10 +44,12 @@ function themeTokensClear() {
   const names = [];
   for (let i = 0; i < root.style.length; i++) {
     const n = root.style[i];
-    if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
+    if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--on-brand", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
   }
   names.forEach(n => root.style.removeProperty(n));
   delete root.dataset.tokens;
+  localStorage.removeItem("wl_brand");
+  if (typeof brandPaint === "function") brandPaint();
 }
 
 async function themeTokensGet() {
@@ -105,6 +114,7 @@ function themeTokenPanel() {
   div.innerHTML = '<div class="card-title"><span>主题 Token（raw / semantic / component）</span></div>' +
     '<div class="cfg-row"><span>内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<select id="themeTokenSel" aria-label="选择主题 Token"></select>' +
+    '<button class="btn btn-ghost" id="themeTokenOpenStudio" onclick="themeStudioOpen()" data-i18n="theme.studio.open" title="打开主题工作室">主题工作室</button>' +
     '<button class="btn btn-ghost" id="themeTokenApply">应用</button>' +
     '<button class="btn btn-ghost" id="themeTokenExport">导出 JSON</button>' +
     '<label class="btn btn-ghost" style="margin:0">导入 JSON<input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +

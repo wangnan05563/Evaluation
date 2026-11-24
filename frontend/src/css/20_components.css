@@ -125,7 +125,7 @@ td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
 .dockbar .item span{font-size:11px;color:var(--muted)}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:var(--r-md);padding:11px 20px;font-family:var(--ff);font-size:14px;font-weight:600;cursor:pointer;text-decoration:none}
 .btn .lic{width:16px;height:16px}
-.btn-primary{color:var(--on-brand);background:var(--brand)}
+.btn-primary{color:var(--c-button-primary-foreground,var(--on-brand));background:var(--c-button-primary-background,var(--brand))}
 .btn-primary:hover{background:var(--brand-ink)}
 /* T00927：处理中按钮灰显（比照 .cta:disabled，另加降饱和，避免用户误判为功能异常） */
 .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.45)}

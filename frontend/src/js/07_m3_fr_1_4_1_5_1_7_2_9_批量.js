@@ -181,7 +181,7 @@ function highlightRow(){document.querySelectorAll("#tbody .rowr").forEach(tr=>tr
 function setThemeMode(m){localStorage.setItem('wl_theme_mode',m);applyTheme();themeSegPaint();}
 function themeSegPaint(){const m=localStorage.getItem('wl_theme_mode')||'light';
   document.querySelectorAll('#themeSeg .tm').forEach(b=>{const on=b.dataset.m===m;
-    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand)':'var(--ink-2)';
+    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand-ink)':'var(--ink-2)';
     b.style.fontWeight=on?'700':'500';});}
 function setBrand(v){applyTheme.brand(v);brandPaint();}
 function brandPresetsHTML(){const cur=localStorage.getItem('wl_brand')||'#2563EB';
@@ -200,7 +200,7 @@ window.addEventListener('DOMContentLoaded',()=>{themeSegPaint();brandPaint();lan
 function langSegPaint(){
   const cur=(typeof __I18N_LANG!=='undefined'&&__I18N_LANG)||localStorage.getItem('wl_lang')||'zh-CN';
   document.querySelectorAll('#langSeg .lm').forEach(b=>{const on=b.dataset.l===cur;
-    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand)':'var(--ink-2)';
+    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand-ink)':'var(--ink-2)';
     b.style.fontWeight=on?'700':'500';});
 }
 

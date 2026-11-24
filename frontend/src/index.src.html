@@ -985,6 +985,105 @@
   </div>
 </div>
 
+<div id="themeStudioOverlay" class="ts-overlay" hidden aria-hidden="true">
+  <div class="ts-dialog" role="dialog" aria-modal="true" aria-labelledby="tsTitle">
+    <div class="ts-head">
+      <div>
+        <h2 id="tsTitle" data-i18n="theme.studio.title">主题工作室</h2>
+        <p data-i18n="theme.studio.subtitle">实时预览界面与报告的共同品牌效果；任一文字对比度低于 4.5:1 时阻断保存。</p>
+      </div>
+      <button class="btn btn-ghost ts-close" id="tsClose" onclick="themeStudioClose()" data-i18n="title=theme.studio.close|aria-label=theme.studio.close" title="关闭主题工作室" aria-label="关闭主题工作室"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="ts-toolbar">
+      <label for="tsTemplate" data-i18n="theme.studio.template">品牌包模板</label>
+      <select id="tsTemplate" onchange="themeStudioLoad(this.value)" data-i18n="aria-label=theme.studio.template" aria-label="品牌包模板"></select>
+      <label for="tsName" data-i18n="theme.studio.name">品牌包名称</label>
+      <input id="tsName" maxlength="32" spellcheck="false" oninput="themeStudioName(this.value)" data-i18n-ph="theme.studio.name_hint" placeholder="2–32 位小写字母/数字/连字符">
+      <span id="tsSource" class="ts-source"></span>
+    </div>
+    <div class="ts-main">
+      <section class="ts-controls" aria-labelledby="tsControlsTitle">
+        <div class="ts-section-title" id="tsControlsTitle" data-i18n="theme.studio.controls">品牌令牌</div>
+        <div class="ts-fields">
+          <div class="ts-field"><label for="tsBrand" data-i18n="theme.studio.brand">主色</label><span class="ts-color"><input id="tsBrand" type="color" data-ts-layer="semantic" data-ts-token="brand" oninput="themeStudioInput(this)"><code id="tsBrandHex"></code></span></div>
+          <div class="ts-field"><label for="tsBrandInk" data-i18n="theme.studio.brand_ink">主色文字</label><span class="ts-color"><input id="tsBrandInk" type="color" data-ts-layer="semantic" data-ts-token="brand-ink" oninput="themeStudioInput(this)"><code id="tsBrandInkHex"></code></span></div>
+          <div class="ts-field"><label for="tsBrandSoft" data-i18n="theme.studio.brand_soft">主色浅底</label><span class="ts-color"><input id="tsBrandSoft" type="color" data-ts-layer="semantic" data-ts-token="brand-soft" oninput="themeStudioInput(this)"><code id="tsBrandSoftHex"></code></span></div>
+          <div class="ts-field"><label for="tsBg" data-i18n="theme.studio.bg">页面背景</label><span class="ts-color"><input id="tsBg" type="color" data-ts-layer="semantic" data-ts-token="bg" oninput="themeStudioInput(this)"><code id="tsBgHex"></code></span></div>
+          <div class="ts-field"><label for="tsCard" data-i18n="theme.studio.card">卡片背景</label><span class="ts-color"><input id="tsCard" type="color" data-ts-layer="semantic" data-ts-token="card" oninput="themeStudioInput(this)"><code id="tsCardHex"></code></span></div>
+          <div class="ts-field"><label for="tsInk" data-i18n="theme.studio.ink">正文</label><span class="ts-color"><input id="tsInk" type="color" data-ts-layer="semantic" data-ts-token="ink" oninput="themeStudioInput(this)"><code id="tsInkHex"></code></span></div>
+          <div class="ts-field"><label for="tsInk2" data-i18n="theme.studio.ink2">次级正文</label><span class="ts-color"><input id="tsInk2" type="color" data-ts-layer="semantic" data-ts-token="ink-2" oninput="themeStudioInput(this)"><code id="tsInk2Hex"></code></span></div>
+          <div class="ts-field"><label for="tsMuted" data-i18n="theme.studio.muted">弱化文字</label><span class="ts-color"><input id="tsMuted" type="color" data-ts-layer="semantic" data-ts-token="muted" oninput="themeStudioInput(this)"><code id="tsMutedHex"></code></span></div>
+          <div class="ts-field"><label for="tsLine" data-i18n="theme.studio.line">分隔线</label><span class="ts-color"><input id="tsLine" type="color" data-ts-layer="semantic" data-ts-token="line" oninput="themeStudioInput(this)"><code id="tsLineHex"></code></span></div>
+          <div class="ts-field"><label for="tsButtonFg" data-i18n="theme.studio.button_fg">主按钮文字</label><span class="ts-color"><input id="tsButtonFg" type="color" data-ts-layer="component" data-ts-token="button.primary.foreground" oninput="themeStudioInput(this)"><code id="tsButtonFgHex"></code></span></div>
+        </div>
+        <p class="ts-hint" data-i18n="theme.studio.controls_hint">修改令牌后预览、对比度表和保存按钮即时联动；主按钮背景跟随主色，徽标背景/文字跟随主色浅底/文字。</p>
+      </section>
+      <section class="ts-preview-panel" aria-labelledby="tsPreviewTitle">
+        <div class="ts-section-title" id="tsPreviewTitle" data-i18n="theme.studio.preview">实时预览</div>
+        <div class="ts-preview" id="tsPreview">
+          <div class="ts-preview-shell">
+            <span class="ts-preview-logo">WE</span>
+            <span class="ts-preview-app" data-i18n="theme.studio.preview_app">工作量评估助手</span>
+            <span class="ts-preview-chip" data-i18n="theme.studio.ui">界面</span>
+          </div>
+          <div class="ts-preview-content">
+            <div class="ts-preview-kicker" data-i18n="theme.studio.preview_kicker">REPORT PREVIEW</div>
+            <h3 data-i18n="theme.studio.report_title">票据系统三期 · 工作量评估报告</h3>
+            <p class="ts-preview-muted" data-i18n="theme.studio.report_body">当前品牌包同时驱动界面与导出报告表头，无需手工同步。</p>
+            <div class="ts-kpis">
+              <div><b>128</b><span data-i18n="theme.studio.kpi_fp">功能点</span></div>
+              <div><b>36</b><span data-i18n="theme.studio.kpi_enh">增强点</span></div>
+              <div><b>4.8</b><span data-i18n="theme.studio.kpi_pm">人月</span></div>
+            </div>
+            <div class="ts-preview-actions">
+              <button type="button" class="btn btn-primary" tabindex="-1" data-i18n="theme.studio.report_btn">生成报告</button>
+              <span class="ts-badge" data-i18n="theme.studio.badge">品牌包</span>
+            </div>
+            <div class="ts-report-head">
+              <span data-i18n="theme.studio.report">报告</span>
+              <strong data-i18n="theme.studio.report_exec">执行摘要</strong>
+              <i></i>
+            </div>
+            <p class="ts-preview-muted" data-i18n="theme.studio.preview_note">同一套 semantic / component 令牌同时作用于界面和报告示例。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+    <section class="ts-checks" aria-labelledby="tsChecksTitle">
+      <div class="ts-checks-head">
+        <div>
+          <div class="ts-section-title" id="tsChecksTitle" data-i18n="theme.studio.checks">对比度检查</div>
+          <p class="ts-hint" data-i18n="theme.studio.checks_note">WCAG 2.2 AA：文字与背景对比度必须 ≥ 4.5:1，任一组合不达标将阻断保存。</p>
+        </div>
+        <span id="tsCheckSummary" class="ts-check-summary" role="status" aria-live="polite"></span>
+      </div>
+      <div class="ts-check-scroll">
+        <table class="ts-check-table">
+          <thead><tr>
+            <th data-i18n="theme.studio.th_pair">组合</th>
+            <th data-i18n="theme.studio.th_fg">前景</th>
+            <th data-i18n="theme.studio.th_bg">背景</th>
+            <th data-i18n="theme.studio.th_ratio">对比度</th>
+            <th data-i18n="theme.studio.th_min">阈值</th>
+            <th data-i18n="theme.studio.th_state">状态</th>
+          </tr></thead>
+          <tbody id="tsCheckRows"></tbody>
+        </table>
+      </div>
+      <p id="tsCheckHint" class="ts-check-hint" role="status" aria-live="polite"></p>
+    </section>
+    <div class="ts-foot">
+      <span id="tsStatus" class="ts-status" role="status" aria-live="polite"></span>
+      <span class="ts-actions">
+        <button class="btn btn-ghost" id="tsReset" onclick="themeStudioReset()" data-i18n="theme.studio.reset">恢复已应用主题</button>
+        <button class="btn btn-ghost" id="tsExport" onclick="themeStudioExport()" data-i18n="theme.studio.export">导出主题 JSON</button>
+        <button class="btn btn-primary" id="tsSave" onclick="themeStudioSave()" data-i18n="theme.studio.save">保存并应用</button>
+        <button class="btn btn-ghost" onclick="themeStudioClose()" data-i18n="theme.studio.close">关闭</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <!--BUILD:JS-->
 <div id="pasteModal" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:60;align-items:center;justify-content:center">
   <div class="glass pad" style="width:680px;max-width:92vw">

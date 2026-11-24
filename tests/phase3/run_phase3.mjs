@@ -26,6 +26,7 @@ const suites = [
   { id: '10k-grid', script: 'tests/phase3/ui_10k_grid.mjs', timeout: 180000 },
   { id: 'edit-resilience', script: 'tests/phase3/ui_edit_resilience.mjs', timeout: 120000 },
   { id: 'theme-tokens', script: 'tests/phase3/ui_theme_tokens.mjs', timeout: 120000 },
+  { id: 'theme-studio', script: 'tests/phase3/ui_theme_studio.mjs', timeout: 180000 },
   { id: 'ui-kit', script: 'tests/phase3/ui_ui_kit.mjs', timeout: 120000 },
   { id: 'review-workbench', script: 'tests/phase3/ui_review_workbench.mjs', timeout: 180000 },
   { id: 'long-task', script: 'tests/phase3/ui_long_task.mjs', timeout: 120000 },

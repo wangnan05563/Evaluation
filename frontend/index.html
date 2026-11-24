@@ -276,7 +276,7 @@ td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
 .dockbar .item span{font-size:11px;color:var(--muted)}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:var(--r-md);padding:11px 20px;font-family:var(--ff);font-size:14px;font-weight:600;cursor:pointer;text-decoration:none}
 .btn .lic{width:16px;height:16px}
-.btn-primary{color:var(--on-brand);background:var(--brand)}
+.btn-primary{color:var(--c-button-primary-foreground,var(--on-brand));background:var(--c-button-primary-background,var(--brand))}
 .btn-primary:hover{background:var(--brand-ink)}
 /* T00927：处理中按钮灰显（比照 .cta:disabled，另加降饱和，避免用户误判为功能异常） */
 .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.45)}
@@ -1085,6 +1085,97 @@ body.enh-open { overflow: hidden; }
   .enh-actions .btn { flex: 1; }
 }
 @media (max-width: 420px) { .enh-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .enh-head h2 { font-size: 16px; } }
+
+/* T06193 主题工作室：实时预览、对比度阻断、JSON 导出 */
+body.ts-open { overflow: hidden; }
+.ts-overlay { position: fixed; inset: 0; z-index: 85; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(10, 16, 26, .58); backdrop-filter: blur(3px); }
+.ts-overlay[hidden] { display: none; }
+.ts-dialog { width: min(1180px, 96vw); max-height: 94vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+.ts-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px 12px; border-bottom: 1px solid var(--line); }
+.ts-head h2 { margin: 0; font-size: 18px; color: var(--ink); }
+.ts-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.ts-close { margin-left: auto; flex: none; }
+.ts-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 11px 20px; border-bottom: 1px solid var(--line); }
+.ts-toolbar label { font-size: 12px; color: var(--muted); }
+.ts-toolbar select, .ts-toolbar input { padding: 7px 9px; min-width: 180px; max-width: 300px; font-family: var(--ff); font-size: 12px; color: var(--ink); background: var(--card); border: 1px solid var(--line-ctrl); border-radius: var(--r-sm); }
+.ts-toolbar input:invalid { border-color: var(--danger); }
+.ts-source { font-size: 11px; color: var(--muted); }
+.ts-main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; padding: 16px 20px 6px; overflow: auto; min-height: 0; flex: 1; }
+.ts-controls, .ts-preview-panel { min-width: 0; }
+.ts-section-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.ts-section-title::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--brand); }
+.ts-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.ts-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ts-field label { font-size: 11px; color: var(--muted); }
+.ts-color { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line-ctrl); border-radius: var(--r-sm); padding: 3px 6px; background: var(--card); }
+.ts-color input[type="color"] { width: 30px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }
+.ts-color code { font-family: var(--ff); font-size: 10px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-hint { margin: 9px 0 0; font-size: 11px; line-height: 1.55; color: var(--muted); }
+.ts-preview { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--bg); color: var(--ink); box-shadow: var(--shadow); }
+.ts-preview-shell { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--line); }
+.ts-preview-logo { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; background: var(--brand); color: var(--c-button-primary-foreground, var(--on-brand)); font-size: 11px; font-weight: 800; }
+.ts-preview-app { font-size: 13px; font-weight: 700; color: var(--ink); }
+.ts-preview-chip { margin-left: auto; padding: 2px 8px; border-radius: var(--r-full); background: var(--brand-soft); color: var(--brand-ink); font-size: 10px; font-weight: 700; }
+.ts-preview-content { padding: 18px 20px 20px; background: var(--bg); }
+.ts-preview-kicker { font-size: 10px; letter-spacing: .16em; font-weight: 800; color: var(--brand-ink); }
+.ts-preview h3 { margin: 5px 0 6px; font-size: 20px; line-height: 1.35; color: var(--ink); }
+.ts-preview-muted { margin: 0 0 14px; font-size: 12px; line-height: 1.65; color: var(--muted); }
+.ts-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.ts-kpis > div { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; }
+.ts-kpis b { display: block; color: var(--brand-ink); font-size: 18px; line-height: 1.1; }
+.ts-kpis span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+.ts-preview-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.ts-preview-actions .btn { padding: 7px 12px; font-size: 12px; transition: none; }
+.ts-badge { display: inline-block; padding: 3px 9px; border-radius: var(--r-full); font-size: 10px; font-weight: 800; letter-spacing: .04em; background: var(--c-badge-brand-background, var(--brand-soft)); color: var(--c-badge-brand-foreground, var(--brand-ink)); }
+.ts-report-head { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 2px solid var(--brand); }
+.ts-report-head span { font-size: 9px; letter-spacing: .16em; font-weight: 800; color: var(--brand-ink); }
+.ts-report-head strong { font-size: 13px; color: var(--ink); }
+.ts-report-head i { display: block; height: 3px; flex: 1; max-width: 110px; background: var(--brand); border-radius: 2px; }
+.ts-checks { padding: 8px 20px 2px; }
+.ts-checks-head { display: flex; align-items: flex-start; gap: 12px; }
+.ts-checks-head .ts-section-title { margin-bottom: 3px; }
+.ts-check-summary { margin-left: auto; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: var(--r-full); background: var(--bg); color: var(--muted); }
+.ts-check-summary.ok { color: var(--ok); background: var(--ok-soft); }
+.ts-check-summary.bad { color: var(--danger-ink); background: var(--danger-soft); }
+.ts-check-scroll { overflow: auto; margin-top: 7px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.ts-check-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 11px; }
+.ts-check-table th { background: var(--bg); color: var(--muted); font-weight: 600; text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ts-check-table td { padding: 6px 9px; border-bottom: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
+.ts-check-table tr:last-child td { border-bottom: 0; }
+.ts-check-table tr.bad td { background: color-mix(in srgb, var(--danger) 7%, transparent); }
+.ts-check-table code { font-family: var(--ff); font-size: 10px; color: var(--ink-2); }
+.ts-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ts-state { font-weight: 700; }
+tr.ok .ts-state { color: var(--ok); }
+tr.bad .ts-state { color: var(--danger-ink); }
+.ts-check-hint { margin: 7px 0 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.ts-check-hint.ok { color: var(--ok); }
+.ts-check-hint.bad { color: var(--danger-ink); }
+.ts-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 20px 14px; border-top: 1px solid var(--line); background: var(--card); }
+.ts-status { font-size: 12px; color: var(--muted); min-height: 18px; flex: 1 1 180px; }
+.ts-status.ok { color: var(--ok); }
+.ts-status.bad { color: var(--danger-ink); }
+.ts-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ts-actions .btn { padding: 7px 12px; font-size: 12px; }
+@media (max-width: 1024px) {
+  .ts-main { grid-template-columns: 290px minmax(0, 1fr); padding-left: 14px; padding-right: 14px; }
+  .ts-checks, .ts-foot, .ts-head, .ts-toolbar { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-width: 860px) {
+  .ts-overlay { padding: 0; align-items: stretch; }
+  .ts-dialog { width: 100%; max-height: 100vh; border-radius: 0; border: 0; }
+  .ts-main { grid-template-columns: 1fr; overflow: auto; }
+  .ts-fields { grid-template-columns: 1fr 1fr; }
+  .ts-preview-panel { order: -1; }
+  .ts-actions { width: 100%; margin-left: 0; }
+  .ts-actions .btn { flex: 1; }
+}
+@media (max-width: 520px) {
+  .ts-head h2 { font-size: 16px; }
+  .ts-fields { grid-template-columns: 1fr; }
+  .ts-kpis { grid-template-columns: 1fr 1fr; }
+  .ts-toolbar select, .ts-toolbar input { max-width: 100%; flex: 1 1 100%; }
+}
 
 </style>
 </head>
@@ -2056,6 +2147,105 @@ body.enh-open { overflow: hidden; }
         <button class="btn btn-primary" id="enhCsv" onclick="enhExportCsv()" disabled data-i18n="enh.export.csv">导出 EFP（CSV）</button>
         <button class="btn btn-ghost" id="enhJson" onclick="enhExportJson()" disabled data-i18n="enh.export.json">JSON</button>
         <button class="btn btn-ghost" onclick="enhClose()" data-i18n="enh.close">关闭</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<div id="themeStudioOverlay" class="ts-overlay" hidden aria-hidden="true">
+  <div class="ts-dialog" role="dialog" aria-modal="true" aria-labelledby="tsTitle">
+    <div class="ts-head">
+      <div>
+        <h2 id="tsTitle" data-i18n="theme.studio.title">主题工作室</h2>
+        <p data-i18n="theme.studio.subtitle">实时预览界面与报告的共同品牌效果；任一文字对比度低于 4.5:1 时阻断保存。</p>
+      </div>
+      <button class="btn btn-ghost ts-close" id="tsClose" onclick="themeStudioClose()" data-i18n="title=theme.studio.close|aria-label=theme.studio.close" title="关闭主题工作室" aria-label="关闭主题工作室"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="ts-toolbar">
+      <label for="tsTemplate" data-i18n="theme.studio.template">品牌包模板</label>
+      <select id="tsTemplate" onchange="themeStudioLoad(this.value)" data-i18n="aria-label=theme.studio.template" aria-label="品牌包模板"></select>
+      <label for="tsName" data-i18n="theme.studio.name">品牌包名称</label>
+      <input id="tsName" maxlength="32" spellcheck="false" oninput="themeStudioName(this.value)" data-i18n-ph="theme.studio.name_hint" placeholder="2–32 位小写字母/数字/连字符">
+      <span id="tsSource" class="ts-source"></span>
+    </div>
+    <div class="ts-main">
+      <section class="ts-controls" aria-labelledby="tsControlsTitle">
+        <div class="ts-section-title" id="tsControlsTitle" data-i18n="theme.studio.controls">品牌令牌</div>
+        <div class="ts-fields">
+          <div class="ts-field"><label for="tsBrand" data-i18n="theme.studio.brand">主色</label><span class="ts-color"><input id="tsBrand" type="color" data-ts-layer="semantic" data-ts-token="brand" oninput="themeStudioInput(this)"><code id="tsBrandHex"></code></span></div>
+          <div class="ts-field"><label for="tsBrandInk" data-i18n="theme.studio.brand_ink">主色文字</label><span class="ts-color"><input id="tsBrandInk" type="color" data-ts-layer="semantic" data-ts-token="brand-ink" oninput="themeStudioInput(this)"><code id="tsBrandInkHex"></code></span></div>
+          <div class="ts-field"><label for="tsBrandSoft" data-i18n="theme.studio.brand_soft">主色浅底</label><span class="ts-color"><input id="tsBrandSoft" type="color" data-ts-layer="semantic" data-ts-token="brand-soft" oninput="themeStudioInput(this)"><code id="tsBrandSoftHex"></code></span></div>
+          <div class="ts-field"><label for="tsBg" data-i18n="theme.studio.bg">页面背景</label><span class="ts-color"><input id="tsBg" type="color" data-ts-layer="semantic" data-ts-token="bg" oninput="themeStudioInput(this)"><code id="tsBgHex"></code></span></div>
+          <div class="ts-field"><label for="tsCard" data-i18n="theme.studio.card">卡片背景</label><span class="ts-color"><input id="tsCard" type="color" data-ts-layer="semantic" data-ts-token="card" oninput="themeStudioInput(this)"><code id="tsCardHex"></code></span></div>
+          <div class="ts-field"><label for="tsInk" data-i18n="theme.studio.ink">正文</label><span class="ts-color"><input id="tsInk" type="color" data-ts-layer="semantic" data-ts-token="ink" oninput="themeStudioInput(this)"><code id="tsInkHex"></code></span></div>
+          <div class="ts-field"><label for="tsInk2" data-i18n="theme.studio.ink2">次级正文</label><span class="ts-color"><input id="tsInk2" type="color" data-ts-layer="semantic" data-ts-token="ink-2" oninput="themeStudioInput(this)"><code id="tsInk2Hex"></code></span></div>
+          <div class="ts-field"><label for="tsMuted" data-i18n="theme.studio.muted">弱化文字</label><span class="ts-color"><input id="tsMuted" type="color" data-ts-layer="semantic" data-ts-token="muted" oninput="themeStudioInput(this)"><code id="tsMutedHex"></code></span></div>
+          <div class="ts-field"><label for="tsLine" data-i18n="theme.studio.line">分隔线</label><span class="ts-color"><input id="tsLine" type="color" data-ts-layer="semantic" data-ts-token="line" oninput="themeStudioInput(this)"><code id="tsLineHex"></code></span></div>
+          <div class="ts-field"><label for="tsButtonFg" data-i18n="theme.studio.button_fg">主按钮文字</label><span class="ts-color"><input id="tsButtonFg" type="color" data-ts-layer="component" data-ts-token="button.primary.foreground" oninput="themeStudioInput(this)"><code id="tsButtonFgHex"></code></span></div>
+        </div>
+        <p class="ts-hint" data-i18n="theme.studio.controls_hint">修改令牌后预览、对比度表和保存按钮即时联动；主按钮背景跟随主色，徽标背景/文字跟随主色浅底/文字。</p>
+      </section>
+      <section class="ts-preview-panel" aria-labelledby="tsPreviewTitle">
+        <div class="ts-section-title" id="tsPreviewTitle" data-i18n="theme.studio.preview">实时预览</div>
+        <div class="ts-preview" id="tsPreview">
+          <div class="ts-preview-shell">
+            <span class="ts-preview-logo">WE</span>
+            <span class="ts-preview-app" data-i18n="theme.studio.preview_app">工作量评估助手</span>
+            <span class="ts-preview-chip" data-i18n="theme.studio.ui">界面</span>
+          </div>
+          <div class="ts-preview-content">
+            <div class="ts-preview-kicker" data-i18n="theme.studio.preview_kicker">REPORT PREVIEW</div>
+            <h3 data-i18n="theme.studio.report_title">票据系统三期 · 工作量评估报告</h3>
+            <p class="ts-preview-muted" data-i18n="theme.studio.report_body">当前品牌包同时驱动界面与导出报告表头，无需手工同步。</p>
+            <div class="ts-kpis">
+              <div><b>128</b><span data-i18n="theme.studio.kpi_fp">功能点</span></div>
+              <div><b>36</b><span data-i18n="theme.studio.kpi_enh">增强点</span></div>
+              <div><b>4.8</b><span data-i18n="theme.studio.kpi_pm">人月</span></div>
+            </div>
+            <div class="ts-preview-actions">
+              <button type="button" class="btn btn-primary" tabindex="-1" data-i18n="theme.studio.report_btn">生成报告</button>
+              <span class="ts-badge" data-i18n="theme.studio.badge">品牌包</span>
+            </div>
+            <div class="ts-report-head">
+              <span data-i18n="theme.studio.report">报告</span>
+              <strong data-i18n="theme.studio.report_exec">执行摘要</strong>
+              <i></i>
+            </div>
+            <p class="ts-preview-muted" data-i18n="theme.studio.preview_note">同一套 semantic / component 令牌同时作用于界面和报告示例。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+    <section class="ts-checks" aria-labelledby="tsChecksTitle">
+      <div class="ts-checks-head">
+        <div>
+          <div class="ts-section-title" id="tsChecksTitle" data-i18n="theme.studio.checks">对比度检查</div>
+          <p class="ts-hint" data-i18n="theme.studio.checks_note">WCAG 2.2 AA：文字与背景对比度必须 ≥ 4.5:1，任一组合不达标将阻断保存。</p>
+        </div>
+        <span id="tsCheckSummary" class="ts-check-summary" role="status" aria-live="polite"></span>
+      </div>
+      <div class="ts-check-scroll">
+        <table class="ts-check-table">
+          <thead><tr>
+            <th data-i18n="theme.studio.th_pair">组合</th>
+            <th data-i18n="theme.studio.th_fg">前景</th>
+            <th data-i18n="theme.studio.th_bg">背景</th>
+            <th data-i18n="theme.studio.th_ratio">对比度</th>
+            <th data-i18n="theme.studio.th_min">阈值</th>
+            <th data-i18n="theme.studio.th_state">状态</th>
+          </tr></thead>
+          <tbody id="tsCheckRows"></tbody>
+        </table>
+      </div>
+      <p id="tsCheckHint" class="ts-check-hint" role="status" aria-live="polite"></p>
+    </section>
+    <div class="ts-foot">
+      <span id="tsStatus" class="ts-status" role="status" aria-live="polite"></span>
+      <span class="ts-actions">
+        <button class="btn btn-ghost" id="tsReset" onclick="themeStudioReset()" data-i18n="theme.studio.reset">恢复已应用主题</button>
+        <button class="btn btn-ghost" id="tsExport" onclick="themeStudioExport()" data-i18n="theme.studio.export">导出主题 JSON</button>
+        <button class="btn btn-primary" id="tsSave" onclick="themeStudioSave()" data-i18n="theme.studio.save">保存并应用</button>
+        <button class="btn btn-ghost" onclick="themeStudioClose()" data-i18n="theme.studio.close">关闭</button>
       </span>
     </div>
   </div>
@@ -4140,7 +4330,7 @@ function highlightRow(){document.querySelectorAll("#tbody .rowr").forEach(tr=>tr
 function setThemeMode(m){localStorage.setItem('wl_theme_mode',m);applyTheme();themeSegPaint();}
 function themeSegPaint(){const m=localStorage.getItem('wl_theme_mode')||'light';
   document.querySelectorAll('#themeSeg .tm').forEach(b=>{const on=b.dataset.m===m;
-    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand)':'var(--ink-2)';
+    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand-ink)':'var(--ink-2)';
     b.style.fontWeight=on?'700':'500';});}
 function setBrand(v){applyTheme.brand(v);brandPaint();}
 function brandPresetsHTML(){const cur=localStorage.getItem('wl_brand')||'#2563EB';
@@ -4159,7 +4349,7 @@ window.addEventListener('DOMContentLoaded',()=>{themeSegPaint();brandPaint();lan
 function langSegPaint(){
   const cur=(typeof __I18N_LANG!=='undefined'&&__I18N_LANG)||localStorage.getItem('wl_lang')||'zh-CN';
   document.querySelectorAll('#langSeg .lm').forEach(b=>{const on=b.dataset.l===cur;
-    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand)':'var(--ink-2)';
+    b.style.borderColor=on?'var(--brand)':'var(--line)';b.style.color=on?'var(--brand-ink)':'var(--ink-2)';
     b.style.fontWeight=on?'700':'500';});
 }
 
@@ -4707,6 +4897,8 @@ async function setLang(lang){
   if(typeof dynPaint === "function") dynPaint();
   // 帮助页更新区的动态状态（检测中/发现新版本/下载进度…）按保存的状态重绘（T01548 批次4a）
   if(typeof verPaint === "function") verPaint();
+  // T06193：主题工作室打开时按新语言重绘动态标签/对比度表
+  if(typeof themeStudioRefresh === "function") themeStudioRefresh();
   // T01556：外置引导脚本若正在演示，按新语言重绘当前卡片
   if(window.WLGuide && window.WLGuide.refresh) window.WLGuide.refresh();
   toast(t("common.lang_switched"));
@@ -5403,6 +5595,8 @@ function themeTokenResolve(theme) {
   Object.keys(comp).forEach(k => { vars["--c-" + k.replace(/\./g, "-")] = String(comp[k]); });
   const brand = comp["button.primary.background"] || sem.brand;
   if (brand) vars["--brand"] = String(brand);
+  const brandFg = comp["button.primary.foreground"];
+  if (brandFg) vars["--on-brand"] = String(brandFg);
   return vars;
 }
 
@@ -5412,6 +5606,11 @@ function applyThemeTokens(theme) {
   const root = document.documentElement;
   Object.keys(vars).forEach(k => root.style.setProperty(k, vars[k]));
   root.dataset.tokens = theme.name || "custom";
+  // T06193：主题主色同步到报告生成读取的 wl_brand，保证 UI 与报告表头同源。
+  if (theme.resolved && theme.resolved.semantic && theme.resolved.semantic.brand) {
+    localStorage.setItem("wl_brand", String(theme.resolved.semantic.brand));
+    if (typeof brandPaint === "function") brandPaint();
+  }
   if (typeof refreshCharts === "function" && typeof _charts !== "undefined" && Object.keys(_charts || {}).length) {
     try { refreshCharts(); } catch (e) {}
   }
@@ -5423,10 +5622,12 @@ function themeTokensClear() {
   const names = [];
   for (let i = 0; i < root.style.length; i++) {
     const n = root.style[i];
-    if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
+    if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--on-brand", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
   }
   names.forEach(n => root.style.removeProperty(n));
   delete root.dataset.tokens;
+  localStorage.removeItem("wl_brand");
+  if (typeof brandPaint === "function") brandPaint();
 }
 
 async function themeTokensGet() {
@@ -5491,6 +5692,7 @@ function themeTokenPanel() {
   div.innerHTML = '<div class="card-title"><span>主题 Token（raw / semantic / component）</span></div>' +
     '<div class="cfg-row"><span>内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<select id="themeTokenSel" aria-label="选择主题 Token"></select>' +
+    '<button class="btn btn-ghost" id="themeTokenOpenStudio" onclick="themeStudioOpen()" data-i18n="theme.studio.open" title="打开主题工作室">主题工作室</button>' +
     '<button class="btn btn-ghost" id="themeTokenApply">应用</button>' +
     '<button class="btn btn-ghost" id="themeTokenExport">导出 JSON</button>' +
     '<label class="btn btn-ghost" style="margin:0">导入 JSON<input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +
@@ -7778,6 +7980,425 @@ document.addEventListener('DOMContentLoaded', () => {
   window.enhFilePick = enhFilePick;
   window.enhExportCsv = enhExportCsv;
   window.enhExportJson = enhExportJson;
+})();
+
+/* T06193 主题工作室：实时预览 UI/报告共同品牌效果、WCAG 文字对比度阻断、主题 JSON 导出。
+   边界：仅编辑视觉 Token；不改功能配置。保存前必须全部对比度 ≥ 4.5:1。 */
+(function () {
+  'use strict';
+
+  var TS_MIN = 4.5;
+  var tsTheme = null;
+  var tsChecks = [];
+  var tsBusy = false;
+  var tsLastFocus = null;
+  var tsLoaded = false;
+
+  var TS_FIELDS = [
+    ['tsBrand', 'semantic', 'brand'],
+    ['tsBrandInk', 'semantic', 'brand-ink'],
+    ['tsBrandSoft', 'semantic', 'brand-soft'],
+    ['tsBg', 'semantic', 'bg'],
+    ['tsCard', 'semantic', 'card'],
+    ['tsInk', 'semantic', 'ink'],
+    ['tsInk2', 'semantic', 'ink-2'],
+    ['tsMuted', 'semantic', 'muted'],
+    ['tsLine', 'semantic', 'line'],
+    ['tsButtonFg', 'component', 'button.primary.foreground'],
+  ];
+
+  var TS_PAIRS = [
+    ['ink_bg', 'theme.contrast.ink_bg', 'semantic', 'ink', 'semantic', 'bg'],
+    ['ink2_bg', 'theme.contrast.ink2_bg', 'semantic', 'ink-2', 'semantic', 'bg'],
+    ['muted_bg', 'theme.contrast.muted_bg', 'semantic', 'muted', 'semantic', 'bg'],
+    ['ink_card', 'theme.contrast.ink_card', 'semantic', 'ink', 'semantic', 'card'],
+    ['button', 'theme.contrast.button', 'component', 'button.primary.foreground', 'component', 'button.primary.background'],
+    ['badge', 'theme.contrast.badge', 'component', 'badge.brand.foreground', 'component', 'badge.brand.background'],
+  ];
+
+  function tsEl(id) { return document.getElementById(id); }
+  function tsT(key, fallback) {
+    var v = t(key);
+    return v === key ? (fallback || key) : v;
+  }
+  function tsEsc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function tsClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+  function tsResolveRef(theme, value, depth) {
+    if (depth > 8 || typeof value !== 'string') return value == null ? value : String(value);
+    var m = /^\{(raw|semantic)\.([A-Za-z0-9_.-]+)\}$/.exec(value.trim());
+    var layer = null, key = null;
+    if (m) { layer = m[1]; key = m[2]; }
+    else if (/^(raw|semantic)\./.test(value)) { layer = value.split('.', 1)[0]; key = value.slice(layer.length + 1); }
+    if (!layer) return value;
+    var next = theme[layer] && theme[layer][key];
+    if (next === undefined || next === null) return value;
+    return tsResolveRef(theme, next, depth + 1);
+  }
+
+  function tsResolve(theme) {
+    var out = { semantic: {}, component: {} };
+    ['semantic', 'component'].forEach(function (layer) {
+      Object.keys(theme[layer] || {}).forEach(function (k) {
+        out[layer][k] = tsResolveRef(theme, theme[layer][k], 0);
+      });
+    });
+    return out;
+  }
+
+  function tsHexRgb(value) {
+    var s = String(value || '').trim();
+    var m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(s);
+    if (!m) return null;
+    var h = m[1];
+    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+
+  function tsLum(rgb) {
+    function ch(c) {
+      var x = c / 255;
+      return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2]);
+  }
+
+  function tsRatio(fg, bg) {
+    var a = tsHexRgb(fg), b = tsHexRgb(bg);
+    if (!a || !b) return null;
+    var la = tsLum(a), lb = tsLum(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  function tsBuildChecks(theme) {
+    var r = tsResolve(theme);
+    return TS_PAIRS.map(function (p) {
+      var fg = r[p[2]][p[3]], bg = r[p[4]][p[5]];
+      var ratio = tsRatio(fg, bg);
+      return {
+        key: p[0], label: tsT(p[1]), fg: fg, bg: bg,
+        ratio: ratio == null ? null : Number(ratio.toFixed(2)),
+        min: TS_MIN,
+        ok: ratio != null && ratio >= TS_MIN,
+        parse: ratio != null
+      };
+    });
+  }
+
+  function tsApplyVars(theme) {
+    var r = tsResolve(theme);
+    var el = tsEl('tsPreview');
+    if (!el) return;
+    var map = {
+      '--brand': r.semantic['brand'], '--brand-ink': r.semantic['brand-ink'],
+      '--brand-soft': r.semantic['brand-soft'], '--bg': r.semantic['bg'],
+      '--card': r.semantic['card'], '--ink': r.semantic['ink'],
+      '--ink-2': r.semantic['ink-2'], '--muted': r.semantic['muted'],
+      '--line': r.semantic['line'],
+      '--c-button-primary-background': r.component['button.primary.background'],
+      '--c-button-primary-foreground': r.component['button.primary.foreground'],
+      '--on-brand': r.component['button.primary.foreground'] || r.semantic['on-brand'],
+      '--c-badge-brand-background': r.component['badge.brand.background'],
+      '--c-badge-brand-foreground': r.component['badge.brand.foreground']
+    };
+    Object.keys(map).forEach(function (k) {
+      if (map[k] != null && map[k] !== '') el.style.setProperty(k, String(map[k]));
+    });
+    el.dataset.tokens = theme.name || 'custom';
+  }
+
+  function tsRenderChecks() {
+    var tbody = tsEl('tsCheckRows');
+    if (!tbody) return;
+    tbody.innerHTML = tsChecks.map(function (c) {
+      var state = !c.parse ? tsT('theme.contrast.invalid', '颜色无法解析')
+        : c.ok ? tsT('theme.contrast.ok', '通过') : tsT('theme.contrast.fail', '不通过');
+      return '<tr class="' + (c.ok ? 'ok' : 'bad') + '" data-ts-check="' + tsEsc(c.key) + '">' +
+        '<td>' + tsEsc(c.label) + '</td>' +
+        '<td><code>' + tsEsc(c.fg || '—') + '</code></td>' +
+        '<td><code>' + tsEsc(c.bg || '—') + '</code></td>' +
+        '<td class="ts-num">' + (c.ratio == null ? '—' : c.ratio.toFixed(2) + ':1') + '</td>' +
+        '<td class="ts-num">' + TS_MIN.toFixed(1) + ':1</td>' +
+        '<td><span class="ts-state">' + tsEsc(state) + '</span></td></tr>';
+    }).join('');
+    var pass = tsChecks.filter(function (c) { return c.ok; }).length;
+    var fail = tsChecks.length - pass;
+    var sum = tsEl('tsCheckSummary');
+    if (sum) {
+      sum.textContent = fail ? tf('theme.studio.check_summary_fail', { pass: pass, total: tsChecks.length, fail: fail })
+        : tf('theme.studio.check_summary', { pass: pass, total: tsChecks.length });
+      sum.className = 'ts-check-summary ' + (fail ? 'bad' : 'ok');
+    }
+    var hint = tsEl('tsCheckHint');
+    if (hint) {
+      hint.textContent = fail ? tsT('theme.studio.blocked', '对比度不足：保存已阻断（需 ≥ 4.5:1）。')
+        : tsT('theme.studio.ready', '全部对比度通过，可保存。');
+      hint.className = 'ts-check-hint ' + (fail ? 'bad' : 'ok');
+    }
+    var save = tsEl('tsSave');
+    if (save) save.disabled = tsBusy || fail > 0 || !tsNameValid();
+  }
+
+  function tsRefresh() {
+    if (!tsTheme) return;
+    tsChecks = tsBuildChecks(tsTheme);
+    tsApplyVars(tsTheme);
+    tsRenderChecks();
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function tsNameValid() {
+    return !!(tsTheme && /^[a-z0-9][a-z0-9-]{1,31}$/.test(String(tsTheme.name || '')));
+  }
+
+  function tsSetStatus(text, kind) {
+    var el = tsEl('tsStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'ts-status' + (kind ? ' ' + kind : '');
+  }
+
+  function tsFill() {
+    if (!tsTheme) return;
+    var r = tsResolve(tsTheme);
+    TS_FIELDS.forEach(function (f) {
+      var input = tsEl(f[0]), code = tsEl(f[0] + 'Hex');
+      if (!input) return;
+      var v = r[f[1]][f[2]] || '';
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) input.value = v;
+      if (code) code.textContent = v ? String(v).toUpperCase() : '—';
+    });
+    var name = tsEl('tsName');
+    if (name) name.value = tsTheme.name || '';
+    var source = tsEl('tsSource');
+    if (source) source.textContent = tsTheme.name ? (tsT('theme.studio.source') + ' ' + tsTheme.name) : '';
+    tsRefresh();
+  }
+
+  function tsClean() {
+    if (!tsTheme) return null;
+    return {
+      name: tsTheme.name,
+      label: tsTheme.label || tsTheme.name,
+      version: Number(tsTheme.version || 1),
+      raw: tsClone(tsTheme.raw || {}),
+      semantic: tsClone(tsTheme.semantic || {}),
+      component: tsClone(tsTheme.component || {})
+    };
+  }
+
+  function tsApplyTheme(theme) {
+    tsTheme = tsClone(theme);
+    if (!tsTheme.raw || !tsTheme.semantic || !tsTheme.component) throw new Error(tsT('theme.studio.load_fail', '主题结构不完整'));
+    if (!tsTheme.label) tsTheme.label = tsTheme.name;
+    tsFill();
+  }
+
+  async function tsFetchTheme(name) {
+    var r = await (await fetch(THEME_TOKEN_API + '/export?name=' + encodeURIComponent(name), { cache: 'no-store' })).json();
+    if (!r.ok || !r.theme) throw new Error(r.msg || tsT('theme.studio.load_fail', '读取主题失败'));
+    return r.theme;
+  }
+
+  async function themeStudioLoad(name) {
+    if (tsBusy) return;
+    tsBusy = true;
+    tsSetStatus(tsT('theme.studio.loading', '正在读取主题…'));
+    try {
+      if (name === '__active') {
+        var data = await themeTokensGet();
+        if (!data.active) throw new Error(tsT('theme.studio.no_active', '当前没有已应用的自定义主题'));
+        tsApplyTheme(data.active);
+      } else {
+        tsApplyTheme(await tsFetchTheme(name || 'base'));
+      }
+      tsSetStatus('');
+    } catch (e) {
+      tsSetStatus(String(e.message || e), 'bad');
+    } finally {
+      tsBusy = false;
+      tsRenderChecks();
+    }
+  }
+
+  function themeStudioInput(input) {
+    if (!tsTheme || !input) return;
+    var layer = input.dataset.tsLayer, token = input.dataset.tsToken;
+    var v = String(input.value || '').trim();
+    if (!layer || !token || !/^#[0-9a-fA-F]{6}$/.test(v)) return;
+    if (!tsTheme[layer]) tsTheme[layer] = {};
+    tsTheme[layer][token] = v;
+    var code = tsEl(input.id + 'Hex');
+    if (code) code.textContent = v.toUpperCase();
+    // 主色变化时让主按钮背景继续引用 semantic.brand，避免组件绑定被旧值冻结。
+    if (token === 'brand') tsTheme.component['button.primary.background'] = 'semantic.brand';
+    tsSetStatus('');
+    tsRefresh();
+  }
+
+  function themeStudioName(value) {
+    if (!tsTheme) return;
+    var v = String(value || '').trim();
+    tsTheme.name = v;
+    tsTheme.label = v || tsTheme.label || tsTheme.name;
+    tsSetStatus('');
+    tsRefresh();
+  }
+
+  function themeStudioDownload() {
+    if (!tsTheme) return false;
+    var data = tsClean();
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'theme-' + (data.name || 'brand') + '.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    return true;
+  }
+
+  function themeStudioExport() {
+    if (!tsTheme) return;
+    try {
+      themeStudioDownload();
+      tsSetStatus(tsT('theme.studio.export_ok', '主题 JSON 已导出。'), 'ok');
+    } catch (e) { tsSetStatus(tsT('theme.studio.save_fail', '导出失败：{msg}').replace('{msg}', String(e.message || e)), 'bad'); }
+  }
+
+  async function themeStudioSave() {
+    if (!tsTheme || tsBusy) return;
+    tsChecks = tsBuildChecks(tsTheme);
+    tsRenderChecks();
+    if (!tsNameValid()) { tsSetStatus(tsT('theme.studio.name_bad', '品牌包名称不合法（2–32 位小写字母/数字/连字符）。'), 'bad'); return; }
+    if (tsChecks.some(function (c) { return !c.ok; })) {
+      tsSetStatus(tsT('theme.studio.blocked', '对比度不足：保存已阻断（需 ≥ 4.5:1）。'), 'bad');
+      return;
+    }
+    tsBusy = true;
+    var save = tsEl('tsSave');
+    if (save) save.disabled = true;
+    try {
+      var active = await themeTokensApply(tsClean());
+      tsTheme = active;
+      if (!tsTheme.label) tsTheme.label = tsTheme.name;
+      tsFill();
+      tsSetStatus(tf('theme.studio.save_ok', { name: tsTheme.name }), 'ok');
+      if (typeof themeTokenPanel === 'function') themeTokenPanel();
+    } catch (e) {
+      tsSetStatus(tf('theme.studio.save_fail_msg', { msg: String(e.message || e) }), 'bad');
+    } finally {
+      tsBusy = false;
+      tsRenderChecks();
+    }
+  }
+
+  async function themeStudioReset() {
+    if (tsBusy) return;
+    tsBusy = true;
+    try {
+      await themeTokensReset();
+      tsApplyTheme(await tsFetchTheme('base'));
+      var sel = tsEl('tsTemplate');
+      if (sel) sel.value = 'base';
+      tsSetStatus(tsT('theme.studio.reset_ok', '已恢复内置主题。'), 'ok');
+    } catch (e) {
+      tsSetStatus(String(e.message || e), 'bad');
+    } finally {
+      tsBusy = false;
+      tsRenderChecks();
+    }
+  }
+
+  function tsTemplateOptions(data) {
+    var list = (data.themes || []).map(function (x) {
+      return '<option value="' + tsEsc(x.name) + '">' + tsEsc(x.label || x.name) + '</option>';
+    });
+    if (data.active) list.unshift('<option value="__active">' + tsEsc(tsT('theme.studio.current', '当前生效') + ' · ' + (data.active.label || data.active.name)) + '</option>');
+    return list.join('');
+  }
+
+  async function themeStudioOpen() {
+    var overlay = tsEl('themeStudioOverlay');
+    if (!overlay) return;
+    if (!tsLoaded) return;
+    tsLastFocus = document.activeElement;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ts-open');
+    var data;
+    try {
+      data = await themeTokensGet();
+    } catch (e) {
+      tsSetStatus(String(e.message || e), 'bad');
+      return;
+    }
+    var sel = tsEl('tsTemplate');
+    if (sel) {
+      sel.innerHTML = tsTemplateOptions(data);
+      sel.value = data.active ? '__active' : 'base';
+    }
+    if (data.active) tsApplyTheme(data.active);
+    else {
+      try { tsApplyTheme(await tsFetchTheme('base')); } catch (e) { tsSetStatus(String(e.message || e), 'bad'); }
+    }
+    applyI18n(overlay);
+    tsRefresh();
+    var name = tsEl('tsName');
+    if (name) name.focus();
+    else { var close = tsEl('tsClose'); if (close) close.focus(); }
+  }
+
+  function themeStudioClose() {
+    var overlay = tsEl('themeStudioOverlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('ts-open');
+    if (tsLastFocus && typeof tsLastFocus.focus === 'function') tsLastFocus.focus();
+  }
+
+  function themeStudioRefresh() {
+    var overlay = tsEl('themeStudioOverlay');
+    if (!overlay || overlay.hidden) return;
+    applyI18n(overlay);
+    tsRefresh();
+  }
+
+  function themeStudioKeydown(e) {
+    var overlay = tsEl('themeStudioOverlay');
+    if (!overlay || overlay.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); themeStudioClose(); return; }
+    if (e.key !== 'Tab') return;
+    var nodes = Array.prototype.slice.call(overlay.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
+      .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+    if (!nodes.length) return;
+    var first = nodes[0], last = nodes[nodes.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  window.themeStudioOpen = themeStudioOpen;
+  window.themeStudioClose = themeStudioClose;
+  window.themeStudioLoad = themeStudioLoad;
+  window.themeStudioInput = themeStudioInput;
+  window.themeStudioName = themeStudioName;
+  window.themeStudioSave = themeStudioSave;
+  window.themeStudioExport = themeStudioExport;
+  window.themeStudioReset = themeStudioReset;
+  window.themeStudioRefresh = themeStudioRefresh;
+
+  window.addEventListener('DOMContentLoaded', function () {
+    var overlay = tsEl('themeStudioOverlay');
+    if (overlay) {
+      overlay.addEventListener('keydown', themeStudioKeydown);
+      applyI18n(overlay);
+    }
+    tsLoaded = true;
+  });
 })();
 
 </script>
