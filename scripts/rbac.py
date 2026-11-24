@@ -32,6 +32,9 @@ PASSWORD_MAX = 128
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.@-]{2,40}$")
 SSO_STATE_TTL = 600
 HTTP_TIMEOUT = 10
+# T06201 / AC-27：last_seen_at 是会话活跃度展示字段，不必每个请求都落盘。
+# 20 并发下逐请求 UPDATE+commit 会把 RBAC 全局锁排成 fsync 队列；按令牌节流到 60s。
+SESSION_TOUCH_SECONDS = 60.0
 
 P_APP = "app.use"
 P_EST_READ = "estimate.read"
@@ -168,6 +171,8 @@ class RbacStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self._touch_lock = threading.Lock()
+        self._touch_at = {}
         self._init()
 
     # ---------- 基础设施 ----------
@@ -175,7 +180,23 @@ class RbacStore:
         con = sqlite3.connect(str(self.db_path), timeout=15)
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA foreign_keys=ON")
+        con.execute("PRAGMA busy_timeout=15000")
+        con.execute("PRAGMA synchronous=NORMAL")
         return con
+
+    def _due_touch(self, token_hash):
+        """同一会话最多每 SESSION_TOUCH_SECONDS 落一次 last_seen_at。"""
+        now = time.monotonic()
+        with self._touch_lock:
+            last = self._touch_at.get(token_hash, 0.0)
+            if now - last < SESSION_TOUCH_SECONDS:
+                return False
+            self._touch_at[token_hash] = now
+            # 防止会话表长期增长时缓存无界；超出 2 万时清理最旧一半。
+            if len(self._touch_at) > 20000:
+                cutoff = now - SESSION_TOUCH_SECONDS
+                self._touch_at = {k: v for k, v in self._touch_at.items() if v >= cutoff}
+            return True
 
     def _init(self):
         with self._lock, self._connect() as con:
@@ -349,7 +370,7 @@ class RbacStore:
                 con.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
                 con.commit()
                 return None
-            if touch:
+            if touch and self._due_touch(token_hash):
                 con.execute("UPDATE sessions SET last_seen_at=?,ip=?,user_agent=? WHERE token_hash=?",
                             (_iso(_now()), str(ip or "")[:64], str(user_agent or "")[:240], token_hash))
                 con.commit()
@@ -365,6 +386,8 @@ class RbacStore:
                 return False
             con.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
             con.commit()
+        with self._touch_lock:
+            self._touch_at.pop(token_hash, None)
         self.record(user["id"], user["display_name"] or user["username"], "logout", "success",
                     "", "session", "", ip, "")
         return True

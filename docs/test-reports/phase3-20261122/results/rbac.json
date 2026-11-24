@@ -1,6 +1,6 @@
 {
   "suite": "rbac",
-  "at": "2026-11-24T13:54:54Z",
+  "at": "2026-11-24T17:02:56Z",
   "checks": [
     {
       "name": "空库要求初始化管理员",
@@ -35,7 +35,7 @@
     {
       "name": "密码不以明文落库",
       "ok": true,
-      "detail": "pbkdf2_sha256$210000$8"
+      "detail": "pbkdf2_sha256$210000$9"
     },
     {
       "name": "错误密码统一 401",
@@ -75,7 +75,7 @@
     {
       "name": "拒绝被记录到审计：对象/权限/操作人完整",
       "ok": true,
-      "detail": "{'id': 8, 'at': '2026-11-24T13:54:52Z', 'actor_name': '只读乙', 'action': 'access', 'result': 'deny', 'permission': 'project.read', 'object_type': 'project', 'object_id': 'p-403', 'ip': '127.0.0.1', 'detail': 'GET /api/workflow/project?project_id=p-403'}"
+      "detail": "{'id': 8, 'at': '2026-11-24T17:02:52Z', 'actor_name': '只读乙', 'action': 'access', 'result': 'deny', 'permission': 'project.read', 'object_type': 'project', 'object_id': 'p-403', 'ip': '127.0.0.1', 'detail': 'GET /api/workflow/project?project_id=p-403'}"
     },
     {
       "name": "无会话访问返回 401",

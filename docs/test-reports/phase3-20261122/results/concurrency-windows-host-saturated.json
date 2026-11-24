@@ -1,0 +1,104 @@
+{
+  "suite": "concurrency",
+  "users": 20,
+  "cycles": 60,
+  "threshold_ms": 300.0,
+  "requests": 4800,
+  "checks": [
+    {
+      "name": "隔离工作组服务健康",
+      "ok": true,
+      "detail": "http://127.0.0.1:60089"
+    },
+    {
+      "name": "初始化管理员 load01",
+      "ok": true,
+      "detail": 200
+    },
+    {
+      "name": "创建 20 个独立会话账号",
+      "ok": true,
+      "detail": "1 admin + 19 manager"
+    },
+    {
+      "name": "20 个会话身份独立",
+      "ok": true,
+      "detail": "me 全部匹配"
+    },
+    {
+      "name": "20 并发 p95 ≤300ms",
+      "ok": true,
+      "detail": "p95=95.11ms p50=57.36ms p99=110.55ms"
+    },
+    {
+      "name": "20 会话无数据串号",
+      "ok": true,
+      "detail": "errors=0"
+    },
+    {
+      "name": "所有项目事件操作人正确",
+      "ok": true,
+      "detail": "仅系统创建 + 本会话操作"
+    },
+    {
+      "name": "20 会话并发完整完成",
+      "ok": true,
+      "detail": "4800/4800 请求"
+    }
+  ],
+  "environment": {
+    "platform": "Linux-6.6.95.bck.4-rc5-amd64-x86_64-with-glibc2.35",
+    "python": "3.12.11",
+    "cpu_count": 2,
+    "database": "sqlite-wal",
+    "deployment": "workgroup"
+  },
+  "latency_ms": {
+    "count": 4800,
+    "p50": 57.36,
+    "p95": 95.11,
+    "p99": 110.55,
+    "max": 135.18,
+    "avg": 61.62
+  },
+  "by_endpoint": {
+    "me": {
+      "count": 1200,
+      "p50": 46.03,
+      "p95": 52.9,
+      "p99": 57.52,
+      "max": 76.39,
+      "avg": 46.53
+    },
+    "projects": {
+      "count": 1200,
+      "p50": 57.38,
+      "p95": 81.17,
+      "p99": 95.94,
+      "max": 116.97,
+      "avg": 59.2
+    },
+    "detail": {
+      "count": 1200,
+      "p50": 63.26,
+      "p95": 98.12,
+      "p99": 109.23,
+      "max": 135.18,
+      "avg": 66.28
+    },
+    "transition": {
+      "count": 1200,
+      "p50": 72.35,
+      "p95": 105.69,
+      "p99": 116.36,
+      "max": 132.64,
+      "avg": 74.48
+    }
+  },
+  "errors": [],
+  "wall_seconds": 16.99,
+  "throughput_rps": 282.5,
+  "pass": 8,
+  "total": 8,
+  "generated_at": "2026-11-25T01:23:18+0800"
+}
