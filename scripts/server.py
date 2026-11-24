@@ -30,6 +30,7 @@ import evidence
 import ai_eval
 import project_workflow
 import rbac
+import integrations
 
 # 可写数据目录：frozen(exe) 用 %APPDATA%\WorkloadEval（升级/卸载不随安装目录删除，配置不丢），
 # dev 用项目 data；可用环境变量 WE_DATA 覆盖
@@ -815,6 +816,15 @@ def get_rbac():
             if RBAC is None:
                 RBAC = rbac.RbacStore(APP_DATA / "rbac.db")
     return RBAC
+
+
+# T06200 / REQ-022 / AC-30：外部系统同步（GitHub/Jira/GitLab），独立 integrations.db。
+INTEGRATIONS = None
+try:
+    INTEGRATIONS = integrations.IntegrationStore(
+        APP_DATA / "integrations.db", protect=secret_store.protect, unprotect=secret_store.unprotect)
+except Exception as e:
+    print(f"[integrations] 初始化失败，外部同步禁用: {type(e).__name__}: {e}", flush=True)
 
 # M8/FR-5.6：备份与 schema 迁移放在各存储初始化之后（保证 pert.db/estimation.db 已就绪）
 try:
@@ -2214,6 +2224,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 perm = rbac.P_PROJ_READ
             return perm, "project", object_id
+        if path.startswith("/api/integrations"):
+            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "integration", ""
         if path.startswith("/api/config") or path.startswith("/api/theme") or path.startswith("/api/update"):
             return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
         if path.startswith("/api/rates") or path.startswith("/api/rules"):
@@ -2432,6 +2444,69 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "sso": sso_public_view(cfg)}) or True
         return False
 
+    def _audit_integration(self, action, result, detail, object_id=""):
+        # 工作组才写 RBAC 审计；单机版不创建 rbac.db。
+        if not self._workgroup():
+            return
+        try:
+            user = getattr(self, "rbac_user", None) or {}
+            get_rbac().record(user.get("id"), user.get("display_name") or user.get("username") or "系统",
+                              "integration_" + action, result, rbac.P_SET_WRITE, "integration",
+                              object_id, self._client_ip(), detail)
+        except Exception:
+            pass
+
+    def _integration_error(self, e):
+        status = e.status if e.status in (400, 404, 409, 429) else 400
+        return self._json(status, {"ok": False, "code": e.code, "msg": e.message,
+                                   "retryable": bool(e.retryable), "field": "integration"})
+
+    def _post_integration_routes(self, p, raw):
+        """T06200：外部集成配置、测试、同步、重试。仅单向写远端需求/任务。"""
+        if not p.startswith("/api/integrations"):
+            return False
+        if INTEGRATIONS is None:
+            return self._json(503, {"ok": False, **_m("integration.srv_unavailable", "外部同步未初始化")}) or True
+        body = _body_json(raw)
+        try:
+            if p == "/api/integrations/save":
+                kind = str(body.get("kind") or "")
+                cfg = body.get("config") if isinstance(body.get("config"), dict) else {}
+                conn = INTEGRATIONS.save(kind, config=cfg,
+                                         mapping=body.get("mapping") if isinstance(body.get("mapping"), dict) else None,
+                                         enabled=body.get("enabled"),
+                                         name=str(body.get("name") or "") or None)
+                pub = INTEGRATIONS.public(conn)
+                self._audit_integration("save", "success",
+                                        f"enabled={int(pub['enabled'])} configured={int(pub['available'])}", conn["id"])
+                return self._json(200, {"ok": True, "connector": pub}) or True
+            if p == "/api/integrations/mapping":
+                kind = str(body.get("kind") or "")
+                conn = INTEGRATIONS.save_mapping(kind, body.get("mapping") or {})
+                self._audit_integration("mapping", "success", "字段映射已保存", conn["id"])
+                return self._json(200, {"ok": True, "connector": INTEGRATIONS.public(conn)}) or True
+            if p == "/api/integrations/test":
+                kind = str(body.get("kind") or "")
+                result = INTEGRATIONS.test(kind)
+                self._audit_integration("test", "success" if result["ok"] else "fail",
+                                        result.get("detail") or result.get("error") or "", kind)
+                return self._json(200, result) or True
+            if p == "/api/integrations/sync":
+                kind = str(body.get("kind") or "")
+                job = INTEGRATIONS.sync(kind, body.get("items"))
+                self._audit_integration("sync", "success" if job["status"] == "success" else "fail",
+                                        f"job={job['id']} status={job['status']} ok={job['succeeded']} fail={job['failed']}",
+                                        job["id"])
+                return self._json(200, {"ok": True, "job": job}) or True
+            if p == "/api/integrations/retry":
+                job = INTEGRATIONS.retry(str(body.get("job_id") or ""))
+                self._audit_integration("retry", "success" if job["status"] == "success" else "fail",
+                                        f"job={job['id']} retry_of={job['retry_of']} status={job['status']}", job["id"])
+                return self._json(200, {"ok": True, "job": job}) or True
+        except integrations.IntegrationError as e:
+            return self._integration_error(e) or True
+        return False
+
     def _serve_frontend(self):
         p = _RES / "frontend" / "index.html"
         if not p.exists():
@@ -2630,6 +2705,35 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, d)
 
+    def _get_integration_routes(self, u):
+        if u.path == "/api/integrations":
+            if INTEGRATIONS is None:
+                self._json(503, {"ok": False, **_m("integration.srv_unavailable", "外部同步未初始化")})
+                return True
+            qs = parse_qs(u.query)
+            kind = (qs.get("kind") or [""])[0]
+            limit = (qs.get("limit") or ["20"])[0]
+            connectors = [INTEGRATIONS.public(c) for c in INTEGRATIONS.list()]
+            self._json(200, {
+                "ok": True, "mode": (load_config().get("deployment") or {}).get("mode", "standalone"),
+                "connectors": connectors, "jobs": INTEGRATIONS.jobs(kind, limit),
+                "mapping_slots": list(integrations.MAPPING_SLOTS),
+                "local_fields": list(integrations.LOCAL_FIELDS),
+                "kinds": [{"kind": k, "name": v["name"], "required": list(v["required"])}
+                          for k, v in integrations.KINDS.items()],
+            })
+            return True
+        if u.path == "/api/integrations/jobs":
+            if INTEGRATIONS is None:
+                self._json(503, {"ok": False})
+                return True
+            qs = parse_qs(u.query)
+            kind = (qs.get("kind") or [""])[0]
+            limit = (qs.get("limit") or ["20"])[0]
+            self._json(200, {"ok": True, "jobs": INTEGRATIONS.jobs(kind, limit)})
+            return True
+        return False
+
     def _get_config_routes(self, u):
         if u.path == API_CONFIG:
             # 配置中心：返回持久化配置 + 预设元数据（模型开发商/控制台链接）
@@ -2814,7 +2918,7 @@ class Handler(BaseHTTPRequestHandler):
         if self._get_auth_routes(u.path, u.query):
             return
         for route in (self._get_page_routes, self._get_export_routes, self._get_history_routes,
-                      self._get_config_routes, self._get_file_routes):
+                      self._get_integration_routes, self._get_config_routes, self._get_file_routes):
             if route(u):
                 return
         self._json(404, {"ok": False})
@@ -2887,9 +2991,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if self._post_auth_routes(path, raw):
                 return
+            if self._post_integration_routes(path, raw):
+                return
             if self._dispatch_post(path, raw):
                 return
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             self._json(500, {"ok": False, **_m("srv.internal_error", "服务器内部错误：{detail}", detail=str(e))})
             return
         self._json(404, {"ok": False})

@@ -987,6 +987,47 @@
         <div class="rbac-msg" id="rbacSsoMsg" role="status" aria-live="polite"></div>
       </section>
 
+      <section class="glass pad team-card team-wide" id="integrationCard" aria-labelledby="integrationTitle" hidden>
+        <div class="card-title" id="integrationTitle"><i aria-hidden="true" data-lucide="plug-zap"></i><span data-i18n="team.int.title">外部系统同步</span><span class="badge" id="intBadge"></span></div>
+        <p class="cfg-note" data-i18n="team.int.note">仅把本地需求/任务单向创建到 GitHub Issues、Jira、GitLab Issues；不回读远端状态，不做双向同步。同步失败会保留逐条原因并可重试。</p>
+        <div class="int-summary" id="intSummary" role="list"></div>
+        <div class="integration-grid">
+          <div>
+            <div class="int-tabs" id="intTabs" role="tablist" aria-label="外部集成类型"></div>
+            <form id="integrationForm" class="int-form" onsubmit="event.preventDefault();IntegrationAdmin.save()">
+              <div id="intFields" class="int-fields"></div>
+              <div class="int-map" aria-labelledby="intMapHeading">
+                <div class="int-section" id="intMapHeading" data-i18n="team.int.mapping">字段映射（本地字段 → 远端槽位）</div>
+                <div class="int-map-grid">
+                  <label class="rbac-field"><span data-i18n="team.int.map.title">标题</span><select id="intMapTitle"><option value="title">title</option></select></label>
+                  <label class="rbac-field"><span data-i18n="team.int.map.body">描述</span><select id="intMapBody"><option value="body">body</option></select></label>
+                  <label class="rbac-field"><span data-i18n="team.int.map.priority">优先级</span><select id="intMapPriority"><option value="priority">priority</option></select></label>
+                  <label class="rbac-field"><span data-i18n="team.int.map.labels">标签</span><select id="intMapLabels"><option value="labels">labels</option></select></label>
+                </div>
+                <div class="wf-actions"><button type="button" class="btn btn-ghost" onclick="IntegrationAdmin.saveMapping()"><i aria-hidden="true" data-lucide="save" style="width:14px;height:14px"></i><span data-i18n="team.int.map.save">仅保存字段映射</span></button></div>
+              </div>
+              <label class="rbac-check"><input id="intEnabled" type="checkbox"><span data-i18n="team.int.enabled">启用该连接器</span></label>
+              <div class="wf-actions">
+                <button type="submit" class="btn btn-primary" id="intSave"><i aria-hidden="true" data-lucide="save" style="width:14px;height:14px"></i><span data-i18n="team.int.save">保存配置</span></button>
+                <button type="button" class="btn btn-ghost" id="intTest" onclick="IntegrationAdmin.test()"><i aria-hidden="true" data-lucide="plug-zap" style="width:14px;height:14px"></i><span data-i18n="team.int.test">测试连接</span></button>
+              </div>
+            </form>
+            <div class="rbac-msg" id="intMsg" role="status" aria-live="polite"></div>
+          </div>
+          <div>
+            <div class="int-section" data-i18n="team.int.sync">同步需求 / 任务</div>
+            <p class="cfg-note" data-i18n="team.int.sync.note">默认同步当前结果页生成的用户故事；也可粘贴 JSON 数组（title/body/priority/labels）。只创建，不更新远端已有条目。</p>
+            <textarea id="intItems" class="int-textarea" rows="5" placeholder='[{"title":"票据到期提醒","body":"按到期日筛选","priority":"P1","labels":["需求"]}]'></textarea>
+            <div class="wf-actions">
+              <button type="button" class="btn btn-primary" id="intSync" onclick="IntegrationAdmin.sync()"><i aria-hidden="true" data-lucide="send" style="width:14px;height:14px"></i><span data-i18n="team.int.push">同步到该集成</span></button>
+              <button type="button" class="btn btn-ghost" onclick="IntegrationAdmin.loadJobs()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="team.int.refresh">刷新任务</span></button>
+            </div>
+          <div class="int-section" data-i18n="team.int.jobs">最近同步任务</div>
+            <ol class="int-jobs" id="intJobs" tabindex="0" aria-label="最近同步任务"></ol>
+          </div>
+        </div>
+      </section>
+
       <section class="glass pad team-card team-wide" id="rbacMatrixCard" aria-labelledby="rbacMatrixTitle">
         <div class="card-title" id="rbacMatrixTitle"><i aria-hidden="true" data-lucide="table-2"></i><span data-i18n="team.matrix.title">角色权限矩阵</span></div>
         <div class="rbac-table-wrap" role="region" aria-labelledby="rbacMatrixTitle" tabindex="0"><table class="rbac-table rbac-matrix" aria-label="角色权限矩阵"><thead id="rbacMatrixHead"></thead><tbody id="rbacMatrixBody"></tbody></table></div>

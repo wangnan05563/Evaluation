@@ -249,6 +249,7 @@
       if (!this.user) { this.showGate(!!this.state.bootstrapRequired); return; }
       this.setCardVisible('#rbacUsersCard', this.can('user.manage'));
       this.setCardVisible('#rbacSsoCard', this.can('settings.write'));
+      this.setCardVisible('#integrationCard', this.can('settings.write'));
       this.setCardVisible('#rbacAuditCard', this.can('audit.read'));
       this.renderWho();
       setMsg($('#rbacMsg'), '');
@@ -257,6 +258,8 @@
         this.loadMatrix(),
         this.can('user.manage') ? this.loadUsers() : Promise.resolve(),
         this.can('settings.write') ? this.loadSso() : Promise.resolve(),
+        this.can('settings.write') && window.IntegrationAdmin
+          ? window.IntegrationAdmin.load() : Promise.resolve(),
         this.can('audit.read') ? this.loadAudit() : Promise.resolve()
       ]);
       window.lucide && lucide.createIcons();

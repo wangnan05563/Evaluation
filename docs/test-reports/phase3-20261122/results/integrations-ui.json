@@ -1,0 +1,123 @@
+{
+  "suite": "integrations-ui",
+  "at": "2026-11-24T16:22:17.689Z",
+  "checks": [
+    {
+      "title": "创建管理员并进入工作组",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "团队页管理员可见外部集成卡与 3 个连接器",
+      "ok": true,
+      "detail": "{\"card\":false,\"tabs\":[\"GitHub Issues\",\"GitLab Issues\",\"Jira\"],\"chips\":[\"GitHub Issues\",\"GitLab Issues\",\"Jira\"],\"fields\":[\"base_url\",\"repo\",\"token\"],\"map\":[\"title\",\"body\",\"priority\",\"labels\"],\"badge\":\"未启用\",\"jobs\":1,\"empty\":\"暂无同步任务\"}"
+    },
+    {
+      "title": "初始字段为 GitHub 的 base_url/repo/token",
+      "ok": true,
+      "detail": [
+        "base_url",
+        "repo",
+        "token"
+      ]
+    },
+    {
+      "title": "字段映射 4 槽位默认映射到同名本地字段",
+      "ok": true,
+      "detail": "[\"title\",\"body\",\"priority\",\"labels\"]"
+    },
+    {
+      "title": "未配置时显示未启用且任务空态",
+      "ok": true,
+      "detail": "[\"未启用\",\"暂无同步任务\"]"
+    },
+    {
+      "title": "UI 保存 GitHub 配置并测试连接成功",
+      "ok": true,
+      "detail": "连接正常：仓库 owner/repo 可访问"
+    },
+    {
+      "title": "UI 保存 Jira 配置并测试连接成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "UI 保存 GitLab 配置并测试连接成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "三个连接器全部可用且已启用",
+      "ok": true,
+      "detail": "[[\"github\",true,true],[\"gitlab\",true,true],[\"jira\",true,true]]"
+    },
+    {
+      "title": "接口响应不含三组明文令牌",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "密钥仅以 token_set/api_token_set 暴露",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "title": "字段映射可保存并持久化",
+      "ok": true,
+      "detail": "{\"title\":\"component\",\"body\":\"acceptance\",\"priority\":\"priority\",\"labels\":\"labels\"}"
+    },
+    {
+      "title": "UI 同步成功并展示任务日志",
+      "ok": true,
+      "detail": "{\"msg\":\"已同步 1 条\",\"jobs\":1,\"ok\":1}"
+    },
+    {
+      "title": "映射后同步载荷标题取 component",
+      "ok": true,
+      "detail": "{\"title\":\"票据到期提醒\",\"body\":\"按到期日筛选\",\"labels\":[\"需求\"]}"
+    },
+    {
+      "title": "UI 展示同步失败与逐条错误原因",
+      "ok": true,
+      "detail": "{\"msg\":\"1 条失败，首因：HTTP 503: {\\\"error\\\":\\\"mock upstream down\\\"}（1 条失败，可重试）\",\"err\":\"1 条失败，首因：HTTP 503: {\\\"error\\\":\\\"mock upstream down\\\"}\",\"rows\":1,\"id\":\"0823882f-f8e3-4190-a3ce-84d84df35d36\"}"
+    },
+    {
+      "title": "UI 重试失败任务成功",
+      "ok": true,
+      "detail": "重试成功"
+    },
+    {
+      "title": "集成团队页 axe 无 serious/critical 违规",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "title": "1024px 集成卡无横向溢出",
+      "ok": true,
+      "detail": "{\"doc\":-15,\"wrap\":0,\"card\":0}"
+    },
+    {
+      "title": "768px 集成卡无横向溢出",
+      "ok": true,
+      "detail": "{\"doc\":-15,\"wrap\":0,\"card\":0}"
+    },
+    {
+      "title": "评估师团队页隐藏外部集成与 SSO 管理卡",
+      "ok": true,
+      "detail": "{\"card\":true,\"sso\":true}"
+    },
+    {
+      "title": "UI 运行无未捕获 JS 异常",
+      "ok": true,
+      "detail": "[]"
+    }
+  ],
+  "pass": 21,
+  "total": 21,
+  "screenshots": [
+    "integrations_team_1440.png",
+    "integrations_team_1024.png",
+    "integrations_team_768.png"
+  ],
+  "api": "http://127.0.0.1:58498"
+}

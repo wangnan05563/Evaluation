@@ -1,0 +1,172 @@
+{
+  "suite": "integrations-api",
+  "checks": [
+    {
+      "name": "隔离服务健康",
+      "ok": true,
+      "detail": "http://127.0.0.1:58128"
+    },
+    {
+      "name": "初始化管理员",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "评估师账号可登录",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "匿名读取集成：401 且无连接器",
+      "ok": true,
+      "detail": "401"
+    },
+    {
+      "name": "评估师读取集成：403 且无配置",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "name": "评估师写入集成：403",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "name": "管理员读到 3 个集成连接器",
+      "ok": true,
+      "detail": "['github', 'gitlab', 'jira']"
+    },
+    {
+      "name": "连接器初始未启用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "github 配置保存并启用",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "github 响应不含明文令牌",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "github 连接测试成功",
+      "ok": true,
+      "detail": "仓库 owner/repo 可访问"
+    },
+    {
+      "name": "jira 配置保存并启用",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "jira 响应不含明文令牌",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "jira 连接测试成功",
+      "ok": true,
+      "detail": "账号 Mock Bot 可访问"
+    },
+    {
+      "name": "gitlab 配置保存并启用",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "gitlab 响应不含明文令牌",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "gitlab 连接测试成功",
+      "ok": true,
+      "detail": "项目 group/project 可访问"
+    },
+    {
+      "name": "字段映射保存接口成功",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "字段映射刷新后仍持久化",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "密钥只暴露 set 标记",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GitHub 同步成功",
+      "ok": true,
+      "detail": "200 success"
+    },
+    {
+      "name": "同步响应含计数与失败原因字段",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "映射后标题取 component 字段",
+      "ok": true,
+      "detail": "{'title': '票据提醒', 'body': '到期筛选', 'labels': ['需求']}"
+    },
+    {
+      "name": "jira 同步成功",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "gitlab 同步成功",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "失败任务返回 failed 且保留错误原因",
+      "ok": true,
+      "detail": "[{\"index\": 0, \"title\": \"会失败\", \"code\": \"HTTP_ERROR\", \"message\": \"HTTP 503: {\\\"error\\\": \\\"upstream down\\\"}\", \"status\": 503, \"retryable\": true}]"
+    },
+    {
+      "name": "错误原因含 HTTP 状态与逐条标题",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "手动重试成功并记录来源任务",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "成功任务重复重试返回 409",
+      "ok": true,
+      "detail": "409"
+    },
+    {
+      "name": "任务日志可查询且计数完整",
+      "ok": true,
+      "detail": "5"
+    },
+    {
+      "name": "集成保存/测试/同步/重试进入 RBAC 审计",
+      "ok": true,
+      "detail": "['integration_mapping', 'integration_retry', 'integration_save', 'integration_sync', 'integration_test']"
+    },
+    {
+      "name": "数据库中三个令牌均非明文",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "同步仅创建，无状态双向请求",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "pass": 33,
+  "total": 33
+}
