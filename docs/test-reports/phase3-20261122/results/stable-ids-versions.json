@@ -1,0 +1,105 @@
+{
+  "suite": "stable-ids-versions",
+  "task": "T06194",
+  "at": "2026-11-24T11:09:12",
+  "checks": [
+    {
+      "title": "第1版生成3个稳定ID",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "第2版稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "第3版改名但稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "3个版本 version_no 递增",
+      "ok": true,
+      "detail": "[1, 2, 3]"
+    },
+    {
+      "title": "导出前映射表校验通过",
+      "ok": true,
+      "detail": "{'ok': True, 'rows': 3, 'items': 9, 'mapped': 3, 'issues': []}"
+    },
+    {
+      "title": "导出包包含估算库与 schema",
+      "ok": true,
+      "detail": "['pert.db', 'estimation.db', 'schema_ver']"
+    },
+    {
+      "title": "导出包可被 zip 校验读取",
+      "ok": true,
+      "detail": "1850"
+    },
+    {
+      "title": "导入到全新数据目录成功",
+      "ok": true,
+      "detail": "['pert.db', 'estimation.db', 'schema_ver']"
+    },
+    {
+      "title": "导入后第1版稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "导入后第2版稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "导入后第3版稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "导入后明细字段无丢失",
+      "ok": true,
+      "detail": "[('内部文件（v3改名）', 'ILF'), ('外部接口', 'EIF'), ('录入', 'EI')]"
+    },
+    {
+      "title": "导入后映射表校验通过",
+      "ok": true,
+      "detail": "{'ok': True, 'rows': 3, 'items': 9, 'mapped': 3, 'issues': []}"
+    },
+    {
+      "title": "导入后重开第4版稳定ID不变",
+      "ok": true,
+      "detail": "['F-F53B2C01B3', 'F-2AE58F250E', 'F-E4FC4C1CD4']"
+    },
+    {
+      "title": "重开第4版 version_no=4",
+      "ok": true,
+      "detail": "4"
+    },
+    {
+      "title": "导入后重开 diff 只含1条改名",
+      "ok": true,
+      "detail": "{'added': 0, 'removed': 0, 'changed': 1}"
+    },
+    {
+      "title": "导入后类型变更生成新ID",
+      "ok": true,
+      "detail": "F-44A1A17B5E"
+    },
+    {
+      "title": "新ID replaces_id 指向旧ID",
+      "ok": true,
+      "detail": "F-F53B2C01B3"
+    },
+    {
+      "title": "类型变更后映射表/替换链通过",
+      "ok": true,
+      "detail": "{'ok': True, 'rows': 5, 'items': 15, 'mapped': 4, 'issues': []}"
+    }
+  ],
+  "pass": 19,
+  "fail": 0,
+  "total": 19
+}
