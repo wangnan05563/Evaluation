@@ -1,0 +1,32 @@
+# 三期验证环境就绪 API=http://127.0.0.1:8033 CDP=http://127.0.0.1:9335 DATA=C:\PYFIX_~4\we_phase3_P5nVYu\data
+
+
+== theme-studio ==
+PASS  配置中心主题 Token 面板含主题工作室入口  — {"exists":true,"label":"主题工作室","panel":true}
+PASS  主题工作室标题与模板列表正确  — {"title":"主题工作室","templateOptions":2,"name":"base","rows":6,"summary":"对比度 6/6 通过","saveDisabled":false,"brand":"#2563EB","bg":"#FFFFFF","buttonBg":"rgb(37, 99, 235)","buttonFg":"rgb(255, 255, 255)","reportLine":"rgb(37, 99, 235)","badgeBg":"rgb(239, 244, 255)"}
+PASS  默认主题 6/6 对比度通过且保存可用  — {"title":"主题工作室","templateOptions":2,"name":"base","rows":6,"summary":"对比度 6/6 通过","saveDisabled":false,"brand":"#2563EB","bg":"#FFFFFF","buttonBg":"rgb(37, 99, 235)","buttonFg":"rgb(255, 255, 255)","reportLine":"rgb(37, 99, 235)","badgeBg":"rgb(239, 244, 255)"}
+PASS  预览使用默认品牌令牌（UI/报告同源）  — {"title":"主题工作室","templateOptions":2,"name":"base","rows":6,"summary":"对比度 6/6 通过","saveDisabled":false,"brand":"#2563EB","bg":"#FFFFFF","buttonBg":"rgb(37, 99, 235)","buttonFg":"rgb(255, 255, 255)","reportLine":"rgb(37, 99, 235)","badgeBg":"rgb(239, 244, 255)"}
+PASS  主色修改实时驱动预览/报告/按钮  — {"brand":"#ffff00","buttonBg":"rgb(255, 255, 0)","reportLine":"rgb(255, 255, 0)","saveDisabled":true,"buttonState":"不通过"}
+PASS  按钮对比度不足时阻断保存  — {"saveDisabled":true,"state":"不通过","ratio":"1.07:1","hint":"对比度不足：保存已阻断（需 ≥ 4.5:1）。","summary":"对比度 5/6 通过 · 1 项阻断"}
+PASS  修正按钮文字后对比度 19.56:1 且保存恢复  — {"saveDisabled":false,"state":"通过","ratio":"19.56:1","summary":"对比度 6/6 通过"}
+PASS  服务端对低对比主题返回 400  — {"status":400,"ok":false,"errors":["对比度不足：主按钮文字 / 主按钮背景 = 1.07:1（要求 ≥ 4.5:1）"]}
+PASS  保存后全局主题生效  — {"rootBrand":"#ffff00","tokens":"base","wlBrand":"#ffff00","payloadBrand":"#ffff00","activeButton":"rgb(255, 255, 0)","activeButtonFg":"rgb(0, 0, 0)"}
+PASS  UI 主色同步到报告生成参数  — {"rootBrand":"#ffff00","tokens":"base","wlBrand":"#ffff00","payloadBrand":"#ffff00","activeButton":"rgb(255, 255, 0)","activeButtonFg":"rgb(0, 0, 0)"}
+PASS  服务端已持久化达标主题并返回 6 组检查  — {"ok":true,"name":"base","brand":"#ffff00","contrast":[{"key":"ink_bg","label":"正文 / 页面背景","fg":"#1F2937","bg":"#FFFFFF","ratio":14.68,"min":4.5,"ok":true},{"key":"ink2_bg","label":"次级正文 / 页面背景","fg":"#374151","bg":"#FFFFFF","ratio":10.31,"min":4.5,"ok":true},{"key":"muted_bg","label":"弱化文字 / 页面背景","fg":"#5B6472","bg":"#FFFFFF","ratio":5.98,"min":4.5,"ok":true},{"key":"ink_card","label":"正文 / 卡片背景","fg":"#1F2937","bg":"#FFFFFF","ratio":14.68,"min":4.5,"ok":true},{"key":"button","label":"主按钮文字 / 主按钮背景","fg":"#000000","bg":"#ffff00","ratio":19.56,"min":4.5,"ok":true},{"key":"badge","label":"品牌徽标文字 / 品牌徽标背景","fg":"#1D4ED8","bg":"#EFF4FF","ratio":6.08,"min":4.5,"ok":true}]}
+PASS  导出主题 JSON 三层结构完整  — ["name","label","version","raw","semantic","component"]
+PASS  导出主题保留实时修改的品牌色与按钮文字  — {"brand":"#ffff00","fg":"#000000"}
+PASS  导出 JSON 可重新导入并生效  — {"ok":true,"name":"base","brand":"#ffff00"}
+PASS  英文态主题工作室静态与动态标签均本地化  — {"title":"Theme Studio","label":"Brand","firstPair":"Body / page background","summary":"Contrast 6/6 passed"}
+PASS  Esc 关闭主题工作室并归还焦点  — {"hidden":true,"focus":"themeTokenOpenStudio"}
+PASS  1024px 无页面横向溢出且预览可见  — {"inner":1024,"doc":1024,"dialog":983.03125,"preview":632.03125,"overflow":false}
+PASS  768px 无页面横向溢出且预览可见  — {"inner":768,"doc":768,"dialog":768,"preview":725,"overflow":false}
+PASS  axe 使用已保存的自定义品牌主题  — {"brand":"#ffff00","brandInk":"#1D4ED8","tokens":"base","wlBrand":"#ffff00"}
+PASS  主题工作室 axe WCAG A/AA 严重阻断为 0  — []
+PASS  重置后清理主题与报告品牌色  — {"brand":"#2563EB","tokens":"","wlBrand":null,"active":null}
+PASS  无页面异常
+
+ui-theme-studio: 22/22 checks passed
+== theme-studio PASS ==
+
+
+==== 三期批次 1/1 通过 ====
