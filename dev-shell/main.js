@@ -7,6 +7,7 @@
 // 生产打包由 electron-builder 复用同一 main.js，区别仅在于资源根路径（resourcesPath）。
 
 const { app, BrowserWindow, screen, shell, dialog, Tray, Menu, nativeImage, ipcMain } = require('electron')
+const crypto = require('node:crypto')
 const path = require('node:path')
 const fs = require('node:fs')
 const net = require('node:net')
@@ -23,6 +24,9 @@ const DEFAULT_H = 900
 const MIN_W = 960
 const MIN_H = 640
 const APP_NAME = '工作量评估工具'   // 仅作为 sidecar exe 文件名与日志标识，不用于界面文案（T03957）
+// T06353：每次桌面壳启动生成本机恢复令牌，经环境变量交给 sidecar；
+// 渲染进程通过 preload IPC 获取，浏览器直接访问没有这个令牌。
+const LOCAL_RECOVERY_TOKEN = crypto.randomBytes(32).toString('hex')
 
 const ROOT = resolveRoot()
 const LOGDIR = path.join(ROOT, 'logs')
@@ -187,7 +191,8 @@ async function startBackend() {
   // 数据目录由 server.py 决定：frozen 时落 %APPDATA%\WorkloadEval，卸载/重装不丢配置。
   // 禁止在此注入 WE_DATA 指向安装目录——NSIS 卸载会整目录删除，配置随包丢失（T00850）。
   // WE_APP_VERSION：后端 /api/app-info 与更新检测用（Electron 打包内 package.json 是权威版本源）
-  const env = { ...process.env, WE_APP_VERSION: app.getVersion() }
+  const env = { ...process.env, WE_APP_VERSION: app.getVersion(),
+    WE_LOCAL_RECOVERY_TOKEN: LOCAL_RECOVERY_TOKEN }
   let child
   const out = openLog(BACKEND_LOG)
   if (sc.kind === 'exe') {
@@ -422,6 +427,11 @@ async function requestQuit() {
 
 ipcMain.handle('weval:window-behavior:get', () => prefsStore().read())
 ipcMain.handle('weval:window-behavior:set', (_e, patch) => prefsStore().write(patch))
+ipcMain.handle('weval:local-recovery-token', (event) => {
+  const url = String((event.senderFrame && event.senderFrame.url) || '')
+  if (!url.startsWith(`http://127.0.0.1:${PORT}/`)) return ''
+  return LOCAL_RECOVERY_TOKEN
+})
 
 // ---------- 窗口自适应 ----------
 function computeSize() {

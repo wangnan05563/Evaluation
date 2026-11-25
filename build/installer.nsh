@@ -6,16 +6,38 @@
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 !insertmacro GetParent
+!insertmacro GetFileName
 !include "WordFunc.nsh"
 !insertmacro WordFind2X
 
 ; 默认安装目录的末级名称：electron-builder 默认取 dev-shell 包名
-; workload-estimate-dev-shell；产品要求安装到 ...\Evaluation。这里只改 NSIS 的
-; APP_FILENAME，不影响应用显示名、快捷方式名和 exe 文件名。
+; workload-estimate-dev-shell；产品要求安装到 ...\Evaluation。
+; 这里只改 NSIS 的 APP_FILENAME，不影响应用显示名、快捷方式名和 exe 文件名。
+; 注意：APP_FILENAME 不是 electron-builder 的公开配置项，而是其 NSIS 模板变量；
+; 升级 electron-builder 后必须用 makensis 重新编译验证（CI 可加独立编译探针）。
 !ifdef APP_FILENAME
   !undef APP_FILENAME
 !endif
 !define APP_FILENAME "Evaluation"
+
+; electron-builder 的 instFilesPre 只用 StrContains 判断 APP_FILENAME 是否出现在
+; $INSTDIR 中，不是精确比较末级目录。用户选择 D:\code\otherProjects\Evaluation
+; 时不会追加 \Evaluation，会把文件直接写进源码目录。
+; customPageAfterChangeDir 注入点是顶层代码，不能调用 GetFileName（其内部用
+; Push/Pop，只能在 Function/Section 内执行）；改在 NSIS 目录页校验回调里修正。
+; 静默安装 /D= 的显式路径保持原语义，不追加。
+!macro customPageAfterChangeDir
+  ; 目录修正见下方 .onVerifyInstDir；此宏留空仅为兼容 electron-builder 的注入点。
+!macroend
+
+Function .onVerifyInstDir
+  IfSilent done
+  ${GetFileName} $INSTDIR $0
+  ${If} $0 != "Evaluation"
+    StrCpy $INSTDIR "$INSTDIR\Evaluation"
+  ${EndIf}
+done:
+FunctionEnd
 
 ; 卸载键名由 electron-builder 按 appId 派生传入（UNINSTALL_APP_KEY）；
 ; 兜底值与 appId=com.workloadeval.app 对应，appId 变更时需同步更新
@@ -127,4 +149,10 @@ FunctionEnd
 !macro customUnInstall
   DetailPrint "正在关闭工作量评估工具进程 ..."
   nsExec::ExecToLog 'taskkill /f /t /im 工作量评估工具.exe'
+  ; electron-builder 默认按 APP_FILENAME 删除 $APPDATA 数据目录；本产品把
+  ; APP_FILENAME 改成了 Evaluation，而真实用户数据目录是 WorkloadEval。
+  ; 仅在用户显式勾选“删除应用数据”（$isDeleteAppData=1）时补删，避免普通卸载丢数据。
+  ${If} $isDeleteAppData == "1"
+    RMDir /r "$APPDATA\WorkloadEval"
+  ${EndIf}
 !macroend

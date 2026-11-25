@@ -392,6 +392,16 @@ class RbacStore:
                     "", "session", "", ip, "")
         return True
 
+    def revoke_all_sessions(self):
+        """撤销全部会话（部署模式切换等边界操作使用）；不写独立审计，由调用方记录。"""
+        with self._lock, self._connect() as con:
+            count = int(con.execute("SELECT COUNT(*) AS c FROM sessions").fetchone()["c"])
+            con.execute("DELETE FROM sessions")
+            con.commit()
+        with self._touch_lock:
+            self._touch_at.clear()
+        return count
+
     def authorize(self, token, permission, object_type="", object_id="", ip="", method="", path=""):
         """统一权限闸门：失败时写审计并抛 RbacError；成功返回用户。"""
         user = self.session(token, ip=ip)

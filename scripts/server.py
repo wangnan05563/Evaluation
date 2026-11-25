@@ -6,10 +6,10 @@
   POST /api/generate      候选清单(JSON) + 参数 → 生成成品 xlsx，返回汇总+下载句柄
   GET  /api/download?s=xx 下载生成的成品 xlsx
 """
-import base64, gc, io, json, os, re, shutil, sqlite3, subprocess, sys, threading, time, urllib.parse, uuid, webbrowser
+import base64, gc, hmac, io, json, os, re, shutil, sqlite3, subprocess, sys, threading, time, urllib.parse, uuid, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import urlparse, urlsplit, parse_qs, quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -43,6 +43,9 @@ else:
     _APP_ROOT = _RES
     _USER_DATA = _APP_ROOT / "data"          # dev：保持项目 data/（勿指项目根，会与源码混放）
 APP_DATA = Path(os.environ.get("WE_DATA") or _USER_DATA)
+# T06353 安全加固：本机恢复入口必须携带 Electron 壳注入的一次性令牌。
+# 不设置时端点 fail-closed，避免“无 Origin 即放行”的本机进程调用。
+LOCAL_RECOVERY_TOKEN = (os.environ.get("WE_LOCAL_RECOVERY_TOKEN") or "").strip()
 EVAL_RUNS = APP_DATA / "eval_runs"          # T06196：AI 质量评测/提交前自检留痕
 
 # ---------------- 常量（T01501 / python:S1192） ----------------
@@ -841,6 +844,10 @@ except Exception as e:
 
 # ---------------- 配置中心（持久化到 data/config.json） ----------------
 CONF_FILE = APP_DATA / "config.json"
+CONF_BAK = CONF_FILE.with_name(CONF_FILE.name + ".bak")
+CONF_TMP = CONF_FILE.with_name(CONF_FILE.name + ".tmp")
+# 配置读写串行化：ThreadingHTTPServer 下配置保存与部署模式切换可能并发。
+CONFIG_LOCK = threading.RLock()
 # 默认大模型配置：模型预设切换基于这些条目；provider_console 为厂商控制台链接
 DEFAULT_CONFIG = {
     "llm": {"enabled": False, "api": "https://api.openai.com/v1",
@@ -936,25 +943,42 @@ def _migrate_plaintext_key():
         print(f"[security] 明文密钥迁移失败: {type(e).__name__}: {e}", flush=True)
 
 
+def _merge_config(cfg):
+    """把磁盘配置与默认字段合并；未知字段不参与合并。"""
+    return {
+        "provider": cfg.get("provider", DEFAULT_CONFIG["provider"]),
+        "llm": {**DEFAULT_CONFIG["llm"], **(cfg.get("llm") or {})},
+        "context_dir": cfg.get("context_dir", DEFAULT_CONFIG["context_dir"]),
+        "update_url": cfg.get("update_url", DEFAULT_CONFIG["update_url"]),
+        "recalc": {**DEFAULT_CONFIG["recalc"], **(cfg.get("recalc") or {})},
+        "deployment": {**DEFAULT_CONFIG["deployment"], **(cfg.get("deployment") or {})},
+        "sso": {**DEFAULT_CONFIG["sso"], **(cfg.get("sso") or {})}
+    }
+
+
 def load_config():
-    """读配置；不存在或损坏时返回默认值。"""
-    if CONF_FILE.exists():
-        try:
-            # utf-8-sig：兼容带 BOM 的配置文件（被外部编辑器改动过），
-            # 否则 json.loads 失败会静默回退默认配置，表现为"配置丢失"
-            cfg = json.loads(CONF_FILE.read_text(encoding="utf-8-sig"))
-            # 合并默认，确保字段齐全
-            merged = {"provider": cfg.get("provider", DEFAULT_CONFIG["provider"]),
-                      "llm": {**DEFAULT_CONFIG["llm"], **(cfg.get("llm") or {})},
-                      "context_dir": cfg.get("context_dir", DEFAULT_CONFIG["context_dir"]),
-                      "update_url": cfg.get("update_url", DEFAULT_CONFIG["update_url"]),
-                      "recalc": {**DEFAULT_CONFIG["recalc"], **(cfg.get("recalc") or {})},
-                      "deployment": {**DEFAULT_CONFIG["deployment"], **(cfg.get("deployment") or {})},
-                      "sso": {**DEFAULT_CONFIG["sso"], **(cfg.get("sso") or {})}}
-            return _decrypt_sso_secret(_decrypt_llm_key(merged))
-        except Exception:
-            pass
-    return json.loads(json.dumps(DEFAULT_CONFIG))
+    """读配置；不存在返回默认，损坏时回退 .bak，仍失败则 fail-closed 到工作组。"""
+    with CONFIG_LOCK:
+        had_file = False
+        for path in (CONF_FILE, CONF_BAK):
+            if not path.exists():
+                continue
+            had_file = True
+            try:
+                cfg = json.loads(path.read_text(encoding="utf-8-sig"))
+                if not isinstance(cfg, dict):
+                    raise ValueError("config root is not an object")
+                return _decrypt_sso_secret(_decrypt_llm_key(_merge_config(cfg)))
+            except Exception as e:
+                print(f"[config] 读取失败 {path.name}: {type(e).__name__}: {e}", flush=True)
+        if had_file:
+            # 文件存在但主/备都不可解析：不能静默回退 standalone 关闭鉴权，
+            # 保持工作组门禁，让用户仍可从登录页或配置中心恢复。
+            print("[config] 主配置与备份均不可用，安全回退到 workgroup", flush=True)
+            cfg = json.loads(json.dumps(DEFAULT_CONFIG))
+            cfg["deployment"]["mode"] = "workgroup"
+            return cfg
+        return json.loads(json.dumps(DEFAULT_CONFIG))
 
 
 def _apply_llm_settings(cfg, llm):
@@ -1039,21 +1063,39 @@ def public_config(cfg):
 
 
 def save_config(payload):
-    """写入配置到磁盘；payload 中 llm 仅接受合法键，llm.key 加密为 key_enc 落盘。"""
-    cfg = load_config()
-    if payload.get("provider") in PROVIDERS:
-        cfg["provider"] = payload["provider"]
-    _apply_llm_settings(cfg, payload.get("llm") or {})
-    for key in ("context_dir", "update_url"):
-        if key in payload:
-            cfg[key] = str(payload[key] or "").strip()
-    _apply_recalc_overrides(cfg, payload.get("recalc") or {})
-    _apply_deployment(cfg, payload.get("deployment") or {})
-    _apply_sso(cfg, payload.get("sso") or {})
-    _encrypt_llm_key(cfg)
-    _encrypt_sso_secret(cfg)
-    CONF_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-    return _decrypt_sso_secret(_decrypt_llm_key(cfg))
+    """写入配置；锁内合并、原子替换，并保留上一份可用配置。"""
+    with CONFIG_LOCK:
+        cfg = load_config()
+        if payload.get("provider") in PROVIDERS:
+            cfg["provider"] = payload["provider"]
+        _apply_llm_settings(cfg, payload.get("llm") or {})
+        for key in ("context_dir", "update_url"):
+            if key in payload:
+                cfg[key] = str(payload[key] or "").strip()
+        _apply_recalc_overrides(cfg, payload.get("recalc") or {})
+        _apply_deployment(cfg, payload.get("deployment") or {})
+        _apply_sso(cfg, payload.get("sso") or {})
+        _encrypt_llm_key(cfg)
+        _encrypt_sso_secret(cfg)
+        try:
+            if CONF_FILE.exists():
+                # 只有当前主文件可解析时才滚动备份；主文件已损坏时保留旧的
+                # 可用 .bak，否则写失败会把最后一份好配置也覆盖掉。
+                try:
+                    current = json.loads(CONF_FILE.read_text(encoding="utf-8-sig"))
+                    if isinstance(current, dict):
+                        shutil.copy2(CONF_FILE, CONF_BAK)
+                except Exception as e:
+                    print(f"[config] 当前主配置不可解析，保留旧备份: {type(e).__name__}: {e}", flush=True)
+            CONF_TMP.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(CONF_TMP, CONF_FILE)
+        except Exception:
+            try:
+                CONF_TMP.unlink()
+            except OSError:
+                pass
+            raise
+        return _decrypt_sso_secret(_decrypt_llm_key(cfg))
 
 
 _migrate_plaintext_key()
@@ -2155,7 +2197,7 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Token")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Token, X-We-Local-Recovery")
         # 暴露 Content-Disposition，让前端 fetch 也能拿到建议文件名
         self.send_header("Access-Control-Expose-Headers", "Content-Disposition")
 
@@ -2182,6 +2224,21 @@ class Handler(BaseHTTPRequestHandler):
     def _client_ip(self):
         # 本地服务不信任 X-Forwarded-For；只取真实 TCP 对端，防伪造审计来源。
         return (self.client_address[0] if self.client_address else "")[:64]
+
+    def _origin_allowed(self, origin):
+        """校验浏览器 Origin；支持 http/https、localhost/127.0.0.1/[::1] 与默认端口。"""
+        if not origin:
+            return True
+        try:
+            p = urlsplit(origin)
+            if p.scheme not in ("http", "https") or p.username or p.password:
+                return False
+            if (p.hostname or "").lower() not in ("127.0.0.1", "localhost", "::1"):
+                return False
+            default_port = 443 if p.scheme == "https" else 80
+            return (p.port or default_port) == int(self.server.server_port)
+        except ValueError:
+            return False
 
     def _session_token(self):
         return rbac.token_from_headers(self.headers)
@@ -2386,30 +2443,66 @@ class Handler(BaseHTTPRequestHandler):
         """T06353：本机恢复单机版（不删除 RBAC/工作组数据）。
 
         安全边界：
+        - 必须携带 Electron 壳注入的本机恢复令牌，未配置令牌时 fail-closed；
         - 只接受 127.0.0.1 / ::1 本机请求，远端请求一律 403；
+        - 有 Origin 时只接受本服务自己的 http(s) 同源页面；
         - 必须带显式确认词，避免误触；
-        - 有 Origin 时只接受本服务自己的 http(s) 同源页面，挡住跨站表单/脚本；
         - 只改 deployment.mode，rbac.db、估算、签收与审计数据全部保留。
         """
         if p != "/api/deployment/standalone":
             return False
         ip = self._client_ip()
-        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1", "localhost"):
+        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
             return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
                                     "msg": "仅允许在本机切换部署模式"}) or True
-        port = self.server.server_port
+        expected_token = LOCAL_RECOVERY_TOKEN
+        if not expected_token:
+            return self._json(403, {"ok": False, "code": "LOCAL_TOKEN_UNCONFIGURED",
+                                    "msg": "本机恢复入口未启用，请从桌面应用内操作"}) or True
+        supplied_token = (self.headers.get("X-We-Local-Recovery") or "").strip()
+        if not hmac.compare_digest(supplied_token, expected_token):
+            return self._json(403, {"ok": False, "code": "BAD_LOCAL_TOKEN",
+                                    "msg": "本机恢复令牌无效"}) or True
         origin = (self.headers.get("Origin") or "").strip()
-        allowed = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
-        if origin and origin not in allowed:
+        if not self._origin_allowed(origin):
             return self._json(403, {"ok": False, "code": "BAD_ORIGIN",
                                     "msg": "跨站请求被拒绝"}) or True
+        # 只接受 JSON：避免 text/plain 等“简单请求”绕过浏览器预检语义
+        content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            return self._json(415, {"ok": False, "code": "UNSUPPORTED_MEDIA_TYPE",
+                                    "msg": "切换请求必须使用 application/json"}) or True
         body = _body_json(raw)
         if str(body.get("confirm") or "").strip().upper() != "STANDALONE":
             return self._json(400, {"ok": False, "code": "CONFIRM_REQUIRED",
                                     "msg": "请确认切换回单机版"}) or True
+        old_mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
+        if old_mode == "standalone":
+            # 上次可能在写完 config 后、撤销会话前中断；幂等调用时补一次撤销，
+            # 避免旧 Cookie 在将来重新启用工作组后仍然有效。
+            revoked = 0
+            if (APP_DATA / "rbac.db").exists():
+                try:
+                    revoked = get_rbac().revoke_all_sessions()
+                except Exception as e:
+                    print(f"[deployment] idempotent session revoke failed: {type(e).__name__}: {e}", flush=True)
+            return self._json(200, {"ok": True, "mode": "standalone", "changed": False,
+                                    "sessions_revoked": revoked},
+                              {"Set-Cookie": rbac.clear_cookie_header()}) or True
         save_config({"deployment": {"mode": "standalone"}})
-        print(f"[deployment] local switch to standalone ip={ip}", flush=True)
-        return self._json(200, {"ok": True, "mode": "standalone"},
+        revoked = 0
+        if old_mode == "workgroup" or (APP_DATA / "rbac.db").exists():
+            try:
+                store = get_rbac()
+                revoked = store.revoke_all_sessions()
+                store.record("", "本机恢复", "deployment_switch", "success",
+                             "", "deployment", "", ip,
+                             f"{old_mode} -> standalone; source=login-gate; origin={origin or '-'}")
+            except Exception as e:
+                print(f"[deployment] audit/session revoke failed: {type(e).__name__}: {e}", flush=True)
+        print(f"[deployment] local switch to standalone ip={ip} origin={origin or '-'}", flush=True)
+        return self._json(200, {"ok": True, "mode": "standalone", "changed": True,
+                                "sessions_revoked": revoked},
                           {"Set-Cookie": rbac.clear_cookie_header()}) or True
 
     def _post_auth_routes(self, p, raw):
@@ -2422,7 +2515,7 @@ class Handler(BaseHTTPRequestHandler):
             if mode != "workgroup":
                 return self._json(404, {"ok": False}) or True
             ip = self._client_ip()
-            if ip not in ("127.0.0.1", "::1", "localhost"):
+            if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
                 return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
                                        "msg": "仅允许本机初始化管理员"}) or True
             try:

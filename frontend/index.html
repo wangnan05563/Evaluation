@@ -9716,13 +9716,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const permLabel = (code, fallback) => tl('rbac.perm.' + code, fallback || code);
   const ACTION_FALLBACK = {
     login: '登录', logout: '退出', access: '访问', bootstrap: '初始化管理员',
+    deployment_switch: '切换部署模式',
     user_create: '新增成员', user_update: '变更成员', sso_login: 'SSO 登录',
     sso_provision: 'SSO 开通', sso_config: '保存 SSO 配置'
   };
   const STATUS_FALLBACK = { active: '启用', disabled: '停用' };
+  const DEPLOY_ERROR_KEYS = {
+    BAD_LOCAL_TOKEN: 'auth.mode_standalone_err_bad_token',
+    LOCAL_TOKEN_UNCONFIGURED: 'auth.mode_standalone_err_unconfigured',
+    BAD_ORIGIN: 'auth.mode_standalone_err_origin',
+    CONFIRM_REQUIRED: 'auth.mode_standalone_err_confirm',
+    UNSUPPORTED_MEDIA_TYPE: 'auth.mode_standalone_err_format',
+    LOCAL_ONLY: 'auth.mode_standalone_err_local_only'
+  };
 
   function actionLabel(code) {
     return tl('rbac.action.' + code, ACTION_FALLBACK[code] || code);
+  }
+
+  function deployError(data, fallback) {
+    const code = (data && data.code) || '';
+    const key = DEPLOY_ERROR_KEYS[code];
+    return key ? tl(key, (data && data.msg) || fallback) : ((data && data.msg) || fallback);
   }
 
   function fmtTime(iso) {
@@ -9739,11 +9754,13 @@ document.addEventListener('DOMContentLoaded', () => {
     el.classList.toggle('err', kind === 'err');
   }
 
-  async function req(path, payload, method) {
+  async function req(path, payload, method, extraHeaders) {
     const opts = { method: method || (payload === undefined ? 'GET' : 'POST'), credentials: 'same-origin', cache: 'no-store' };
     if (payload !== undefined) {
-      opts.headers = { 'Content-Type': 'application/json' };
+      opts.headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) };
       opts.body = JSON.stringify(payload);
+    } else if (extraHeaders) {
+      opts.headers = { ...extraHeaders };
     }
     let res;
     try { res = await fetch(path, opts); } catch (e) {
@@ -9752,6 +9769,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let data = {};
     try { data = await res.json(); } catch (e) { data = { ok: false, code: 'BAD_RESPONSE' }; }
     return { status: res.status, ok: res.ok, data };
+  }
+
+  async function localRecoveryToken() {
+    try {
+      const fn = window.weval && window.weval.localRecoveryToken;
+      return fn ? ((await fn()) || '') : '';
+    } catch (e) {
+      return '';
+    }
   }
 
   const R = {
@@ -9944,15 +9970,38 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async switchToStandalone() {
+      const btn = $('#authModeStandalone');
+      if (btn && btn.disabled) return;
+      const token = await localRecoveryToken();
+      if (!token) {
+        setMsg($('#authMsg'), tl('auth.mode_standalone_desktop_only',
+          '请从桌面应用内切换；浏览器直接访问不提供本机恢复入口。'), 'err');
+        return;
+      }
       const message = tl('auth.mode_standalone_confirm',
         '切回单机版会立即关闭工作组登录与 RBAC 入口；工作组、估算与签收数据不会删除，之后可在配置中心重新启用。确定继续？');
       if (!window.confirm(message)) return;
-      const r = await req('/api/deployment/standalone', { confirm: 'STANDALONE' });
-      if (!r.ok) {
-        setMsg($('#authMsg'), r.data.msg || tl('auth.mode_standalone_failed', '切换失败，请重试'), 'err');
-        return;
+      const oldLabel = btn ? btn.textContent : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.textContent = tl('auth.mode_standalone_loading', '正在切换…');
       }
-      window.location.reload();
+      try {
+        const r = await req('/api/deployment/standalone', { confirm: 'STANDALONE' },
+          'POST', { 'X-We-Local-Recovery': token });
+        if (!r.ok || !r.data || r.data.ok !== true || r.data.mode !== 'standalone') {
+          setMsg($('#authMsg'), deployError(r.data, tl('auth.mode_standalone_failed', '切换失败，请重试')), 'err');
+          return;
+        }
+        window.location.reload();
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = oldLabel;
+        }
+      }
     },
 
     setCardVisible(sel, visible) {

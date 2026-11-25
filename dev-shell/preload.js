@@ -7,6 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('weval', {
   desktop: true,
   version: process.versions.electron || '',
+  localRecoveryToken: () => ipcRenderer.invoke('weval:local-recovery-token'),
   windowBehavior: {
     get: () => ipcRenderer.invoke('weval:window-behavior:get'),
     set: (patch) => ipcRenderer.invoke('weval:window-behavior:set', patch)
