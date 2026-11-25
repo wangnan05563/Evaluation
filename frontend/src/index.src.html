@@ -62,6 +62,10 @@
     </div>
     <div class="auth-msg" id="authMsg" role="status" aria-live="polite"></div>
     <p class="auth-foot" data-i18n="auth.foot">会话 12 小时；单机版不启用登录。管理员密码只在本机加盐哈希保存。</p>
+    <div class="auth-local-switch">
+      <button type="button" class="linkbtn" id="authModeStandalone" onclick="RbacAuth.switchToStandalone()" data-i18n="auth.mode_standalone">本机切回单机版</button>
+      <span data-i18n="auth.mode_standalone_hint">不删除工作组、估算与签收数据；之后可在配置中心重新启用。</span>
+    </div>
   </div>
 </div>
 

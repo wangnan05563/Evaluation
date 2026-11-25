@@ -239,6 +239,18 @@
       toast(tl('auth.logged_out', '已退出登录'));
     },
 
+    async switchToStandalone() {
+      const message = tl('auth.mode_standalone_confirm',
+        '切回单机版会立即关闭工作组登录与 RBAC 入口；工作组、估算与签收数据不会删除，之后可在配置中心重新启用。确定继续？');
+      if (!window.confirm(message)) return;
+      const r = await req('/api/deployment/standalone', { confirm: 'STANDALONE' });
+      if (!r.ok) {
+        setMsg($('#authMsg'), r.data.msg || tl('auth.mode_standalone_failed', '切换失败，请重试'), 'err');
+        return;
+      }
+      window.location.reload();
+    },
+
     setCardVisible(sel, visible) {
       const el = $(sel);
       if (el) el.hidden = !visible;

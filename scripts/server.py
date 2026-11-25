@@ -2263,6 +2263,10 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/api/auth/login", "/api/auth/bootstrap", "/api/auth/logout",
                     "/api/auth/sso/start", "/api/auth/sso/callback"):
             return False
+        # T06353：工作组登录门禁上的“本机切回单机版”恢复入口。
+        # 只允许本机回环地址，且必须带显式确认词；不删除任何工作组数据。
+        if path == "/api/deployment/standalone":
+            return False
         if not path.startswith("/api/"):
             return False
         if not self._workgroup():
@@ -2377,6 +2381,36 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(404, {"ok": False}) or True
             return self._json(200, {"ok": True, "sso": sso_public_view(load_config())}) or True
         return False
+
+    def _post_deployment_routes(self, p, raw):
+        """T06353：本机恢复单机版（不删除 RBAC/工作组数据）。
+
+        安全边界：
+        - 只接受 127.0.0.1 / ::1 本机请求，远端请求一律 403；
+        - 必须带显式确认词，避免误触；
+        - 有 Origin 时只接受本服务自己的 http(s) 同源页面，挡住跨站表单/脚本；
+        - 只改 deployment.mode，rbac.db、估算、签收与审计数据全部保留。
+        """
+        if p != "/api/deployment/standalone":
+            return False
+        ip = self._client_ip()
+        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1", "localhost"):
+            return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
+                                    "msg": "仅允许在本机切换部署模式"}) or True
+        port = self.server.server_port
+        origin = (self.headers.get("Origin") or "").strip()
+        allowed = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+        if origin and origin not in allowed:
+            return self._json(403, {"ok": False, "code": "BAD_ORIGIN",
+                                    "msg": "跨站请求被拒绝"}) or True
+        body = _body_json(raw)
+        if str(body.get("confirm") or "").strip().upper() != "STANDALONE":
+            return self._json(400, {"ok": False, "code": "CONFIRM_REQUIRED",
+                                    "msg": "请确认切换回单机版"}) or True
+        save_config({"deployment": {"mode": "standalone"}})
+        print(f"[deployment] local switch to standalone ip={ip}", flush=True)
+        return self._json(200, {"ok": True, "mode": "standalone"},
+                          {"Set-Cookie": rbac.clear_cookie_header()}) or True
 
     def _post_auth_routes(self, p, raw):
         """登录/初始化/登出/用户管理/SSO 配置写端点。返回 True 表示已处理。"""
@@ -2990,6 +3024,8 @@ class Handler(BaseHTTPRequestHandler):
             if self._auth_gate("POST", path, query, raw):
                 return
             if self._post_auth_routes(path, raw):
+                return
+            if self._post_deployment_routes(path, raw):
                 return
             if self._post_integration_routes(path, raw):
                 return
