@@ -93,6 +93,8 @@ sonarqube-*.properties.bak
 .coverage.*
 htmlcov/
 coverage.xml
+# 视觉回归每轮候选截图：只作比对输入，基线仍由 visual-baseline 管理，不纳入版本库。
+docs/test-reports/phase3-20261122/visual-current/
 
 # ─── 系统生成文件 ────────────────────────────────────────────────────
 Thumbs.db

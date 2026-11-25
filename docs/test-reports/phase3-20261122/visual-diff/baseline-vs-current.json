@@ -1,0 +1,81 @@
+{
+  "source_old": "git HEAD:docs/test-reports/phase3-20261122/visual-baseline",
+  "source_new": "visual-regression run 2026-11-25 13:26",
+  "cause": "T06199 b5a218b changed .m-item color from var(--muted) to var(--ink-2); nav labels only; no layout movement",
+  "files": [
+    {
+      "file": "upload_contrast_en.png",
+      "old_sha": "ff508eaecbd872db3f4761b9a31ec8bbfcc7f4ce74fd5f4a5404ffb8806fd839",
+      "new_sha": "bd27242645b7a8cd11be5233d6cac61bd1926024055286fc698b41b42e01409a",
+      "diff_pixels": 2685,
+      "diff_ratio_pct": 0.207,
+      "max_channel_diff": 31,
+      "bbox": [
+        760,
+        50,
+        1247,
+        67
+      ]
+    },
+    {
+      "file": "upload_contrast_zh.png",
+      "old_sha": "8166394a753d9e6dba9cd2af1877d9fd5a9c53642b4dc72ff26a87aa2dc57b59",
+      "new_sha": "b81ebc6d3f00182584d89a6bf3c213e255d8e77769a96b7f1ff0a995dcff8bd0",
+      "diff_pixels": 2475,
+      "diff_ratio_pct": 0.191,
+      "max_channel_diff": 31,
+      "bbox": [
+        818,
+        50,
+        1248,
+        67
+      ]
+    },
+    {
+      "file": "upload_dark_en.png",
+      "old_sha": "18fdb28c2082efbff184babe26845a266af2aa60f41b846cbeb940d1c3bb8676",
+      "new_sha": "18fdb28c2082efbff184babe26845a266af2aa60f41b846cbeb940d1c3bb8676",
+      "diff_pixels": 0,
+      "diff_ratio_pct": 0.0,
+      "max_channel_diff": 0,
+      "bbox": null
+    },
+    {
+      "file": "upload_dark_zh.png",
+      "old_sha": "19d6aae9716b4365eda562352c4af3cdb1ca3bbde9a261c22c45124a540dedff",
+      "new_sha": "19d6aae9716b4365eda562352c4af3cdb1ca3bbde9a261c22c45124a540dedff",
+      "diff_pixels": 0,
+      "diff_ratio_pct": 0.0,
+      "max_channel_diff": 0,
+      "bbox": null
+    },
+    {
+      "file": "upload_light_en.png",
+      "old_sha": "c12964b4b8ee24ee463b09b48990d2fb1d004a9456d0d267cfcd8c8514515d71",
+      "new_sha": "5167f7b3a1d10e98856bc8ebd95f9b57e865eee670da18a3b62d9abc27be0b70",
+      "diff_pixels": 2627,
+      "diff_ratio_pct": 0.203,
+      "max_channel_diff": 36,
+      "bbox": [
+        760,
+        50,
+        1247,
+        67
+      ]
+    },
+    {
+      "file": "upload_light_zh.png",
+      "old_sha": "d37de011f80d22a900bb30829dc3d91f54189f0e0f439f94dea1343d6eeaec76",
+      "new_sha": "993779512863cb9c9ae77480c974d2b85d330bcb8e3865cd9cf801491d2a46d2",
+      "diff_pixels": 2408,
+      "diff_ratio_pct": 0.186,
+      "max_channel_diff": 36,
+      "bbox": [
+        818,
+        50,
+        1248,
+        67
+      ]
+    }
+  ]
+}

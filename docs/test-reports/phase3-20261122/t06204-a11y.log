@@ -1,0 +1,27 @@
+# 三期验证环境就绪 API=http://127.0.0.1:8033 CDP=http://127.0.0.1:9335 DATA=C:\PYFIX_~4\we_phase3_5YAY7k\data
+
+
+== a11y-wcag22 ==
+PASS  axe-core 已注入并可运行  — axe-core 4.10.2
+PASS  work-upload axe 无 serious/critical 阻断  — violations=0, passes=24
+PASS  work-review-20 axe 无 serious/critical 阻断  — violations=0, passes=27
+PASS  config axe 无 serious/critical 阻断  — violations=0, passes=26
+PASS  help axe 无 serious/critical 阻断  — violations=0, passes=21
+PASS  200% 缩放 upload 无横向滚动  — vw=720 doc=705 body=705
+PASS  200% 缩放 upload 可见控件未被横向裁切  — visible=14 clipped=0
+PASS  200% 缩放 review 无横向滚动  — vw=720 doc=705 body=705
+PASS  200% 缩放 review 可见控件未被横向裁切  — visible=23 clipped=0
+PASS  200% 缩放 config 无横向滚动  — vw=720 doc=705 body=705
+PASS  200% 缩放 config 可见控件未被横向裁切  — visible=17 clipped=0
+PASS  200% 缩放 help 无横向滚动  — vw=720 doc=705 body=705
+PASS  200% 缩放 help 可见控件未被横向裁切  — visible=12 clipped=0
+PASS  AX 树可交互控件均有可读名称（屏幕阅读器）  — checked=1473 nodes
+PASS  六步步骤条键盘语义齐备  — {"steps":6,"stepsOk":true,"drop":true,"sw":true}
+PASS  上传拖放区键盘语义齐备  — role=button tabindex=0 aria-label
+PASS  大模型开关键盘语义齐备  — role=switch tabindex=0 aria-checked
+
+ui-a11y-wcag22: 17/17 checks passed
+== a11y-wcag22 PASS ==
+
+
+==== 三期批次 1/1 通过 ====

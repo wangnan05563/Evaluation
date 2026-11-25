@@ -1,36 +1,36 @@
 {
   "suite": "regression-baseline",
-  "at": "2026-11-23T20:00:34.893Z",
+  "at": "2026-11-25T05:34:13.398Z",
   "checks": [
     {
       "title": "首屏 FCP/DCL ≤2s（浏览器性能条目）",
       "ok": true,
-      "detail": "{\"dcl\":463.6000000089407,\"load\":472.1000000089407,\"fcp\":444}"
+      "detail": "{\"dcl\":611.0999999996275,\"load\":628.2999999998137,\"fcp\":532}"
     },
     {
       "title": "导航到可交互 ≤3s（采集耗时，非首屏口径）",
       "ok": true,
-      "detail": "726ms"
+      "detail": "784ms"
     },
     {
       "title": "10k 复核页 render p95 ≤150ms",
       "ok": true,
-      "detail": "45.7ms (n=30)"
+      "detail": "64.7ms (n=30)"
     },
     {
       "title": "10k 复核页搜索输入 p95 ≤150ms",
       "ok": true,
-      "detail": "39.2ms (n=30)"
+      "detail": "60.9ms (n=30)"
     },
     {
       "title": "视觉基线一致：upload_light_zh.png",
       "ok": true,
-      "detail": "old=d37de011f80d new=d37de011f80d"
+      "detail": "old=993779512863 new=993779512863"
     },
     {
       "title": "视觉基线一致：upload_light_en.png",
       "ok": true,
-      "detail": "old=c12964b4b8ee new=c12964b4b8ee"
+      "detail": "old=5167f7b3a1d1 new=5167f7b3a1d1"
     },
     {
       "title": "视觉基线一致：upload_dark_zh.png",
@@ -45,12 +45,12 @@
     {
       "title": "视觉基线一致：upload_contrast_zh.png",
       "ok": true,
-      "detail": "old=8166394a753d new=8166394a753d"
+      "detail": "old=b81ebc6d3f00 new=b81ebc6d3f00"
     },
     {
       "title": "视觉基线一致：upload_contrast_en.png",
       "ok": true,
-      "detail": "old=ff508eaecbd8 new=ff508eaecbd8"
+      "detail": "old=bd27242645b7 new=bd27242645b7"
     },
     {
       "title": "视觉基线覆盖 6 张（3 主题 × 中英）",
@@ -65,14 +65,14 @@
   ],
   "pass": 12,
   "total": 12,
-  "wallToReadyMs": 726,
+  "wallToReadyMs": 784,
   "perf": {
-    "dcl": 463.6000000089407,
-    "load": 472.1000000089407,
-    "fcp": 444
+    "dcl": 611.0999999996275,
+    "load": 628.2999999998137,
+    "fcp": 532
   },
-  "p95Render": 45.70000000298023,
-  "p95Input": 39.20000000298023,
+  "p95Render": 64.70000000018626,
+  "p95Input": 60.89999999944121,
   "baselineCount": 6,
   "update": false
 }

@@ -1,6 +1,6 @@
 {
   "suite": "ui-10k-grid",
-  "at": "2026-11-23T20:02:46.161Z",
+  "at": "2026-11-25T05:30:33.381Z",
   "checks": [
     {
       "title": "10k 数据已装载并进入复核页",
@@ -20,7 +20,7 @@
     {
       "title": "连续滚动 60 秒平均帧率 ≥55fps（headless 允许 5fps 抖动）",
       "ok": true,
-      "detail": "60.0fps / 3603 frames"
+      "detail": "60.0fps / 3601 frames"
     },
     {
       "title": "无白屏采样",
@@ -40,7 +40,7 @@
     {
       "title": "长帧（>20ms）占比 <10%",
       "ok": true,
-      "detail": "0.0% (0)"
+      "detail": "0.1% (2)"
     },
     {
       "title": "末尾窗口包含第 10000 行",
@@ -50,10 +50,10 @@
   ],
   "pass": 9,
   "total": 9,
-  "fps": 60.046,
-  "frames": 3603,
-  "elapsedMs": 60003.7,
-  "longFrames": 0,
-  "longPct": 0,
+  "fps": 60.007,
+  "frames": 3601,
+  "elapsedMs": 60009.5,
+  "longFrames": 2,
+  "longPct": 0.06,
   "rows": 7
 }

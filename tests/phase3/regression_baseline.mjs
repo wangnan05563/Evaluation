@@ -23,6 +23,7 @@ const CDP = (process.env.PHASE3_CDP || `http://127.0.0.1:${CDP_PORT}`).replace(/
 const EXTERNAL = !!process.env.PHASE3_APP;   // 由 run_phase3 复用共享实例
 const OUT = path.join(ROOT, 'docs', 'test-reports', 'phase3-20261122');
 const BASE = path.join(OUT, 'visual-baseline');
+const CURRENT = path.join(OUT, 'visual-current');
 const UPDATE = process.argv.includes('--update-baseline');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'we_baseline_'));
 const { check, finish } = checker('regression-baseline');
@@ -58,6 +59,7 @@ async function startChrome() {
 
 try {
   fs.mkdirSync(BASE, { recursive: true });
+  fs.mkdirSync(CURRENT, { recursive: true });
   const dataDir = path.join(TMP, 'data'); fs.mkdirSync(dataDir, { recursive: true });
   if (!EXTERNAL) {
     const serverLog = path.join(TMP, 'server.log');
@@ -138,7 +140,7 @@ try {
           return true;
         })()`);
         await sleep(700);
-        const file = path.join(BASE, `${pg}_${theme}_${lang === 'zh-CN' ? 'zh' : 'en'}.png`);
+        const file = path.join(UPDATE ? BASE : CURRENT, `${pg}_${theme}_${lang === 'zh-CN' ? 'zh' : 'en'}.png`);
         const data = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }, page.S);
         fs.writeFileSync(file, Buffer.from(data.data, 'base64'));
         const h = sha(file);

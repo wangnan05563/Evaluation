@@ -1,6 +1,6 @@
 {
   "suite": "ui-a11y-wcag22",
-  "at": "2026-11-23T20:12:15.354Z",
+  "at": "2026-11-25T05:35:17.292Z",
   "checks": [
     {
       "title": "axe-core 已注入并可运行",
@@ -55,7 +55,7 @@
     {
       "title": "200% 缩放 config 可见控件未被横向裁切",
       "ok": true,
-      "detail": "visible=18 clipped=0"
+      "detail": "visible=17 clipped=0"
     },
     {
       "title": "200% 缩放 help 无横向滚动",
@@ -70,7 +70,7 @@
     {
       "title": "AX 树可交互控件均有可读名称（屏幕阅读器）",
       "ok": true,
-      "detail": "checked=1172 nodes"
+      "detail": "checked=1473 nodes"
     },
     {
       "title": "六步步骤条键盘语义齐备",
@@ -101,7 +101,7 @@
       "label": "work-review-20",
       "violations": [],
       "passes": 27,
-      "incomplete": 1
+      "incomplete": 2
     },
     {
       "label": "config",
@@ -140,7 +140,7 @@
       "vw": 720,
       "docW": 705,
       "bodyW": 705,
-      "visible": 18,
+      "visible": 17,
       "clipped": 0,
       "clippedEls": []
     },
