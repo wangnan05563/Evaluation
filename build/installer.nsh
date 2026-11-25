@@ -9,6 +9,14 @@
 !include "WordFunc.nsh"
 !insertmacro WordFind2X
 
+; 默认安装目录的末级名称：electron-builder 默认取 dev-shell 包名
+; workload-estimate-dev-shell；产品要求安装到 ...\Evaluation。这里只改 NSIS 的
+; APP_FILENAME，不影响应用显示名、快捷方式名和 exe 文件名。
+!ifdef APP_FILENAME
+  !undef APP_FILENAME
+!endif
+!define APP_FILENAME "Evaluation"
+
 ; 卸载键名由 electron-builder 按 appId 派生传入（UNINSTALL_APP_KEY）；
 ; 兜底值与 appId=com.workloadeval.app 对应，appId 变更时需同步更新
 !ifdef UNINSTALL_APP_KEY
@@ -21,6 +29,8 @@
 ; 覆盖升级时 electron-builder 会先静默运行旧卸载器删整个安装目录，若不先拷出，
 ; 新版启动时 _migrate_legacy_data 已无数据可迁。仅当用户级目录尚无 config.json
 ; 时拷贝，绝不覆盖用户级已有数据；与 server.py 的 _migrate_legacy_data 幂等互补。
+!ifndef BUILD_UNINSTALLER
+
 Function _WeRescueLegacyData
   Push $R0
   Push $R1
@@ -104,6 +114,8 @@ Function _WeBackupBeforeUpgrade
   Pop $R1
   Pop $R0
 FunctionEnd
+
+!endif
 
 !macro customInit
   DetailPrint "正在关闭已运行的工作量评估工具 ..."
