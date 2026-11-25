@@ -1,0 +1,140 @@
+{
+  "task_no": "T06203",
+  "task_id": "2270be42-6f0e-4b41-9e5c-a0ff39ef0720",
+  "project_id": "4991b604-f0f1-4a4c-8741-be7aa0f2d410",
+  "run_date": "2026-11-25",
+  "environment": {
+    "os": "Windows",
+    "runner": "tests/phase3/run_phase3.mjs",
+    "api": "http://127.0.0.1:8033",
+    "cdp": "http://127.0.0.1:9335",
+    "isolation": "每个套件独立临时 DATA 目录"
+  },
+  "scope": {
+    "task_associated_ac": ["AC-01", "AC-05", "AC-11", "AC-14"],
+    "note": "AC-03（10k 行滚动性能）不在 T06203 关联准则内，按 serial 计划由 T06204 承接。"
+  },
+  "runs": [
+    {
+      "ac": "AC-01",
+      "title": "主题 JSON 零代码生效",
+      "suite": "theme-tokens",
+      "checks": {"passed": 23, "total": 23},
+      "verdict": "PASS",
+      "elapsed_ms": null,
+      "evidence": "docs/test-reports/phase3-20261122/t06203-theme.log",
+      "highlights": [
+        "内置 base/lime 主题可导出 raw/semantic/component/resolved/contrast 三层 JSON",
+        "非法 raw 引用被拦截并返回 2 条定位错误",
+        "lime 主题应用后按钮实际颜色 rgb(132, 204, 22)，未改组件代码",
+        "JSON 导入 custom-orange 立即生效，按钮 rgb(255, 102, 0)",
+        "刷新/重开恢复主题与面板；重置后回 #2563EB，服务端无自定义主题"
+      ]
+    },
+    {
+      "ac": "AC-05",
+      "title": "复核效率提升",
+      "suite": "review-efficiency",
+      "checks": {"passed": 13, "total": 13},
+      "verdict": "PASS",
+      "metrics": {
+        "items": 100,
+        "low_risk": 80,
+        "high_risk": 20,
+        "baseline_confirm_ms": 29121.9,
+        "optimized_ms": 2040,
+        "reduction_pct": 93.0,
+        "optimized_ratio_of_baseline_pct": 7.0,
+        "threshold_pct": 30,
+        "confirmed": 100,
+        "review_perf_actions": 21
+      },
+      "evidence": "docs/test-reports/phase3-20261122/t06203-review.log",
+      "highlights": [
+        "A 一键确认 80 条低风险；J/K 切换、C 确认并自动下一条均可用于剩余 20 条高风险",
+        "ReviewPerf 记录 21 个动作、100 项确认，duration_ms=2039"
+      ]
+    },
+    {
+      "ac": "AC-11",
+      "title": "稳定 ID 跨版本一致",
+      "suite": "stable-ids",
+      "checks": {"passed": 20, "total": 20},
+      "verdict": "PASS",
+      "evidence": "docs/test-reports/phase3-20261122/t06203-ids.log",
+      "highlights": [
+        "首版 3 个稳定 ID: F-C171867411 / F-C093892790 / F-539C560B7E",
+        "第 2、3 版 ID 完全不变，version_no 递增",
+        "改名不改 ID，diff 归为 changed=1 且含 desc 字段",
+        "类型变更生成新 ID F-9EBAC58BD5，replaces_id 指向旧 ID",
+        "旧版本仍保留旧 ID；映射表 rows=5/items=15/mapped=4/issues=[]",
+        "另存新项目重新发号，不沿用旧组 ID；导出 zip 后历史与 ID 仍可读",
+        "复核页显示稳定功能 ID，无页面异常"
+      ],
+      "fixture_fix": {
+        "first_run": "0/3 FAIL：/api/generate 首版返回 ok=false，随后 GET /api/history/undefined 触发 TypeError",
+        "root_cause": "测试夹具的 3 条 items 未声明 origin，被 AC-19 validate_confirmable 视为 AI 候选；缺少 evidence.quote 时 /api/generate 按设计返回 400",
+        "fix": "tests/phase3/ui_stable_ids.mjs 的 baseItems 显式标注 origin='manual'（人工录入，不属于 AI 候选证据门）",
+        "type": "测试夹具漂移修正，非产品缺陷",
+        "second_run": "20/20 PASS"
+      }
+    },
+    {
+      "ac": "AC-14",
+      "title": "蒙特卡洛性能",
+      "suite": "montecarlo",
+      "checks": {"passed": 20, "total": 20},
+      "verdict": "PASS",
+      "metrics": {
+        "tasks": 200,
+        "simulations": 10000,
+        "seed": 424242,
+        "server_duration_ms": 1260,
+        "wall_ms": 1281,
+        "threshold_ms": 2000,
+        "ui_duration_ms": 438,
+        "p50_days": 2316.29,
+        "p80_days": 2354.74,
+        "p95_days": 2391.28,
+        "probability_pct": 36.3
+      },
+      "evidence": "docs/test-reports/phase3-20261122/t06203-mc.log",
+      "highlights": [
+        "200 任务 / 10000 次模拟服务端 1260ms，满足 ≤2s",
+        "固定种子结果完全可复现；不同种子结果不同",
+        "<1000 次模拟、负数目标、不存在项目分别返回 400/400/404",
+        "UI 显示 P50/P80/P95、达标概率、敏感性 Top5、三情景对比及固定种子与耗时",
+        "无页面异常"
+      ]
+    }
+  ],
+  "totals": {
+    "checks_passed": 76,
+    "checks_total": 76,
+    "pass_rate_pct": 100.0,
+    "linked_ac_passed": 4,
+    "linked_ac_total": 4
+  },
+  "ac_matrix_snapshot": {
+    "source": "MTask prd_requirements",
+    "total_ac": 40,
+    "p0p1_total": 32,
+    "p0p1_done_before_run": 27,
+    "p0p1_doing_before_run": ["AC-01", "AC-03", "AC-05", "AC-11", "AC-14"],
+    "closed_by_t06203": ["AC-01", "AC-05", "AC-11", "AC-14"],
+    "remaining_p0p1": ["AC-03"],
+    "remaining_owner": "T06204",
+    "post_run_p0p1_done_if_matrix_updated": 31
+  },
+  "defects": {
+    "open_p0_p1_product_defects": 0,
+    "open_p0_p1_acceptance_items": ["AC-03"],
+    "note": "AC-03 是未执行验收项，不是已知产品缺陷；由 T06204 执行 10k 行性能/视觉/WCAG 回归。"
+  },
+  "historical_audit_conflict": {
+    "source": "docs/test-reports/phase3-20261122/results/ac-remaining-audit.json",
+    "finding": "T06207 审计曾判定 AC-31/32/33/35 NOT_IMPLEMENTED、AC-34 PARTIAL",
+    "matrix_status": "MTask 矩阵 AC-31~35 均为 done",
+    "handling": "本轮不据此宣称全量 AC 已 100% 通过；T06203 只对关联 4 项给出本轮实测证据，历史审计冲突保留待专项复核。"
+  }
+}

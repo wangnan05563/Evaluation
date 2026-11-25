@@ -6,10 +6,11 @@ const { check, finish } = checker('stable-ids');
 const BASE = APP.replace(/\/$/, '');
 const page = await openPage({ width: 1440, height: 900 });
 
+// AC-19：origin=manual 表示人工录入，不属于「AI 候选无原文证据」拦截范围。
 const baseItems = [
-  { desc: '内部文件', count_item: '内部文件', type: 'ILF', system: '票据', reuse: '低', modify: '新增', ok: true },
-  { desc: '外部接口', count_item: '外部接口', type: 'EIF', system: '票据', reuse: '低', modify: '新增', ok: true },
-  { desc: '录入', count_item: '录入', type: 'EI', system: '票据', reuse: '低', modify: '新增', ok: true },
+  { desc: '内部文件', count_item: '内部文件', type: 'ILF', system: '票据', reuse: '低', modify: '新增', ok: true, origin: 'manual' },
+  { desc: '外部接口', count_item: '外部接口', type: 'EIF', system: '票据', reuse: '低', modify: '新增', ok: true, origin: 'manual' },
+  { desc: '录入', count_item: '录入', type: 'EI', system: '票据', reuse: '低', modify: '新增', ok: true, origin: 'manual' },
 ];
 async function post(pathname, body) {
   const r = await fetch(BASE + pathname, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

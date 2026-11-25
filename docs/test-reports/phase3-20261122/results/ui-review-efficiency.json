@@ -1,6 +1,6 @@
 {
   "suite": "ui-review-efficiency",
-  "at": "2026-11-23T22:24:00.126Z",
+  "at": "2026-11-25T04:25:56.496Z",
   "checks": [
     {
       "title": "基线数据 100 条（80 低风险 / 20 高风险）",
@@ -45,40 +45,40 @@
     {
       "title": "基线 100 条全部确认",
       "ok": true,
-      "detail": "{\"ms\":8917.5,\"ok\":100,\"selected\":100}"
+      "detail": "{\"ms\":29121.9,\"ok\":100,\"selected\":100}"
     },
     {
       "title": "优化路径只自动确认 80 条低风险",
       "ok": true,
-      "detail": "{\"ms\":1177.4,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}}"
+      "detail": "{\"ms\":2040,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-25T04:25:53.883Z\",\"duration_ms\":2039,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":354,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":447,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":552,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":636,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":720,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":804,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":890,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":983,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1073,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1159,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1244,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1328,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1410,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1502,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1586,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1679,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1774,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1872,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1959,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":2038,\"seq\":100,\"ok\":true}]}}"
     },
     {
       "title": "优化路径 100 条全部确认",
       "ok": true,
-      "detail": "{\"ms\":1177.4,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}}"
+      "detail": "{\"ms\":2040,\"low\":80,\"high\":20,\"ok\":100,\"perf\":{\"started_at\":\"2026-11-25T04:25:53.883Z\",\"duration_ms\":2039,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":354,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":447,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":552,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":636,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":720,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":804,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":890,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":983,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1073,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1159,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1244,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1328,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1410,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1502,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1586,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1679,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1774,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1872,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1959,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":2038,\"seq\":100,\"ok\":true}]}}"
     },
     {
       "title": "复核总用时较基线下降≥30%",
       "ok": true,
-      "detail": "baseline=8917.5ms optimized=1177.4ms reduction=86.8% (13.2% of baseline)"
+      "detail": "baseline=29121.9ms optimized=2040ms reduction=93.0% (7.0% of baseline)"
     },
     {
       "title": "ReviewPerf 记录操作与耗时",
       "ok": true,
-      "detail": "{\"started_at\":\"2026-11-23T22:23:58.641Z\",\"duration_ms\":1177,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":203,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":256,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":313,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":372,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":434,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":486,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":531,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":574,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":620,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":674,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":726,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":781,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":846,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":902,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":947,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":993,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1038,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1082,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1134,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1177,\"seq\":100,\"ok\":true}]}"
+      "detail": "{\"started_at\":\"2026-11-25T04:25:53.883Z\",\"duration_ms\":2039,\"items\":100,\"confirmed\":100,\"actions\":21,\"ops\":[{\"k\":\"review_start\",\"t\":0},{\"k\":\"smart_confirm\",\"t\":0,\"n\":80},{\"k\":\"row_toggle\",\"t\":354,\"seq\":81,\"ok\":true},{\"k\":\"row_toggle\",\"t\":447,\"seq\":82,\"ok\":true},{\"k\":\"row_toggle\",\"t\":552,\"seq\":83,\"ok\":true},{\"k\":\"row_toggle\",\"t\":636,\"seq\":84,\"ok\":true},{\"k\":\"row_toggle\",\"t\":720,\"seq\":85,\"ok\":true},{\"k\":\"row_toggle\",\"t\":804,\"seq\":86,\"ok\":true},{\"k\":\"row_toggle\",\"t\":890,\"seq\":87,\"ok\":true},{\"k\":\"row_toggle\",\"t\":983,\"seq\":88,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1073,\"seq\":89,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1159,\"seq\":90,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1244,\"seq\":91,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1328,\"seq\":92,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1410,\"seq\":93,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1502,\"seq\":94,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1586,\"seq\":95,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1679,\"seq\":96,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1774,\"seq\":97,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1872,\"seq\":98,\"ok\":true},{\"k\":\"row_toggle\",\"t\":1959,\"seq\":99,\"ok\":true},{\"k\":\"row_toggle\",\"t\":2038,\"seq\":100,\"ok\":true}]}"
     }
   ],
   "pass": 13,
   "total": 13,
-  "baseline_ms": 8917.5,
-  "optimized_ms": 1177.4,
-  "reduction_pct": 86.8,
+  "baseline_ms": 29121.9,
+  "optimized_ms": 2040,
+  "reduction_pct": 93,
   "baseline_ok": 100,
   "optimized_ok": 100,
   "optimized_low": 80,
   "perf": {
-    "started_at": "2026-11-23T22:23:58.641Z",
-    "duration_ms": 1177,
+    "started_at": "2026-11-25T04:25:53.883Z",
+    "duration_ms": 2039,
     "items": 100,
     "confirmed": 100,
     "actions": 21,
@@ -94,121 +94,121 @@
       },
       {
         "k": "row_toggle",
-        "t": 203,
+        "t": 354,
         "seq": 81,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 256,
+        "t": 447,
         "seq": 82,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 313,
+        "t": 552,
         "seq": 83,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 372,
+        "t": 636,
         "seq": 84,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 434,
+        "t": 720,
         "seq": 85,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 486,
+        "t": 804,
         "seq": 86,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 531,
+        "t": 890,
         "seq": 87,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 574,
+        "t": 983,
         "seq": 88,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 620,
+        "t": 1073,
         "seq": 89,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 674,
+        "t": 1159,
         "seq": 90,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 726,
+        "t": 1244,
         "seq": 91,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 781,
+        "t": 1328,
         "seq": 92,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 846,
+        "t": 1410,
         "seq": 93,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 902,
+        "t": 1502,
         "seq": 94,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 947,
+        "t": 1586,
         "seq": 95,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 993,
+        "t": 1679,
         "seq": 96,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 1038,
+        "t": 1774,
         "seq": 97,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 1082,
+        "t": 1872,
         "seq": 98,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 1134,
+        "t": 1959,
         "seq": 99,
         "ok": true
       },
       {
         "k": "row_toggle",
-        "t": 1177,
+        "t": 2038,
         "seq": 100,
         "ok": true
       }

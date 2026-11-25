@@ -1,0 +1,33 @@
+# 三期验证环境就绪 API=http://127.0.0.1:8033 CDP=http://127.0.0.1:9335 DATA=C:\PYFIX_~4\we_phase3_VqNJy9\data
+
+
+== theme-tokens ==
+PASS  主题列表接口可用  — status=200
+PASS  内置主题含 base/lime  — [{"name":"base","label":"默认蓝"},{"name":"lime","label":"青柠"}]
+PASS  内置主题可导出完整三层 JSON  — name,label,version,raw,semantic,component,resolved,contrast
+PASS  引用缺失的 raw token 被校验拦截  — ["semantic.brand: raw 引用不存在：not-exist","component.button.primary.background: raw 引用不存在：not-exist"]
+PASS  合法主题通过校验并返回解析值  — {"brand":"#84CC16","brand-ink":"#4D7C0F","brand-soft":"#F7FEE7","bg":"#FCFEF5","card":"#FFFFFF","ink":"#1A2E05","ink-2":"#365314","muted":"#4B5563","line":"#D9F99D","ff":"\"Inter\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif","fs-xs":"11px","fs-sm":"12px","fs-md":"14px","r-md":"12px","r-lg":"18px","shadow":"0 2px 6px rgba(77,124,15,.12),0 1px 2px rgba(16,24,40,.04)","motion-fast":"140ms","motion-ease":"cubic-bezier(.25,.8,.25,1)"}
+PASS  主题应用成功并持久化  — "lime"
+PASS  配置中心出现主题 Token 面板  — {"card":true,"options":2,"title":"主题 Token（raw / semantic / component）"}
+PASS  面板列出内置主题  — options=2
+PASS  semantic 层生效（颜色/圆角/字号/阴影）  — {"brand":"#84CC16","rlg":"18px","fs":"14px","shadow":"0 2px 6px rgba(77,124,15,.12),0 1px 2px rgba(16,24,40,.04)","comp":"#84CC16","button":"rgb(132, 204, 22)","tokens":"lime"}
+PASS  component 层解析为组件变量  — comp=#84CC16
+PASS  现有按钮组件无需改代码即用主题色  — button=rgb(132, 204, 22)
+PASS  主题标记写入 DOM  — tokens=lime
+PASS  图表调色板读取同一主题变量  — {"brand":"#84CC16","muted":"#4B5563","grid":"#E5E7EB","tipBg":"#FFFFFF","tipInk":"#1F2937","ink":"#1A2E05","card":"#FFFFFF"}
+PASS  重开/刷新后自动恢复已应用主题  — {"brand":"#84CC16","comp":"#84CC16","button":"rgb(132, 204, 22)","tokens":"lime","card":true}
+PASS  重开后组件变量与按钮颜色一致  — {"brand":"#84CC16","comp":"#84CC16","button":"rgb(132, 204, 22)","tokens":"lime","card":true}
+PASS  重开后配置面板恢复  — card=true
+PASS  JSON 文件导入后立即生效  — {"ok":true,"name":"custom-orange","brand":"#FF6600","button":"rgb(255, 102, 0)"}
+PASS  导入主题同时驱动语义与组件颜色  — {"ok":true,"name":"custom-orange","brand":"#FF6600","button":"rgb(255, 102, 0)"}
+PASS  导入主题已成为服务端生效主题  — "custom-orange"
+PASS  可导出当前生效主题  — "custom-orange"
+PASS  重置主题清除内联 Token  — {"brand":"#2563EB","tokens":""}
+PASS  重置后服务端无生效自定义主题  — null
+PASS  无页面异常
+
+theme-tokens: 23/23 checks passed
+== theme-tokens PASS ==
+
+
+==== 三期批次 1/1 通过 ====
