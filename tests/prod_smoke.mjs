@@ -389,6 +389,20 @@ function readWindowPrefs(ud) {
   try { return JSON.parse(fs.readFileSync(path.join(ud, 'window-prefs.json'), 'utf8')) } catch { return null }
 }
 
+/** 等主窗真正显示后再发 WM_CLOSE。CDP readyState=complete 只代表页面加载完，
+ *  窗口可能还在 show()/ready-to-show 的间隙；此时 taskkill 找不到可见顶层窗口，
+ *  P-A / P-A3 会误判成「关不掉」，实测同一产物两次跑出不同结果（T06353 发布门）。 */
+async function waitWindowVisible(pid, timeoutMs = 10000) {
+  const t0 = Date.now()
+  let probe = null
+  while (Date.now() - t0 < timeoutMs) {
+    probe = probeWindow(pid)
+    if (probe.total >= 1 && probe.visible >= 1) return probe
+    await sleep(250)
+  }
+  return probe || probeWindow(pid)
+}
+
 /** P-A：首启（userData 无偏好文件）关闭 → 必须弹框，文案来自壳侧表，真点「最小化到托盘」。 */
 async function scenarioPA() {
   resetLogBase()
@@ -403,6 +417,7 @@ async function scenarioPA() {
   // 装包态必须是 exe:资源目录里那份；出现 python: 说明 extraResources 没到位、回退到源码解释器
   check('P-A sidecar 走的是打进包的 exe（非 python 回退）',
     field === 'exe:' + SIDECAR.replaceAll('\\', '/'), field || boot)
+  await waitWindowVisible(s.child.pid, 90000)
   requestClose(s.child.pid)
   await sleep(2500)
   check('P-A 未记住选择时进程保持运行（等待用户决策）', s.child.exitCode === null, `exitCode=${s.child.exitCode}`)
@@ -456,6 +471,7 @@ async function scenarioPA2() {
     return null
   }
   const loadBefore = sampleLoad()
+  await waitWindowVisible(s.child.pid, 90000)
   requestClose(s.child.pid)
   await sleep(2000)
   const dump = driveDialog(s.child.pid, { dump: 1, waitMs: 15000 })
@@ -505,6 +521,7 @@ async function scenarioPA3(a2) {
   } else {
     check('P-A3 冷重启可启动', true, a2.ud)
     const loadBefore = sampleLoad()
+    await waitWindowVisible(s.child.pid, 90000)
     requestClose(s.child.pid)
     const waited = await waitExit(s.child, EXIT_WAIT)
     const load = loadPeak(loadBefore)
@@ -535,6 +552,7 @@ async function scenarioPB() {
     return
   }
   const loadBefore = sampleLoad()
+  await waitWindowVisible(s.child.pid, 90000)
   requestClose(s.child.pid)
   const waited = await waitExit(s.child, EXIT_WAIT)
   const load = loadPeak(loadBefore)
@@ -554,6 +572,7 @@ async function scenarioPC() {
     return
   }
   const loadBefore = sampleLoad()
+  await waitWindowVisible(s.child.pid, 90000)
   requestClose(s.child.pid)
   const waitedHide = await waitHidden(s.child, PC_WAIT_HARD)
   const load = loadPeak(loadBefore)

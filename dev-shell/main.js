@@ -324,8 +324,11 @@ function ensureTray() {
 }
 
 async function hideToTray(win) {
-  await ensureTray()
+  // 先隐藏主窗再建托盘：Tray 首次初始化在本机实测可达数秒，若先建托盘，
+  // 用户/发布门看到的会是「点了关闭，窗口还杵着几秒」。托盘创建失败时再把窗口放回来。
   if (win && !win.isDestroyed()) win.hide()
+  const ready = await ensureTray()
+  if (!ready && win && !win.isDestroyed()) win.show()
   // 仅首次提示，避免每次关闭都弹气泡打扰
   if (tray && process.platform === 'win32' && !trayBalloonShown) {
     trayBalloonShown = true
