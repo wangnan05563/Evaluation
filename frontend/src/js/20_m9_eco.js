@@ -112,12 +112,16 @@ function reRenderAfterLang(){
   if(typeof render === "function" && Array.isArray(items)) render();
   if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
   if(page === "config" && typeof rulesLoad === "function") rulesLoad();
+  // 供应商下拉的 option 是 JS 动态生成的，切换语言后需按新字典重绘标签（保留当前选中值）。
+  if(page === "config" && typeof renderProviderOptions === "function") renderProviderOptions();
   if(page === "pert"){
     if(typeof pertSyncStart === "function") pertSyncStart();
     if(typeof pertFillPhase === "function") pertFillPhase();
     // T03723：空明细也要重绘，否则「N 项」计数停在旧语言
     if(typeof renderPert === "function") renderPert();
   }
+  // 快速估算页的计数标签/公式不是 data-i18n 静态节点，切语言必须重绘。
+  if(page === "fast" && typeof fastRender === "function") fastRender();
 }
 /** 切换语言：落盘 → 重载字典 → 重刷 data-i18n 标注的节点 */
 async function setLang(lang){
@@ -188,6 +192,12 @@ window.addEventListener("DOMContentLoaded",async ()=>{
   applyI18n();
   // T06171：三层 Token 主题在首绘/断点恢复前应用，避免主题闪变。
   if(typeof themeTokensBoot==="function") await themeTokensBoot();
+  // 版本状态可能在字典就绪前由 goPage('help') 渲染完成（原始 key 会覆盖 data-i18n 子节点），
+  // 字典就绪后补一次重绘，避免保留 help.upd.* 裸键。
+  if(typeof verPaint==="function") verPaint();
+  // 引导脚本/直达链接可能在字典就绪前已经切到快速估算页；此时补一次渲染，
+  // 否则计数标签与公式会停留在 ne.count_label / ne.formula.est 原始 key。
+  if(document.body.dataset.page === "fast" && typeof fastRender === "function") fastRender();
   tplLoad();
   if(typeof brandPaint==="function") brandPaint();   // 预置色名按新字典重绘（首绘在字典前，见 07）
   // T01556（批次6）：断点续录恢复必须在字典就绪后执行（见 07 bootRestoreChain 注释），

@@ -1,0 +1,291 @@
+{
+  "checks": [
+    {
+      "name": "真实文档识别为17条候选",
+      "ok": true,
+      "detail": "{'ILF': 0, 'EIF': 0, 'EI': 11, 'EO': 0, 'EQ': 6}"
+    },
+    {
+      "name": "真实文档类型计数为 EI=11 / EQ=6",
+      "ok": true,
+      "detail": "{'ILF': 0, 'EIF': 0, 'EI': 11, 'EO': 0, 'EQ': 6}"
+    },
+    {
+      "name": "费率版本取自 /api/rates 且为 CSBMK-2023",
+      "ok": true,
+      "detail": "{'name': 'CSBMK-2023', 'pdr': 6.96, 'rate': 28000, 'dnhc': 0}"
+    },
+    {
+      "name": "估算法68FP UFP 与 gb_engine 一致",
+      "ok": true,
+      "detail": "page=68 engine=68"
+    },
+    {
+      "name": "估算法68FP S 与 gb_engine 一致",
+      "ok": true,
+      "detail": "74.8"
+    },
+    {
+      "name": "估算法68FP AE 与 gb_engine 一致",
+      "ok": true,
+      "detail": "520.61"
+    },
+    {
+      "name": "估算法68FP 费用与 gb_engine 一致",
+      "ok": true,
+      "detail": "83776.0"
+    },
+    {
+      "name": "估算法68FP PERT 中值与独立复算一致",
+      "ok": true,
+      "detail": "90"
+    },
+    {
+      "name": "估算法68FP COCOMO II PM 与独立复算一致",
+      "ok": true,
+      "detail": "8.66"
+    },
+    {
+      "name": "估算法68FP COCOMO II TDEV 与独立复算一致",
+      "ok": true,
+      "detail": "6.83"
+    },
+    {
+      "name": "估算法68FP 结果无超长浮点尾数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "估算法 UFP=68",
+      "ok": true,
+      "detail": "68"
+    },
+    {
+      "name": "需求阶段系数 CF=1.10",
+      "ok": true,
+      "detail": "1.10"
+    },
+    {
+      "name": "SWF/RDF 透明展示为1.00",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "费率出处与版本可追溯",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "估算法结果明确标注方法",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "UFP/费用为整数、S/AE为两位小数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "预估法135FP UFP 与 gb_engine 一致",
+      "ok": true,
+      "detail": "page=135 engine=135"
+    },
+    {
+      "name": "预估法135FP S 与 gb_engine 一致",
+      "ok": true,
+      "detail": "148.5"
+    },
+    {
+      "name": "预估法135FP AE 与 gb_engine 一致",
+      "ok": true,
+      "detail": "1033.56"
+    },
+    {
+      "name": "预估法135FP 费用与 gb_engine 一致",
+      "ok": true,
+      "detail": "166320.0"
+    },
+    {
+      "name": "预估法135FP PERT 中值与独立复算一致",
+      "ok": true,
+      "detail": "178"
+    },
+    {
+      "name": "预估法135FP COCOMO II PM 与独立复算一致",
+      "ok": true,
+      "detail": "16.58"
+    },
+    {
+      "name": "预估法135FP COCOMO II TDEV 与独立复算一致",
+      "ok": true,
+      "detail": "8.23"
+    },
+    {
+      "name": "预估法135FP 结果无超长浮点尾数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "预估法 UFP=35×3+15×2=135",
+      "ok": true,
+      "detail": "135"
+    },
+    {
+      "name": "预估法 S=148.50",
+      "ok": true,
+      "detail": "148.5"
+    },
+    {
+      "name": "预估法费用=166320",
+      "ok": true,
+      "detail": "166320.0"
+    },
+    {
+      "name": "预估法结果明确标注方法",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "保持计数99FP UFP 与 gb_engine 一致",
+      "ok": true,
+      "detail": "page=99 engine=99"
+    },
+    {
+      "name": "保持计数99FP S 与 gb_engine 一致",
+      "ok": true,
+      "detail": "108.9"
+    },
+    {
+      "name": "保持计数99FP AE 与 gb_engine 一致",
+      "ok": true,
+      "detail": "757.94"
+    },
+    {
+      "name": "保持计数99FP 费用与 gb_engine 一致",
+      "ok": true,
+      "detail": "121968.0"
+    },
+    {
+      "name": "保持计数99FP PERT 中值与独立复算一致",
+      "ok": true,
+      "detail": "131"
+    },
+    {
+      "name": "保持计数99FP COCOMO II PM 与独立复算一致",
+      "ok": true,
+      "detail": "12.36"
+    },
+    {
+      "name": "保持计数99FP COCOMO II TDEV 与独立复算一致",
+      "ok": true,
+      "detail": "7.56"
+    },
+    {
+      "name": "保持计数99FP 结果无超长浮点尾数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "切回估算法后 UFP=99",
+      "ok": true,
+      "detail": "99"
+    },
+    {
+      "name": "切回后 S=108.90 / 费用=121968",
+      "ok": true,
+      "detail": "{'s': 108.9, 'ae': 757.94, 'fee': 121968.0, 'manmonth': 4.36}"
+    },
+    {
+      "name": "预估法填入的 ILF/EIF 未被清空",
+      "ok": true,
+      "detail": "[{'k': 'ILF', 'v': '3'}, {'k': 'EIF', 'v': '2'}, {'k': 'EI', 'v': '11'}, {'k': 'EO', 'v': '0'}, {'k': 'EQ', 'v': '6'}]"
+    },
+    {
+      "name": "无计数时显示输入提示而非全0结果",
+      "ok": true,
+      "detail": "输入计数后即时计算。"
+    },
+    {
+      "name": "无计数时国标按钮禁用",
+      "ok": true,
+      "detail": "True"
+    },
+    {
+      "name": "初始公式/计数标签已本地化，无 ne.* key",
+      "ok": true,
+      "detail": "估算法：UFP = 7×ILF+5×EIF+4×EI+5×EO+4×EQ —— 出处：GB/T 42588-2023 / NESMA 2.1"
+    },
+    {
+      "name": "清空计数后结果回到提示且按钮禁用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "UI 断言全绿",
+      "ok": true,
+      "detail": "53/53"
+    },
+    {
+      "name": "UI 断言数量≥50",
+      "ok": true,
+      "detail": "53"
+    },
+    {
+      "name": "1280px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1024px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "768px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "375px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "375px 计数输入可用宽度≥100px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "中英切换后公式/标签/结果均翻译",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "语言切换不丢计数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "无明细时记录 UFP 并提示",
+      "ok": true,
+      "detail": "快算 UFP 已记录；完成详细估算后将在结果页并排对照"
+    },
+    {
+      "name": "无明细时不伪造跳转",
+      "ok": true,
+      "detail": "fast"
+    },
+    {
+      "name": "全程无 JS/console 异常",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "summary": {
+    "passed": 56,
+    "total": 56,
+    "ui_passed": 53,
+    "ui_total": 53
+  },
+  "note": "快速估算页无 xlsx 产物；生成物为页面计算结果与 UFP 交接状态。"
+}

@@ -36,7 +36,7 @@
       desc: 'PERT 估算按“需求输入 → 估算录入 → 结果生成”三步组织，每一步都有独立步骤栏。',
       target: '#mi-pert' },
     { id: 'pert-in', menuId: 'pert', title: 'PERT · 需求输入', order: 2,
-      desc: '输入每个功能需求的三点值：乐观(O)、最可能(M)、悲观(P)，系统自动计算预期工期与方差。',
+      desc: '输入每个功能需求的三点值：乐观(O)、最可能(M)、悲观(P)，系统自动计算预期工期与标准差。',
       target: '#pst1' },
     { id: 'pert-edit', menuId: 'pert', title: 'PERT · 估算录入', order: 3,
       desc: '在估算录入阶段维护项目阶段明细，可从历史项目载入继续编辑。',
@@ -66,7 +66,7 @@
       desc: '上传需求说明书 → 审核功能点 → 生成成品造价表，是本工具的主流程。',
       target: '#mi-work' },
     { id: 'help-pert', menuId: 'help', title: '② PERT 估算', order: 2,
-      desc: '三点估算法：录入乐观/最可能/悲观值，自动计算预期工期与方差。',
+      desc: '三点估算法：录入乐观/最可能/悲观值，自动计算预期工期与标准差。',
       target: '#mi-pert' },
     { id: 'help-fast', menuId: 'help', title: '③ 快速估算', order: 3,
       desc: 'NESMA 快算：清点 ILF / EIF 即出规模与费用，适合需求早期拿量级。',
@@ -124,7 +124,7 @@
       '  box-shadow:0 0 0 9999px rgba(0,0,0,.35);transition:opacity .15s;}' +
       '.guide-glow{position:absolute;border-radius:10px;box-shadow:0 0 0 4px #2563EB,0 6px 24px rgba(0,0,0,.4);' +
       '  z-index:3001;transition:all .2s ease;background:rgba(37,99,235,.10);pointer-events:none;}' +
-      '.guide-card{position:fixed;z-index:3002;max-width:340px;min-width:240px;background:#fff;color:#1e293b;' +
+      '.guide-card{position:fixed;z-index:3002;box-sizing:border-box;width:min(340px,calc(100vw - 24px));max-width:340px;min-width:240px;background:#fff;color:#1e293b;' +
       '  border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px 18px;font-size:13px;' +
       '  line-height:1.7;font-family:inherit;}' +
       '.guide-card h4{margin:0 0 6px;font-size:15px;color:#0f172a;}' +
@@ -386,7 +386,15 @@
                      steps: GUIDE_STEPS, markDone: markDone, menuOfPage: menuOfPage,
                      startAndGo: startAndGo,
                      // T01556：语言切换时若引导正在演示，按新语言重绘当前卡片
-                     refresh: function () { if (active) render(active.menuId, active.idx); } };
+                     refresh: function () {
+                       if (active) render(active.menuId, active.idx);
+                       var fab = $('.guide-fab');
+                       if (fab) {
+                         var label = G('fab.title', '操作引导');
+                         fab.title = label;
+                         fab.setAttribute('aria-label', label);
+                       }
+                     } };
 
   hook();
 })();

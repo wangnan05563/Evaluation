@@ -96,6 +96,20 @@ coverage.xml
 # 视觉回归每轮候选截图：只作比对输入，基线仍由 visual-baseline 管理，不纳入版本库。
 docs/test-reports/phase3-20261122/visual-current/
 
+# ─── 本机验收草稿与一次性调试产物（不作为交付物）───────────────────
+# help_test/ 是本地帮助页截图/侦察草稿；正式证据在 docs/test-reports/ 下。
+/help_test/
+/t06175_source.patch
+tests/phase3/_diag_*.mjs
+tests/phase3/_debug_*.mjs
+tests/phase3/proto_10k_*.mjs
+tests/phase3/stage_t06175.py
+# 10k 原型实验输出与诊断截图，只用于本机对照，不作为验收基线。
+docs/test-reports/**/proto-10k-*.json
+docs/test-reports/**/*_diag*.png
+# 打包导出的一次性压缩包（截图/JSON 正文仍按目录入库）。
+docs/test-reports/**/*.zip
+
 # ─── 系统生成文件 ────────────────────────────────────────────────────
 Thumbs.db
 ehthumbs.db

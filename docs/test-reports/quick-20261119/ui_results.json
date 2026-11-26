@@ -1,0 +1,375 @@
+{
+  "results": [
+    {
+      "name": "真实文档识别成功并得到17条候选",
+      "ok": true,
+      "detail": "n=17"
+    },
+    {
+      "name": "真实文档计数可派生五种功能点计数",
+      "ok": true,
+      "detail": "{\"ILF\":0,\"EIF\":0,\"EI\":11,\"EO\":0,\"EQ\":6}"
+    },
+    {
+      "name": "快速估算页为当前可见页",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "算法切换有两个按钮",
+      "ok": true,
+      "detail": "2"
+    },
+    {
+      "name": "默认估算法按钮处于选中态",
+      "ok": true,
+      "detail": "估算法"
+    },
+    {
+      "name": "默认估算法展示五种计数",
+      "ok": true,
+      "detail": "[\"ILF\",\"EIF\",\"EI\",\"EO\",\"EQ\"]"
+    },
+    {
+      "name": "初始计数全部为0",
+      "ok": true,
+      "detail": "0,0,0,0,0"
+    },
+    {
+      "name": "初始公式为估算法口径",
+      "ok": true,
+      "detail": "估算法：UFP = 7×ILF+5×EIF+4×EI+5×EO+4×EQ —— 出处：GB/T 42588-2023 / NESMA 2.1"
+    },
+    {
+      "name": "初始无输入时给出输入提示而非全0结果",
+      "ok": true,
+      "detail": "输入计数后即时计算。"
+    },
+    {
+      "name": "无计数时不应可进国标造价",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "初始页面无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "初始计数标签未暴露i18n key",
+      "ok": true,
+      "detail": "ILF 计数EIF 计数EI 计数EO 计数EQ 计数"
+    },
+    {
+      "name": "真实文档计数估算法UFP=68",
+      "ok": true,
+      "detail": "ufp=68"
+    },
+    {
+      "name": "S = UFP×1.1 正确且显示两位小数",
+      "ok": true,
+      "detail": "UFP = 68 FP（估算法）S = UFP×GSC×CF = 74.80（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 520.61 人时 ≈ 2.99 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天"
+    },
+    {
+      "name": "AE = PDR×S 正确且显示两位小数",
+      "ok": true,
+      "detail": "UFP = 68 FP（估算法）S = UFP×GSC×CF = 74.80（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 520.61 人时 ≈ 2.99 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天"
+    },
+    {
+      "name": "费用与费率版本计算一致",
+      "ok": true,
+      "detail": "83776 / 费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天"
+    },
+    {
+      "name": "PERT 三点参考与 UFP 联动",
+      "ok": true,
+      "detail": "UFP = 68 FP（估算法）S = UFP×GSC×CF = 74.80（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 520.61 人时 ≈ 2.99 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天"
+    },
+    {
+      "name": "结果不出现超长浮点小数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "结果明确标注 SWF/RDF 采用1.0",
+      "ok": true,
+      "detail": "UFP = 68 FP（估算法）S = UFP×GSC×CF = 74.80（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 520.61 人时 ≈ 2.99 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天"
+    },
+    {
+      "name": "有计数后国标按钮启用",
+      "ok": true,
+      "detail": "disabled=false"
+    },
+    {
+      "name": "计入真实文档计数后页面无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "预估法只展示ILF/EIF两项",
+      "ok": true,
+      "detail": "[\"ILF\",\"EIF\"]"
+    },
+    {
+      "name": "预估法公式正确",
+      "ok": true,
+      "detail": "预估法：UFP = 35×ILF + 15×EIF —— 出处：GB/T 42588-2023 / NESMA 2.1（适合立项/招投标无明细阶段）"
+    },
+    {
+      "name": "切换后按钮选中态同步",
+      "ok": true,
+      "detail": "pre"
+    },
+    {
+      "name": "预估法 UFP=35×3+15×2=135",
+      "ok": true,
+      "detail": "135"
+    },
+    {
+      "name": "预估法结果不误用估算法权重",
+      "ok": true,
+      "detail": "UFP = 135 FP（预估法）S = UFP×GSC×CF = 148.50（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 1033.56 人时 ≈ 5.94 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 166320 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=6.2，1FP≈46LOC 可配）：PM=16.58 人月 · TDEV=8.23 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 142 / 最可能 178 / 悲观 214 人天"
+    },
+    {
+      "name": "切回估算法后五种计数全部保留",
+      "ok": true,
+      "detail": "[{\"k\":\"ILF\",\"v\":\"3\"},{\"k\":\"EIF\",\"v\":\"2\"},{\"k\":\"EI\",\"v\":\"11\"},{\"k\":\"EO\",\"v\":\"0\"},{\"k\":\"EQ\",\"v\":\"6\"}]"
+    },
+    {
+      "name": "计数保持后估算法UFP=99",
+      "ok": true,
+      "detail": "ufp=99"
+    },
+    {
+      "name": "切回后结果文本无超长小数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "清空计数后回到输入提示",
+      "ok": true,
+      "detail": "输入计数后即时计算。"
+    },
+    {
+      "name": "清空计数后国标按钮禁用",
+      "ok": true,
+      "detail": "disabled=true ufp=0"
+    },
+    {
+      "name": "清空后输入框归零",
+      "ok": true,
+      "detail": "0,0,0,0,0"
+    },
+    {
+      "name": "恢复计数后国标按钮重新启用",
+      "ok": true,
+      "detail": "ufp=99 disabled=false"
+    },
+    {
+      "name": "负数计数归一化为0且不参与计算",
+      "ok": true,
+      "detail": "value=0 ufp=55"
+    },
+    {
+      "name": "小数计数按整数处理并回写输入框",
+      "ok": true,
+      "detail": "value=1 ufp=59"
+    },
+    {
+      "name": "宽度1280无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "宽度1280计数网格不压成小于两列",
+      "ok": true,
+      "detail": "columns=5"
+    },
+    {
+      "name": "宽度1024无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "宽度1024计数网格不压成小于两列",
+      "ok": true,
+      "detail": "columns=5"
+    },
+    {
+      "name": "宽度768无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "宽度768计数网格不压成小于两列",
+      "ok": true,
+      "detail": "columns=5"
+    },
+    {
+      "name": "宽度375无横向溢出",
+      "ok": true,
+      "detail": "overflow=0px"
+    },
+    {
+      "name": "宽度375计数网格不压成小于两列",
+      "ok": true,
+      "detail": "columns=2"
+    },
+    {
+      "name": "窄屏计数输入仍有可用宽度",
+      "ok": true,
+      "detail": "input=149px, grid=305px"
+    },
+    {
+      "name": "英文界面公式已翻译",
+      "ok": true,
+      "detail": "Estimate: UFP = 7×ILF+5×EIF+4×EI+5×EO+4×EQ — source: GB/T 42588-2023 / NESMA 2.1"
+    },
+    {
+      "name": "英文界面计数标签已翻译",
+      "ok": true,
+      "detail": "ILF countEIF countEI countEO countEQ count"
+    },
+    {
+      "name": "英文界面结果已翻译且保留计数",
+      "ok": true,
+      "detail": "UFP = 99 FP (Estimate method)S = UFP×GSC×CF = 108.90 (GSC=1.0, phase=Requirements CF=1.10)AE = PDR×S×SWF×RDF = 757.94 person-hours ≈ 4.36 person-months (SWF=1.00, RDF=1.00)Cost = AE/174×rate + DNHC = 121968 CNY (baseline version: CSBMK-2023)Source: GB/T 36964-2018 · CSBMK-2023 industry benchmark data (public basis; rate-version override supported)COCOMO II reference (KLOC=4.6, 1FP≈46LOC configurable): PM=12.36 person-months · TDEV=7.56 months — source: COCOMO II 2000PERT three-point reference (FR-1.9 cross-feed): optimistic 105 / most likely 131 / pessimistic 157 person-days"
+    },
+    {
+      "name": "切回中文后公式/标签恢复",
+      "ok": true,
+      "detail": "估算法：UFP = 7×ILF+5×EIF+4×EI+5×EO+4×EQ —— 出处：GB/T 42588-2023 / NESMA 2.1"
+    },
+    {
+      "name": "语言切换不丢计数",
+      "ok": true,
+      "detail": "ufp=99"
+    },
+    {
+      "name": "无详细估算明细时记录快算UFP并提示",
+      "ok": true,
+      "detail": "before=语言已切换 after=快算 UFP 已记录；完成详细估算后将在结果页并排对照"
+    },
+    {
+      "name": "无明细时不会伪造跳转结果页",
+      "ok": true,
+      "detail": "page=fast"
+    },
+    {
+      "name": "全程无页面JS异常",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "全程无console error",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "docCounts": {
+    "ILF": 0,
+    "EIF": 0,
+    "EI": 11,
+    "EO": 0,
+    "EQ": 6
+  },
+  "rates": {
+    "name": "CSBMK-2023",
+    "pdr": 6.96,
+    "rate": 28000,
+    "dnhc": 0
+  },
+  "initial": {
+    "page": "fast",
+    "modes": 2,
+    "modeOn": [
+      "估算法"
+    ],
+    "inputs": [
+      "ILF",
+      "EIF",
+      "EI",
+      "EO",
+      "EQ"
+    ],
+    "values": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "formula": "估算法：UFP = 7×ILF+5×EIF+4×EI+5×EO+4×EQ —— 出处：GB/T 42588-2023 / NESMA 2.1",
+    "result": "输入计数后即时计算。",
+    "buttonDisabled": true,
+    "leftRect": {
+      "w": 552,
+      "h": 308
+    },
+    "pageOverflow": 0,
+    "rateSource": false
+  },
+  "calc": {
+    "text": "UFP = 68 FP（估算法）S = UFP×GSC×CF = 74.80（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 520.61 人时 ≈ 2.99 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 83776 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=3.1，1FP≈46LOC 可配）：PM=8.66 人月 · TDEV=6.83 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 72 / 最可能 90 / 悲观 108 人天",
+    "ufp": 68,
+    "values": [
+      0,
+      0,
+      11,
+      0,
+      6
+    ],
+    "buttonDisabled": false,
+    "overflow": 0
+  },
+  "pre0": {
+    "inputs": [
+      "ILF",
+      "EIF"
+    ],
+    "values": [
+      "0",
+      "0"
+    ],
+    "formula": "预估法：UFP = 35×ILF + 15×EIF —— 出处：GB/T 42588-2023 / NESMA 2.1（适合立项/招投标无明细阶段）",
+    "active": [
+      "pre"
+    ]
+  },
+  "pre": {
+    "text": "UFP = 135 FP（预估法）S = UFP×GSC×CF = 148.50（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 1033.56 人时 ≈ 5.94 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 166320 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=6.2，1FP≈46LOC 可配）：PM=16.58 人月 · TDEV=8.23 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 142 / 最可能 178 / 悲观 214 人天",
+    "ufp": 135
+  },
+  "back": {
+    "values": [
+      {
+        "k": "ILF",
+        "v": "3"
+      },
+      {
+        "k": "EIF",
+        "v": "2"
+      },
+      {
+        "k": "EI",
+        "v": "11"
+      },
+      {
+        "k": "EO",
+        "v": "0"
+      },
+      {
+        "k": "EQ",
+        "v": "6"
+      }
+    ],
+    "text": "UFP = 99 FP（估算法）S = UFP×GSC×CF = 108.90（GSC=1.0，阶段=需求 CF=1.10）AE = PDR×S×SWF×RDF = 757.94 人时 ≈ 4.36 人月（SWF=1.00，RDF=1.00）费用 = AE/174×费率 + DNHC = 121968 元（基准版本：CSBMK-2023）出处：GB/T 36964-2018 · CSBMK-2023 行业基准数据（公开口径，可经费率版本覆盖）COCOMO II 参考（KLOC=4.6，1FP≈46LOC 可配）：PM=12.36 人月 · TDEV=7.56 月 —— 出处：COCOMO II 2000PERT 三点参考（FR-1.9 互导）：乐观 105 / 最可能 131 / 悲观 157 人天",
+    "ufp": 99,
+    "disabled": false
+  },
+  "after": {
+    "page": "fast",
+    "toast": "快算 UFP 已记录；完成详细估算后将在结果页并排对照",
+    "toastOpacity": "1"
+  }
+}
