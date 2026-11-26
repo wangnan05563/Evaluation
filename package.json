@@ -16,7 +16,9 @@
     "dist": "electron-builder",
     "dist:dir": "electron-builder --dir",
     "test": "node tests/run.mjs",
-    "build:frontend": "python scripts/build_frontend.py"
+    "build:frontend": "python scripts/build_frontend.py",
+    "predist": "python scripts/brand_installer.py --out release/brand --ensure-default --verify",
+    "predist:dir": "python scripts/brand_installer.py --out release/brand --ensure-default --verify"
   },
   "devDependencies": {
     "electron-builder": "^24.13.3"
@@ -58,7 +60,12 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "artifactName": "WorkloadEstimate-${version}-setup.${ext}",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "installerIcon": "assets/we_icon.ico",
+      "uninstallerIcon": "assets/we_icon.ico",
+      "installerHeader": "release/brand/installerHeader.bmp",
+      "installerSidebar": "release/brand/installerSidebar.bmp",
+      "uninstallerSidebar": "release/brand/uninstallerSidebar.bmp"
     }
   }
 }
