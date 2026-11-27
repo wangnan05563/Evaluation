@@ -1,8 +1,0 @@
-PASS  首屏 FCP/DCL ≤2s（浏览器性能条目）  — {"dcl":690.2999999998137,"load":706.6000000005588,"fcp":468}
-PASS  导航到可交互 ≤3s（采集耗时，非首屏口径）  — 730ms
-PASS  10k 复核页 render p95 ≤150ms  — 63.7ms (n=30)
-PASS  10k 复核页搜索输入 p95 ≤150ms  — 56.9ms (n=30)
-PASS  已建立 6 张视觉基线（3 主题 × 中英）  — 6 张
-PASS  无页面异常
-
-regression-baseline: 6/6 checks passed

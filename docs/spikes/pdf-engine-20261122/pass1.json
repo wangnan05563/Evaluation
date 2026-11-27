@@ -1,7 +1,0 @@
-{
-  "input": "D:\\code\\otherProjects\\Evaluation\\docs\\spikes\\pdf-engine-20261122\\sample-audit.html",
-  "output": "D:\\code\\otherProjects\\Evaluation\\docs\\spikes\\pdf-engine-20261122\\pass1.pdf",
-  "bytes": 421620,
-  "render_ms": 2896,
-  "engine": "chromium-printToPDF"
-}

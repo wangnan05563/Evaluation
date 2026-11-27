@@ -1,3 +1,0 @@
-AC-39 rollback PASS: 20261123-220259 restored= 7
-AC-39 tamper-refusal PASS
-OPS-OPS PASS

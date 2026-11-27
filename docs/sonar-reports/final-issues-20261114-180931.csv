@@ -1,3 +1,0 @@
-"key","rule","severity","type","component","line","message","effort","debt","status","impacts","tags","textRange","creationDate"
-"6814b0f3-836c-44f9-aed3-311d0208df18","python:S1172","MAJOR","CODE_SMELL","27_Evaluation:scripts/server.py","2025","Remove the unused function parameter ""raw"".","5min","5min","OPEN","MAINTAINABILITY:MEDIUM","unused","L2025:C35-L2025:C38","2026/11/14 18:06:37"
-"542106e6-10b8-4f1f-a268-26f932d88269","javascript:S7750","MINOR","CODE_SMELL","27_Evaluation:tests/prod_smoke.mjs","183","Prefer `.findLast(…)` over `.filter(…).at(-1)`.","5min","5min","OPEN","MAINTAINABILITY:MEDIUM","readability,performance","L183:C48-L183:C54","2026/11/14 18:06:37"

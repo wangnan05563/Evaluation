@@ -1,8 +1,0 @@
-{
-  "input": "C:\\Users\\hspcadmin\\AppData\\Local\\Temp\\eval_t171_clean\\docs\\test-reports\\phase3-20261122\\audit\\audit_t06181.html",
-  "output": "C:\\Users\\hspcadmin\\AppData\\Local\\Temp\\eval_t171_clean\\docs\\test-reports\\phase3-20261122\\audit\\audit_t06181.pdf",
-  "bytes": 437094,
-  "render_ms": 405,
-  "engine": "chromium-printToPDF",
-  "chrome": "C:/Program Files/Google/Chrome/Application/chrome.exe"
-}

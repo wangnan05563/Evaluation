@@ -381,11 +381,19 @@ Get-ChildItem $env:TEMP -Directory -Filter 'we_*' | Remove-Item -Recurse -Force 
 
 ## 设计文档
 
+文档总索引与保留范围见 [docs/README.md](docs/README.md)。
+
+- `docs/系统架构设计.md` — 分层架构、模块划分、数据流、部署与运维
 - `docs/概要设计说明.md` — 总体架构、模块划分、数据模型、计算口径（含 NESMA 与国标造价）
 - `docs/设计-结果页与导出.md` — 结果页四图、导出管线、信息架构与可访问性
 - `docs/设计-前端架构与交互.md` — 前端拆分与构建、复核表格、规则沉淀、设计令牌与主题、生态扩展
 - `docs/设计-数据与运维.md` — 估算历史与版本、入参校验、日志诊断、备份迁移、S1–S17 测试体系
 - `docs/设计-多语言边界-交付物恒为中文.md` — 界面双语与交付物语言边界
+- `docs/设计-PDF引擎选型.md` — Chromium printToPDF 选型与两遍渲染目录方案
+- `docs/ui-kit.md` — 核心 UI 组件 API、主题、响应式与验收
+- `docs/prd/20261121-工作量评估助手-PRD.md` — 完整需求基线（V1.1–V2.1）
+- `docs/prd/未实现需求.md` — V2.1 与尾部缺口
+- `docs/DEMO.md` — 5 分钟演示脚本
 
 ## 常见问题
 
