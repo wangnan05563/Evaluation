@@ -156,7 +156,7 @@ const serverFailureDetail = () => {
   const tail = serverLog.split(/\r?\n/).filter(Boolean).slice(-4).join(' | ');
   const why = serverError ? `spawn ${serverError.code || ''} ${serverError.message || serverError}` :
     (serverExit !== null ? `server 退出码 ${serverExit}` : '');
-  return `${why}${tail ? `${why ? '；' : ''}${tail}` : ''}`;
+  return `${why}${tail ? (why ? '；' : '') + tail : ''}`;
 };
 /** 起测试实例并等到 /health；失败时把 server 自己的 stderr / spawn error 带进异常，避免只报
  *  一句「API 实例未就绪」而看不到真正的 EADDRINUSE/导入错误。
@@ -175,7 +175,7 @@ async function startTestServer(dataDir) {
     if (server && server.pid) killTree(server.pid);
     server = null;
   }
-  throw new Error(`API 实例未就绪${last ? `：${last}` : ''}`);
+  throw new Error('API 实例未就绪' + (last ? '：' + last : ''));
 }
 async function startChrome(dataDir) {
   const p = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${CDP_PORT}`,

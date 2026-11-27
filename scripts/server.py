@@ -64,7 +64,8 @@ F_SCHEMA_VER = "schema_ver"                      # schema 版本标记（由 dat
 DIR_TEMPLATES = "templates"         # 自定义母版目录（相对 APP_DATA）
 CHAT_SUFFIX = "/chat/completions"   # OpenAI 兼容端点后缀
 F_PACKAGE_JSON = "package.json"     # 前端工程清单（技术栈探测用）
-SYS_TICKET = "票据业务系统"          # 项目主系统名（上下文推断的归并目标）
+DEFAULT_PROJECT_NAME = "票据业务系统"  # 项目主系统名（上下文推断的归并目标）
+SYS_TICKET = DEFAULT_PROJECT_NAME
 AUTH_BEARER = "Bearer "              # 鉴权头前缀
 # T05688：内置官方 GitHub Releases 更新源，默认即可用，无需外部配置。
 # 仓库坐标与发布脚本 scripts/publish.config.json 的 publish.repo 保持一致；
@@ -432,7 +433,7 @@ def _recog_job_run(job_id, run_id):
             try:
                 cx_mode = engine.normalize_cx_mode(params.get("cx_mode"))
             except ValueError:
-                raise ValueError("未知复杂度口径")
+                raise ValueError(UNKNOWN_COMPLEXITY)
             summary = engine.summary(
                 [{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"],
                   "det": i.get("det"), "ret": i.get("ret"), "ftr": i.get("ftr")} for i in local_items],
@@ -760,6 +761,29 @@ _i18n_seed()   # 启动即播种，使全新安装的实例也能取到字典
 import validators as V
 import slog as _slogmod
 import datakeeper as _dk
+
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+API_GENERATE = '/api/generate'
+API_HISTORY = '/api/history'
+API_INTEGRATIONS = '/api/integrations'
+API_RATES = '/api/rates'
+API_RBAC_SSO_CONFIG = '/api/rbac/sso-config'
+API_RBAC_USERS = '/api/rbac/users'
+API_RECOGNIZE = '/api/recognize'
+API_RULES = '/api/rules'
+CODE_FILE_MISSING = 'srv.file_missing'
+CODE_PROJECT_NOT_FOUND = 'pert.srv_no_proj'
+CODE_PROJECT_REQUIRED = 'pert.srv_need_proj'
+ERR_BAD_JSON = '请求体不是合法 JSON'
+ERR_FILE_NOT_FOUND = '文件不存在'
+ERR_PROJECT_NOT_FOUND = '项目不存在'
+ERR_TASK_NOT_FOUND = '任务不存在'
+ERR_WORKFLOW_NOT_READY = '状态机未初始化'
+MSG_PROJECT_REQUIRED = '请先新建或选择项目'
+RBAC_DB_FILE = 'rbac.db'
+STATIC_PREFIX = '/static/'
+UNKNOWN_COMPLEXITY = '未知复杂度口径'
 SLOG = _slogmod.Slog(APP_DATA / "logs" / "server.jsonl")
 SCHEMA_VER = _dk.SCHEMA_VER
 
@@ -817,7 +841,7 @@ def get_rbac():
     if RBAC is None:
         with RBAC_LOCK:
             if RBAC is None:
-                RBAC = rbac.RbacStore(APP_DATA / "rbac.db")
+                RBAC = rbac.RbacStore(APP_DATA / RBAC_DB_FILE)
     return RBAC
 
 
@@ -1016,34 +1040,67 @@ def _safe_url(value):
     return text[:600] if p.scheme in ("http", "https") and p.netloc else ""
 
 
+def _apply_sso_flags(cur, sso):
+    for key in ("enabled", "auto_provision", "admin_fallback"):
+        if key in sso:
+            cur[key] = bool(sso.get(key))
+
+
+def _apply_sso_urls(cur, sso):
+    for key in ("authorize_url", "token_url", "userinfo_url"):
+        if key in sso:
+            cur[key] = _safe_url(sso.get(key))
+
+
+def _apply_sso_provider(cur, sso):
+    if "provider_name" in sso:
+        cur["provider_name"] = (str(sso.get("provider_name") or "").strip() or "SSO")[:40]
+
+
+def _apply_sso_client(cur, sso):
+    if "client_id" in sso:
+        cur["client_id"] = str(sso.get("client_id") or "").strip()[:200]
+
+
+def _apply_sso_secret(cur, sso):
+    if "client_secret" in sso and str(sso.get("client_secret") or "").strip():
+        cur["client_secret"] = str(sso.get("client_secret")).strip()[:500]
+
+
+def _apply_sso_redirect(cur, sso):
+    if "redirect_uri" in sso:
+        redirect = str(sso.get("redirect_uri") or "").strip()
+        cur["redirect_uri"] = _safe_url(redirect) if redirect.startswith(("http://", "https://")) else ""
+
+
+def _apply_sso_scope(cur, sso):
+    if "scope" in sso:
+        cur["scope"] = (str(sso.get("scope") or "").strip() or "openid profile email")[:200]
+
+
+def _apply_sso_role(cur, sso):
+    if "default_role" in sso:
+        role = str(sso.get("default_role") or "viewer").strip()
+        cur["default_role"] = role if role in rbac.ROLE_DEFS and role != "admin" else "viewer"
+
+
+def _apply_sso_identity(cur, sso):
+    _apply_sso_provider(cur, sso)
+    _apply_sso_client(cur, sso)
+    _apply_sso_secret(cur, sso)
+    _apply_sso_redirect(cur, sso)
+    _apply_sso_scope(cur, sso)
+    _apply_sso_role(cur, sso)
+
+
 def _apply_sso(cfg, sso):
     """T06199：SSO 配置只接受白名单字段；client_secret 空表示沿用已存密文。"""
     if not isinstance(sso, dict):
         return
     cur = cfg.setdefault("sso", {})
-    if "enabled" in sso:
-        cur["enabled"] = bool(sso.get("enabled"))
-    if "auto_provision" in sso:
-        cur["auto_provision"] = bool(sso.get("auto_provision"))
-    if "admin_fallback" in sso:
-        cur["admin_fallback"] = bool(sso.get("admin_fallback"))
-    if "provider_name" in sso:
-        cur["provider_name"] = (str(sso.get("provider_name") or "").strip() or "SSO")[:40]
-    for key in ("authorize_url", "token_url", "userinfo_url"):
-        if key in sso:
-            cur[key] = _safe_url(sso.get(key))
-    if "client_id" in sso:
-        cur["client_id"] = str(sso.get("client_id") or "").strip()[:200]
-    if "client_secret" in sso and str(sso.get("client_secret") or "").strip():
-        cur["client_secret"] = str(sso.get("client_secret")).strip()[:500]
-    if "redirect_uri" in sso:
-        redirect = str(sso.get("redirect_uri") or "").strip()
-        cur["redirect_uri"] = _safe_url(redirect) if redirect.startswith(("http://", "https://")) else ""
-    if "scope" in sso:
-        cur["scope"] = (str(sso.get("scope") or "").strip() or "openid profile email")[:200]
-    if "default_role" in sso:
-        role = str(sso.get("default_role") or "viewer").strip()
-        cur["default_role"] = role if role in rbac.ROLE_DEFS and role != "admin" else "viewer"
+    _apply_sso_flags(cur, sso)
+    _apply_sso_urls(cur, sso)
+    _apply_sso_identity(cur, sso)
 
 
 def sso_public_view(cfg):
@@ -1057,9 +1114,35 @@ def sso_public_view(cfg):
 
 def public_config(cfg):
     """配置中心回显：保留既有字段，SSO 段改用 sso_public_view。"""
-    out = {k: v for k, v in (cfg or {}).items()}
+    out = dict(cfg or {})
     out["sso"] = sso_public_view(cfg)
     return out
+
+
+def _backup_config_file():
+    """主文件可解析时才滚动备份；主文件损坏时保留上一份可用 .bak。"""
+    if not CONF_FILE.exists():
+        return
+    try:
+        current = json.loads(CONF_FILE.read_text(encoding="utf-8-sig"))
+    except Exception as e:
+        print(f"[config] 当前主配置不可解析，保留旧备份: {type(e).__name__}: {e}", flush=True)
+        return
+    if isinstance(current, dict):
+        shutil.copy2(CONF_FILE, CONF_BAK)
+
+
+def _write_config_atomic(cfg):
+    try:
+        _backup_config_file()
+        CONF_TMP.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(CONF_TMP, CONF_FILE)
+    except Exception:
+        try:
+            CONF_TMP.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def save_config(payload):
@@ -1077,25 +1160,10 @@ def save_config(payload):
         _apply_sso(cfg, payload.get("sso") or {})
         _encrypt_llm_key(cfg)
         _encrypt_sso_secret(cfg)
-        try:
-            if CONF_FILE.exists():
-                # 只有当前主文件可解析时才滚动备份；主文件已损坏时保留旧的
-                # 可用 .bak，否则写失败会把最后一份好配置也覆盖掉。
-                try:
-                    current = json.loads(CONF_FILE.read_text(encoding="utf-8-sig"))
-                    if isinstance(current, dict):
-                        shutil.copy2(CONF_FILE, CONF_BAK)
-                except Exception as e:
-                    print(f"[config] 当前主配置不可解析，保留旧备份: {type(e).__name__}: {e}", flush=True)
-            CONF_TMP.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-            os.replace(CONF_TMP, CONF_FILE)
-        except Exception:
-            try:
-                CONF_TMP.unlink()
-            except OSError:
-                pass
-            raise
+        _write_config_atomic(cfg)
         return _decrypt_sso_secret(_decrypt_llm_key(cfg))
+
+
 
 
 _migrate_plaintext_key()
@@ -1516,12 +1584,12 @@ def _onboarding_sample_docx():
     doc.add_heading("一、功能需求", level=1)
     doc.add_paragraph("下表为票据业务系统的功能点清单样例，供识别、复核与生成结果使用。")
     rows = [
-        ("1", "票据签发申请", "EI", "票据业务系统", "新增票据签发申请，校验出票人、收款人与金额。"),
-        ("2", "票据背书转让", "EI", "票据业务系统", "背书人发起转让，校验被背书人与背书连续性。"),
-        ("3", "票据贴现查询", "EQ", "票据业务系统", "按票号、出票日、状态查询贴现申请与利率。"),
-        ("4", "票据到期对账报表", "EO", "票据业务系统", "生成到期对账报表并汇总未兑付票据。"),
-        ("5", "票交所外部状态同步接口", "EIF", "票据业务系统", "对接票交所外部接口，同步票据状态。"),
-        ("6", "交易流水登记信息表", "ILF", "票据业务系统", "留存签发、背书、贴现、兑付全流程流水。"),
+        ("1", "票据签发申请", "EI", DEFAULT_PROJECT_NAME, "新增票据签发申请，校验出票人、收款人与金额。"),
+        ("2", "票据背书转让", "EI", DEFAULT_PROJECT_NAME, "背书人发起转让，校验被背书人与背书连续性。"),
+        ("3", "票据贴现查询", "EQ", DEFAULT_PROJECT_NAME, "按票号、出票日、状态查询贴现申请与利率。"),
+        ("4", "票据到期对账报表", "EO", DEFAULT_PROJECT_NAME, "生成到期对账报表并汇总未兑付票据。"),
+        ("5", "票交所外部状态同步接口", "EIF", DEFAULT_PROJECT_NAME, "对接票交所外部接口，同步票据状态。"),
+        ("6", "交易流水登记信息表", "ILF", DEFAULT_PROJECT_NAME, "留存签发、背书、贴现、兑付全流程流水。"),
     ]
     tb = doc.add_table(rows=1, cols=5)
     tb.style = "Table Grid"
@@ -2158,8 +2226,8 @@ def _build_diag_zip():
             "app": "workload-estimate", "schema_ver": SCHEMA_VER,
             "python": sys.version.split()[0],
             "redacted": True,
-            "routes": ["/api/health", "/api/recognize", "/api/generate", "/api/history",
-                       "/api/rules", "/api/rates", API_CONFIG, "/api/diag",
+            "routes": ["/api/health", API_RECOGNIZE, API_GENERATE, API_HISTORY,
+                       API_RULES, API_RATES, API_CONFIG, "/api/diag",
                        "/api/data/export"]}, ensure_ascii=False, indent=1))
     SLOG.info("diag", "export", size=zp.stat().st_size)
     return zp
@@ -2186,6 +2254,32 @@ def _list_templates():
 
 
 # ---------------- HTTP 服务 ----------------
+
+AUTH_REST_RULES = [
+    ((API_INTEGRATIONS,), rbac.P_SET_READ, rbac.P_SET_WRITE, "integration", ""),
+    (("/api/config", "/api/theme", "/api/update"), rbac.P_SET_READ, rbac.P_SET_WRITE, "", ""),
+    ((API_RATES, API_RULES), rbac.P_SET_READ, rbac.P_SET_WRITE, "", ""),
+    (("/api/audit", "/api/share"), rbac.P_AUDIT_EXPORT, rbac.P_AUDIT_EXPORT, "audit", ""),
+    (("/api/eval",), rbac.P_AUDIT_READ, rbac.P_AUDIT_READ, "", ""),
+    (("/api/data",), rbac.P_DATA, rbac.P_DATA, "", ""),
+    ((API_HISTORY,), rbac.P_EST_READ, rbac.P_EST_WRITE, "", ""),
+    (("/api/pert",), rbac.P_EST_READ, rbac.P_EST_WRITE, "", ""),
+    (("/api/context", "/api/pickdir"), rbac.P_SET_READ, rbac.P_SET_WRITE, "", ""),
+    (("/api/templates",), rbac.P_EST_READ, rbac.P_SET_WRITE, "", ""),
+]
+
+AUTH_CREATE_PATHS = {
+    API_RECOGNIZE, "/api/recognize/jobs", "/api/recognize/cancel", "/api/recognize/resume",
+    API_GENERATE, "/api/ifpug/summary", "/api/story/push",
+}
+
+AUTH_EXACT_RULES = {
+    "/api/rbac/matrix": (rbac.P_APP, "", ""),
+    "/api/rbac/audit": (rbac.P_AUDIT_READ, "audit", ""),
+    API_RBAC_SSO_CONFIG: (rbac.P_SET_WRITE, "sso", ""),
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     rbac_user = None
     rbac_permissions = []
@@ -2254,56 +2348,38 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json(err.status, body)
 
+    def _workflow_permission(self, method, path, query, raw):
+        object_id = ""
+        action = ""
+        try:
+            if query:
+                object_id = (parse_qs(query).get("project_id") or [""])[0]
+            if raw and path in ("/api/workflow/transition", "/api/workflow/signoff-package"):
+                body = json.loads(raw.decode("utf-8")) if raw else {}
+                object_id = str(body.get("project_id") or object_id)
+                action = str(body.get("action") or "")
+        except Exception:
+            pass
+        if method == "POST":
+            perm = rbac.P_PROJ_SIGN if (action == "sign" or path.endswith("signoff-package")) else rbac.P_PROJ_WRITE
+        else:
+            perm = rbac.P_PROJ_READ
+        return perm, "project", object_id
+
     def _auth_required_permission(self, method, path, query, raw):
         """路径→权限矩阵；未知 API 至少要求已登录（app.use）。"""
-        if path.startswith("/api/rbac/users"):
+        exact = AUTH_EXACT_RULES.get(path)
+        if exact:
+            return exact
+        if path.startswith(API_RBAC_USERS):
             return rbac.P_USER, "", ""
-        if path == "/api/rbac/audit":
-            return rbac.P_AUDIT_READ, "audit", ""
-        if path == "/api/rbac/sso-config":
-            return rbac.P_SET_WRITE, "sso", ""
-        if path == "/api/rbac/matrix":
-            return rbac.P_APP, "", ""
         if path.startswith("/api/workflow"):
-            object_id = ""
-            action = ""
-            try:
-                if query:
-                    object_id = (parse_qs(query).get("project_id") or [""])[0]
-                if raw and path in ("/api/workflow/transition", "/api/workflow/signoff-package"):
-                    body = json.loads(raw.decode("utf-8")) if raw else {}
-                    object_id = str(body.get("project_id") or object_id)
-                    action = str(body.get("action") or "")
-            except Exception:
-                pass
-            if method == "POST":
-                perm = rbac.P_PROJ_SIGN if (action == "sign" or path.endswith("signoff-package")) else rbac.P_PROJ_WRITE
-            else:
-                perm = rbac.P_PROJ_READ
-            return perm, "project", object_id
-        if path.startswith("/api/integrations"):
-            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "integration", ""
-        if path.startswith("/api/config") or path.startswith("/api/theme") or path.startswith("/api/update"):
-            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
-        if path.startswith("/api/rates") or path.startswith("/api/rules"):
-            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
-        if path.startswith("/api/audit") or path.startswith("/api/share"):
-            return rbac.P_AUDIT_EXPORT, "audit", ""
-        if path.startswith("/api/eval"):
-            return rbac.P_AUDIT_READ, "", ""
-        if path.startswith("/api/data"):
-            return rbac.P_DATA, "", ""
-        if path.startswith("/api/history"):
-            return (rbac.P_EST_READ if method == "GET" else rbac.P_EST_WRITE), "", ""
-        if path.startswith("/api/pert"):
-            return (rbac.P_EST_READ if method == "GET" else rbac.P_EST_WRITE), "", ""
-        if path in ("/api/recognize", "/api/recognize/jobs", "/api/recognize/cancel",
-                    "/api/recognize/resume", "/api/generate", "/api/ifpug/summary", "/api/story/push"):
+            return self._workflow_permission(method, path, query, raw)
+        if path in AUTH_CREATE_PATHS:
             return rbac.P_EST_CREATE, "", ""
-        if path.startswith("/api/context") or path == "/api/pickdir":
-            return (rbac.P_SET_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
-        if path.startswith("/api/templates"):
-            return (rbac.P_EST_READ if method == "GET" else rbac.P_SET_WRITE), "", ""
+        for prefixes, read_perm, write_perm, object_type, object_id in AUTH_REST_RULES:
+            if path.startswith(prefixes):
+                return (read_perm if method == "GET" else write_perm), object_type, object_id
         return rbac.P_APP, "", ""
 
     def _auth_gate(self, method, path, query, raw=b""):
@@ -2313,7 +2389,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         if path == "/api/auth/me":
             return False
-        if path in ("/", "/index.html", "/health") or path.startswith("/static/"):
+        if path in ("/", "/index.html", "/health") or path.startswith(STATIC_PREFIX):
             return False
         if path in ("/api/i18n", "/api/app-info"):
             return False
@@ -2358,140 +2434,185 @@ class Handler(BaseHTTPRequestHandler):
         reason = urllib.parse.quote(str(err.code or "SSO_FAILED"))
         return self._redirect(f"/?sso=fallback&reason={reason}")
 
+    def _auth_me(self, mode):
+        if mode != "workgroup":
+            return self._json(200, {"ok": True, "mode": "standalone", "authRequired": False,
+                                    "bootstrapRequired": False, "user": None, "permissions": [],
+                                    "ssoEnabled": False, "providerName": "", "adminFallback": True}) or True
+        store = get_rbac()
+        user = store.session(self._session_token(), ip=self._client_ip())
+        cfg = load_config()
+        sso = cfg.get("sso") or {}
+        payload = {"ok": True, "mode": "workgroup", "authRequired": True,
+                   "bootstrapRequired": store.bootstrap_required(), "user": user,
+                   "permissions": (user or {}).get("permissions") or [],
+                   "ssoEnabled": bool(sso.get("enabled")), "providerName": sso.get("provider_name") or "SSO",
+                   "adminFallback": bool(sso.get("admin_fallback", True))}
+        return self._json(200, payload) or True
+
+    def _auth_sso_start(self, mode, q):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        cfg = load_config()
+        store = get_rbac()
+        try:
+            next_path = (parse_qs(q).get("next") or ["/"])[0]
+            state, redirect_after = store.create_sso_state(next_path)
+            redirect_uri = self._sso_redirect_uri(cfg)
+            url = rbac.sso_authorize_url(cfg.get("sso") or {}, redirect_uri, state)
+            return self._json(200, {"ok": True, "authorize_url": url, "state": state,
+                                    "redirect_after": redirect_after}) or True
+        except rbac.RbacError as e:
+            return self._auth_fail(e) or True
+
+    def _auth_sso_callback(self, mode, q):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        cfg = load_config()
+        store = get_rbac()
+        qs = parse_qs(q)
+        fmt_json = (qs.get("format") or [""])[0] == "json"
+        redirect_after = "/"
+        try:
+            state = (qs.get("state") or [""])[0]
+            redirect_after = store.consume_sso_state(state)
+            code = (qs.get("code") or [""])[0]
+            userinfo = rbac.exchange_sso_code(cfg.get("sso") or {}, code, self._sso_redirect_uri(cfg))
+            sso = cfg.get("sso") or {}
+            result = store.sso_login(
+                userinfo, sso.get("provider_name") or "SSO",
+                auto_provision=bool(sso.get("auto_provision", True)),
+                default_role=sso.get("default_role") or "viewer", ip=self._client_ip())
+            cookie = rbac.cookie_header(result["token"])
+            if fmt_json:
+                return self._json(200, {"ok": True, "user": result["user"],
+                                        "created": result["created"]}, {"Set-Cookie": cookie}) or True
+            sep = "&" if "?" in redirect_after else "?"
+            return self._redirect(redirect_after + sep + "sso=ok", {"Set-Cookie": cookie}) or True
+        except rbac.RbacError as e:
+            store.record("", "SSO", "sso_login", "deny", "", "session", "", self._client_ip(), e.code)
+            return self._sso_failure(e, fmt_json) or True
+
+    def _auth_matrix(self, mode):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        return self._json(200, {"ok": True, **rbac.RbacStore.matrix(), "user": self.rbac_user}) or True
+
+    def _auth_users(self, mode):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        return self._json(200, {"ok": True, "users": get_rbac().list_users(),
+                                "roles": [{"code": k, "label": v["label"]}
+                                          for k, v in rbac.ROLE_DEFS.items()]}) or True
+
+    def _auth_audit(self, mode, q):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        limit = (parse_qs(q).get("limit") or ["100"])[0]
+        result = (parse_qs(q).get("result") or [""])[0]
+        return self._json(200, {"ok": True, "audit": get_rbac().list_audit(limit=limit, result=result)}) or True
+
+    def _auth_sso_config(self, mode):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        return self._json(200, {"ok": True, "sso": sso_public_view(load_config())}) or True
+
     def _get_auth_routes(self, p, q):
         """认证/SSO/团队权限只读端点。返回 True 表示已处理。"""
         mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
         if p == "/api/auth/me":
-            if mode != "workgroup":
-                return self._json(200, {"ok": True, "mode": "standalone", "authRequired": False,
-                                        "bootstrapRequired": False, "user": None, "permissions": [],
-                                        "ssoEnabled": False, "providerName": "", "adminFallback": True}) or True
-            store = get_rbac()
-            user = store.session(self._session_token(), ip=self._client_ip())
-            cfg = load_config()
-            sso = cfg.get("sso") or {}
-            payload = {"ok": True, "mode": "workgroup", "authRequired": True,
-                       "bootstrapRequired": store.bootstrap_required(), "user": user,
-                       "permissions": (user or {}).get("permissions") or [],
-                       "ssoEnabled": bool(sso.get("enabled")), "providerName": sso.get("provider_name") or "SSO",
-                       "adminFallback": bool(sso.get("admin_fallback", True))}
-            return self._json(200, payload) or True
+            return self._auth_me(mode)
         if p == "/api/auth/sso/start":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            cfg = load_config()
-            store = get_rbac()
-            try:
-                next_path = (parse_qs(q).get("next") or ["/"])[0]
-                state, redirect_after = store.create_sso_state(next_path)
-                redirect_uri = self._sso_redirect_uri(cfg)
-                url = rbac.sso_authorize_url(cfg.get("sso") or {}, redirect_uri, state)
-                return self._json(200, {"ok": True, "authorize_url": url, "state": state,
-                                        "redirect_after": redirect_after}) or True
-            except rbac.RbacError as e:
-                return self._auth_fail(e) or True
+            return self._auth_sso_start(mode, q)
         if p == "/api/auth/sso/callback":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            cfg = load_config()
-            store = get_rbac()
-            qs = parse_qs(q)
-            fmt_json = (qs.get("format") or [""])[0] == "json"
-            redirect_after = "/"
-            try:
-                state = (qs.get("state") or [""])[0]
-                redirect_after = store.consume_sso_state(state)
-                code = (qs.get("code") or [""])[0]
-                userinfo = rbac.exchange_sso_code(cfg.get("sso") or {}, code, self._sso_redirect_uri(cfg))
-                sso = cfg.get("sso") or {}
-                result = store.sso_login(
-                    userinfo, sso.get("provider_name") or "SSO",
-                    auto_provision=bool(sso.get("auto_provision", True)),
-                    default_role=sso.get("default_role") or "viewer", ip=self._client_ip())
-                cookie = rbac.cookie_header(result["token"])
-                if fmt_json:
-                    return self._json(200, {"ok": True, "user": result["user"],
-                                            "created": result["created"]}, {"Set-Cookie": cookie}) or True
-                sep = "&" if "?" in redirect_after else "?"
-                return self._redirect(redirect_after + sep + "sso=ok", {"Set-Cookie": cookie}) or True
-            except rbac.RbacError as e:
-                store.record("", "SSO", "sso_login", "deny", "", "session", "", self._client_ip(), e.code)
-                return self._sso_failure(e, fmt_json) or True
+            return self._auth_sso_callback(mode, q)
         if p == "/api/rbac/matrix":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            return self._json(200, {"ok": True, **rbac.RbacStore.matrix(), "user": self.rbac_user}) or True
-        if p == "/api/rbac/users":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            return self._json(200, {"ok": True, "users": get_rbac().list_users(),
-                                    "roles": [{"code": k, "label": v["label"]}
-                                              for k, v in rbac.ROLE_DEFS.items()]}) or True
+            return self._auth_matrix(mode)
+        if p == API_RBAC_USERS:
+            return self._auth_users(mode)
         if p == "/api/rbac/audit":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            limit = (parse_qs(q).get("limit") or ["100"])[0]
-            result = (parse_qs(q).get("result") or [""])[0]
-            return self._json(200, {"ok": True, "audit": get_rbac().list_audit(limit=limit, result=result)}) or True
-        if p == "/api/rbac/sso-config":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            return self._json(200, {"ok": True, "sso": sso_public_view(load_config())}) or True
+            return self._auth_audit(mode, q)
+        if p == API_RBAC_SSO_CONFIG:
+            return self._auth_sso_config(mode)
         return False
 
-    def _post_deployment_routes(self, p, raw):
-        """T06353：本机恢复单机版（不删除 RBAC/工作组数据）。
+    def _guard_local_ip(self, ip):
+        if ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return None
+        return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
+                                "msg": "仅允许在本机切换部署模式"}) or True
 
-        安全边界：
-        - 必须携带 Electron 壳注入的本机恢复令牌，未配置令牌时 fail-closed；
-        - 只接受 127.0.0.1 / ::1 本机请求，远端请求一律 403；
-        - 有 Origin 时只接受本服务自己的 http(s) 同源页面；
-        - 必须带显式确认词，避免误触；
-        - 只改 deployment.mode，rbac.db、估算、签收与审计数据全部保留。
-        """
-        if p != "/api/deployment/standalone":
-            return False
-        ip = self._client_ip()
-        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
-            return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
-                                    "msg": "仅允许在本机切换部署模式"}) or True
-        expected_token = LOCAL_RECOVERY_TOKEN
-        if not expected_token:
+    def _guard_local_token(self):
+        expected = LOCAL_RECOVERY_TOKEN
+        if not expected:
             return self._json(403, {"ok": False, "code": "LOCAL_TOKEN_UNCONFIGURED",
                                     "msg": "本机恢复入口未启用，请从桌面应用内操作"}) or True
-        supplied_token = (self.headers.get("X-We-Local-Recovery") or "").strip()
-        if not hmac.compare_digest(supplied_token, expected_token):
-            return self._json(403, {"ok": False, "code": "BAD_LOCAL_TOKEN",
-                                    "msg": "本机恢复令牌无效"}) or True
+        supplied = (self.headers.get("X-We-Local-Recovery") or "").strip()
+        if hmac.compare_digest(supplied, expected):
+            return None
+        return self._json(403, {"ok": False, "code": "BAD_LOCAL_TOKEN",
+                                "msg": "本机恢复令牌无效"}) or True
+
+    def _guard_local_origin(self):
         origin = (self.headers.get("Origin") or "").strip()
-        if not self._origin_allowed(origin):
-            return self._json(403, {"ok": False, "code": "BAD_ORIGIN",
-                                    "msg": "跨站请求被拒绝"}) or True
-        # 只接受 JSON：避免 text/plain 等“简单请求”绕过浏览器预检语义
+        if self._origin_allowed(origin):
+            return None, origin
+        return self._json(403, {"ok": False, "code": "BAD_ORIGIN",
+                                "msg": "跨站请求被拒绝"}) or True, origin
+
+    def _guard_json_content(self):
         content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-        if content_type != "application/json":
-            return self._json(415, {"ok": False, "code": "UNSUPPORTED_MEDIA_TYPE",
-                                    "msg": "切换请求必须使用 application/json"}) or True
+        if content_type == "application/json":
+            return None
+        return self._json(415, {"ok": False, "code": "UNSUPPORTED_MEDIA_TYPE",
+                                "msg": "切换请求必须使用 application/json"}) or True
+
+    def _guard_confirm(self, body):
+        if str(body.get("confirm") or "").strip().upper() == "STANDALONE":
+            return None
+        return self._json(400, {"ok": False, "code": "CONFIRM_REQUIRED",
+                                "msg": "请确认切换回单机版"}) or True
+
+    def _standalone_guard(self, raw):
+        """本机恢复入口的令牌/来源/媒体类型/确认词校验；通过时返回请求体与来源。"""
+        ip = self._client_ip()
+        err = self._guard_local_ip(ip)
+        if err:
+            return err, None, "", ""
+        err = self._guard_local_token()
+        if err:
+            return err, None, "", ""
+        err, origin = self._guard_local_origin()
+        if err:
+            return err, None, "", ""
+        err = self._guard_json_content()
+        if err:
+            return err, None, "", ""
         body = _body_json(raw)
-        if str(body.get("confirm") or "").strip().upper() != "STANDALONE":
-            return self._json(400, {"ok": False, "code": "CONFIRM_REQUIRED",
-                                    "msg": "请确认切换回单机版"}) or True
-        old_mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
-        if old_mode == "standalone":
-            # 上次可能在写完 config 后、撤销会话前中断；幂等调用时补一次撤销，
-            # 避免旧 Cookie 在将来重新启用工作组后仍然有效。
-            revoked = 0
-            if (APP_DATA / "rbac.db").exists():
-                try:
-                    revoked = get_rbac().revoke_all_sessions()
-                except Exception as e:
-                    print(f"[deployment] idempotent session revoke failed: {type(e).__name__}: {e}", flush=True)
-            return self._json(200, {"ok": True, "mode": "standalone", "changed": False,
-                                    "sessions_revoked": revoked},
-                              {"Set-Cookie": rbac.clear_cookie_header()}) or True
+        err = self._guard_confirm(body)
+        if err:
+            return err, None, "", ""
+        return None, body, ip, origin
+
+    def _deployment_idempotent(self, old_mode):
+        if old_mode != "standalone":
+            return None
+        # 上次可能在写完 config 后、撤销会话前中断；幂等调用时补一次撤销，
+        # 避免旧 Cookie 在将来重新启用工作组后仍然有效。
+        revoked = 0
+        if (APP_DATA / RBAC_DB_FILE).exists():
+            try:
+                revoked = get_rbac().revoke_all_sessions()
+            except Exception as e:
+                print(f"[deployment] idempotent session revoke failed: {type(e).__name__}: {e}", flush=True)
+        return self._json(200, {"ok": True, "mode": "standalone", "changed": False,
+                                "sessions_revoked": revoked},
+                          {"Set-Cookie": rbac.clear_cookie_header()}) or True
+
+    def _deployment_switch(self, old_mode, ip, origin):
         save_config({"deployment": {"mode": "standalone"}})
         revoked = 0
-        if old_mode == "workgroup" or (APP_DATA / "rbac.db").exists():
+        if old_mode == "workgroup" or (APP_DATA / RBAC_DB_FILE).exists():
             try:
                 store = get_rbac()
                 revoked = store.revoke_all_sessions()
@@ -2505,6 +2626,91 @@ class Handler(BaseHTTPRequestHandler):
                                 "sessions_revoked": revoked},
                           {"Set-Cookie": rbac.clear_cookie_header()}) or True
 
+    def _post_deployment_routes(self, p, raw):
+        """T06353：本机恢复单机版（不删除 RBAC/工作组数据）。
+
+        安全边界：
+        - 必须携带 Electron 壳注入的本机恢复令牌，未配置令牌时 fail-closed；
+        - 只接受 127.0.0.1 / ::1 本机请求，远端请求一律 403；
+        - 有 Origin 时只接受本服务自己的 http(s) 同源页面；
+        - 必须带显式确认词，避免误触；
+        - 只改 deployment.mode，rbac.db、估算、签收与审计数据全部保留。
+        """
+        if p != "/api/deployment/standalone":
+            return False
+        err, _body, ip, origin = self._standalone_guard(raw)
+        if err:
+            return err
+        old_mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
+        idempotent = self._deployment_idempotent(old_mode)
+        if idempotent:
+            return idempotent
+        return self._deployment_switch(old_mode, ip, origin)
+
+    def _post_auth_bootstrap(self, mode, body):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        ip = self._client_ip()
+        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
+                                   "msg": "仅允许本机初始化管理员"}) or True
+        try:
+            result = get_rbac().bootstrap(body.get("username"), body.get("password"),
+                                          body.get("display_name"), ip=ip)
+            return self._json(200, {"ok": True, "mode": "workgroup", "bootstrapRequired": False,
+                                    "user": result["user"]}, {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
+        except rbac.RbacError as e:
+            return self._auth_fail(e) or True
+
+    def _post_auth_login(self, mode, body):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        try:
+            result = get_rbac().login(body.get("username"), body.get("password"),
+                                      ip=self._client_ip(),
+                                      user_agent=self.headers.get("User-Agent") or "")
+            return self._json(200, {"ok": True, "user": result["user"]},
+                              {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
+        except rbac.RbacError as e:
+            return self._auth_fail(e) or True
+
+    def _post_auth_logout(self, mode):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        get_rbac().logout(self._session_token(), ip=self._client_ip())
+        return self._json(200, {"ok": True}, {"Set-Cookie": rbac.clear_cookie_header()}) or True
+
+    def _post_rbac_create(self, mode, body):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        try:
+            user = get_rbac().create_user(self.rbac_user, body.get("username"), body.get("password"),
+                                          body.get("display_name"), body.get("role") or "viewer",
+                                          ip=self._client_ip())
+            return self._json(200, {"ok": True, "user": user}) or True
+        except rbac.RbacError as e:
+            return self._auth_fail(e) or True
+
+    def _post_rbac_update(self, mode, body):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        try:
+            user = get_rbac().update_user(self.rbac_user, body.get("id"), role=body.get("role"),
+                                         status=body.get("status"), display_name=body.get("display_name"),
+                                         ip=self._client_ip())
+            return self._json(200, {"ok": True, "user": user}) or True
+        except rbac.RbacError as e:
+            return self._auth_fail(e) or True
+
+    def _post_rbac_sso_config(self, mode, body):
+        if mode != "workgroup":
+            return self._json(404, {"ok": False}) or True
+        cfg = save_config({"sso": body})
+        get_rbac().record(self.rbac_user["id"], self.rbac_user["display_name"] or self.rbac_user["username"],
+                          "sso_config", "success", rbac.P_SET_WRITE, "sso", "", self._client_ip(),
+                          f"enabled={int(bool(cfg['sso'].get('enabled')))} provider={cfg['sso'].get('provider_name')}")
+        return self._json(200, {"ok": True, "sso": sso_public_view(cfg)}) or True
+
     def _post_auth_routes(self, p, raw):
         """登录/初始化/登出/用户管理/SSO 配置写端点。返回 True 表示已处理。"""
         if not p.startswith(("/api/auth/", "/api/rbac/")):
@@ -2512,63 +2718,17 @@ class Handler(BaseHTTPRequestHandler):
         body = _body_json(raw)
         mode = (load_config().get("deployment") or {}).get("mode") or "standalone"
         if p == "/api/auth/bootstrap":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            ip = self._client_ip()
-            if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
-                return self._json(403, {"ok": False, "code": "LOCAL_ONLY",
-                                       "msg": "仅允许本机初始化管理员"}) or True
-            try:
-                result = get_rbac().bootstrap(body.get("username"), body.get("password"),
-                                              body.get("display_name"), ip=ip)
-                return self._json(200, {"ok": True, "mode": "workgroup", "bootstrapRequired": False,
-                                        "user": result["user"]}, {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
-            except rbac.RbacError as e:
-                return self._auth_fail(e) or True
+            return self._post_auth_bootstrap(mode, body)
         if p == "/api/auth/login":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            try:
-                result = get_rbac().login(body.get("username"), body.get("password"),
-                                          ip=self._client_ip(),
-                                          user_agent=self.headers.get("User-Agent") or "")
-                return self._json(200, {"ok": True, "user": result["user"]},
-                                  {"Set-Cookie": rbac.cookie_header(result["token"])}) or True
-            except rbac.RbacError as e:
-                return self._auth_fail(e) or True
+            return self._post_auth_login(mode, body)
         if p == "/api/auth/logout":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            get_rbac().logout(self._session_token(), ip=self._client_ip())
-            return self._json(200, {"ok": True}, {"Set-Cookie": rbac.clear_cookie_header()}) or True
-        if p == "/api/rbac/users":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            try:
-                user = get_rbac().create_user(self.rbac_user, body.get("username"), body.get("password"),
-                                              body.get("display_name"), body.get("role") or "viewer",
-                                              ip=self._client_ip())
-                return self._json(200, {"ok": True, "user": user}) or True
-            except rbac.RbacError as e:
-                return self._auth_fail(e) or True
+            return self._post_auth_logout(mode)
+        if p == API_RBAC_USERS:
+            return self._post_rbac_create(mode, body)
         if p == "/api/rbac/users/update":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            try:
-                user = get_rbac().update_user(self.rbac_user, body.get("id"), role=body.get("role"),
-                                             status=body.get("status"), display_name=body.get("display_name"),
-                                             ip=self._client_ip())
-                return self._json(200, {"ok": True, "user": user}) or True
-            except rbac.RbacError as e:
-                return self._auth_fail(e) or True
-        if p == "/api/rbac/sso-config":
-            if mode != "workgroup":
-                return self._json(404, {"ok": False}) or True
-            cfg = save_config({"sso": body})
-            get_rbac().record(self.rbac_user["id"], self.rbac_user["display_name"] or self.rbac_user["username"],
-                              "sso_config", "success", rbac.P_SET_WRITE, "sso", "", self._client_ip(),
-                              f"enabled={int(bool(cfg['sso'].get('enabled')))} provider={cfg['sso'].get('provider_name')}")
-            return self._json(200, {"ok": True, "sso": sso_public_view(cfg)}) or True
+            return self._post_rbac_update(mode, body)
+        if p == API_RBAC_SSO_CONFIG:
+            return self._post_rbac_sso_config(mode, body)
         return False
 
     def _audit_integration(self, action, result, detail, object_id=""):
@@ -2588,48 +2748,63 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(status, {"ok": False, "code": e.code, "msg": e.message,
                                    "retryable": bool(e.retryable), "field": "integration"})
 
+    def _integration_save(self, body):
+        kind = str(body.get("kind") or "")
+        cfg = body.get("config") if isinstance(body.get("config"), dict) else {}
+        conn = INTEGRATIONS.save(kind, config=cfg,
+                                 mapping=body.get("mapping") if isinstance(body.get("mapping"), dict) else None,
+                                 enabled=body.get("enabled"),
+                                 name=str(body.get("name") or "") or None)
+        pub = INTEGRATIONS.public(conn)
+        self._audit_integration("save", "success",
+                                f"enabled={int(pub['enabled'])} configured={int(pub['available'])}", conn["id"])
+        return self._json(200, {"ok": True, "connector": pub}) or True
+
+    def _integration_mapping(self, body):
+        kind = str(body.get("kind") or "")
+        conn = INTEGRATIONS.save_mapping(kind, body.get("mapping") or {})
+        self._audit_integration("mapping", "success", "字段映射已保存", conn["id"])
+        return self._json(200, {"ok": True, "connector": INTEGRATIONS.public(conn)}) or True
+
+    def _integration_test(self, body):
+        kind = str(body.get("kind") or "")
+        result = INTEGRATIONS.test(kind)
+        self._audit_integration("test", "success" if result["ok"] else "fail",
+                                result.get("detail") or result.get("error") or "", kind)
+        return self._json(200, result) or True
+
+    def _integration_sync(self, body):
+        kind = str(body.get("kind") or "")
+        job = INTEGRATIONS.sync(kind, body.get("items"))
+        self._audit_integration("sync", "success" if job["status"] == "success" else "fail",
+                                f"job={job['id']} status={job['status']} ok={job['succeeded']} fail={job['failed']}",
+                                job["id"])
+        return self._json(200, {"ok": True, "job": job}) or True
+
+    def _integration_retry(self, body):
+        job = INTEGRATIONS.retry(str(body.get("job_id") or ""))
+        self._audit_integration("retry", "success" if job["status"] == "success" else "fail",
+                                f"job={job['id']} retry_of={job['retry_of']} status={job['status']}", job["id"])
+        return self._json(200, {"ok": True, "job": job}) or True
+
     def _post_integration_routes(self, p, raw):
         """T06200：外部集成配置、测试、同步、重试。仅单向写远端需求/任务。"""
-        if not p.startswith("/api/integrations"):
+        if not p.startswith(API_INTEGRATIONS):
             return False
         if INTEGRATIONS is None:
             return self._json(503, {"ok": False, **_m("integration.srv_unavailable", "外部同步未初始化")}) or True
         body = _body_json(raw)
         try:
             if p == "/api/integrations/save":
-                kind = str(body.get("kind") or "")
-                cfg = body.get("config") if isinstance(body.get("config"), dict) else {}
-                conn = INTEGRATIONS.save(kind, config=cfg,
-                                         mapping=body.get("mapping") if isinstance(body.get("mapping"), dict) else None,
-                                         enabled=body.get("enabled"),
-                                         name=str(body.get("name") or "") or None)
-                pub = INTEGRATIONS.public(conn)
-                self._audit_integration("save", "success",
-                                        f"enabled={int(pub['enabled'])} configured={int(pub['available'])}", conn["id"])
-                return self._json(200, {"ok": True, "connector": pub}) or True
+                return self._integration_save(body)
             if p == "/api/integrations/mapping":
-                kind = str(body.get("kind") or "")
-                conn = INTEGRATIONS.save_mapping(kind, body.get("mapping") or {})
-                self._audit_integration("mapping", "success", "字段映射已保存", conn["id"])
-                return self._json(200, {"ok": True, "connector": INTEGRATIONS.public(conn)}) or True
+                return self._integration_mapping(body)
             if p == "/api/integrations/test":
-                kind = str(body.get("kind") or "")
-                result = INTEGRATIONS.test(kind)
-                self._audit_integration("test", "success" if result["ok"] else "fail",
-                                        result.get("detail") or result.get("error") or "", kind)
-                return self._json(200, result) or True
+                return self._integration_test(body)
             if p == "/api/integrations/sync":
-                kind = str(body.get("kind") or "")
-                job = INTEGRATIONS.sync(kind, body.get("items"))
-                self._audit_integration("sync", "success" if job["status"] == "success" else "fail",
-                                        f"job={job['id']} status={job['status']} ok={job['succeeded']} fail={job['failed']}",
-                                        job["id"])
-                return self._json(200, {"ok": True, "job": job}) or True
+                return self._integration_sync(body)
             if p == "/api/integrations/retry":
-                job = INTEGRATIONS.retry(str(body.get("job_id") or ""))
-                self._audit_integration("retry", "success" if job["status"] == "success" else "fail",
-                                        f"job={job['id']} retry_of={job['retry_of']} status={job['status']}", job["id"])
-                return self._json(200, {"ok": True, "job": job}) or True
+                return self._integration_retry(body)
         except integrations.IntegrationError as e:
             return self._integration_error(e) or True
         return False
@@ -2659,6 +2834,34 @@ class Handler(BaseHTTPRequestHandler):
     # ---- do_GET 路由分组（python:S3776）----
     # 原 do_GET 是 160 行线性 if 链，路由判断与各端点业务处理混在一起（认知复杂度 77）。
     # 按职责拆组后每组只做「匹配 → 写响应」，命中返回 True；分发顺序与原 if 链完全一致。
+    def _page_recognize_job(self, u):
+        job = (parse_qs(u.query).get("job") or [""])[0]
+        cur = _recog_job_get(job)
+        if not cur:
+            self._json(404, {"ok": False, "msg": ERR_TASK_NOT_FOUND})
+        else:
+            self._json(200, {"ok": True, "job": _recog_job_public(cur, include_result=True)})
+        return True
+
+    def _page_rules(self):
+        if RULES is None:
+            self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
+        else:
+            self._json(200, RULES.list_rules())
+        return True
+
+    def _page_theme_export(self, u):
+        name = (parse_qs(u.query).get("name") or [""])[0]
+        try:
+            t = theme_tokens.load(name) if name else theme_tokens.load_active(APP_DATA)
+        except theme_tokens.ThemeError as e:
+            self._json(404, {"ok": False, "msg": str(e)})
+            return
+        if not t:
+            self._json(404, {"ok": False, "msg": "当前没有生效的自定义主题"})
+        else:
+            self._json(200, {"ok": True, "theme": t})
+
     def _get_page_routes(self, u):
         if u.path in ("/", "/index.html"):
             # 由引擎 serve 前端（exe 自包含场景）；开发态同样可用
@@ -2680,20 +2883,10 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if u.path == "/api/recognize/job":
             # T06180：识别长任务状态/结果轮询（done 时附带 items/summary/meta）
-            job = (parse_qs(u.query).get("job") or [""])[0]
-            cur = _recog_job_get(job)
-            if not cur:
-                self._json(404, {"ok": False, "msg": "任务不存在"})
-            else:
-                self._json(200, {"ok": True, "job": _recog_job_public(cur, include_result=True)})
-            return True
-        if u.path == "/api/rules":
+            return self._page_recognize_job(u)
+        if u.path == API_RULES:
             # M3/FR-2.9：识别规则表读取
-            if RULES is None:
-                self._json(503, {"ok": False, **_m("rules.srv_unavail", "规则表不可用（已回退内置识别链）")})
-            else:
-                self._json(200, RULES.list_rules())
-            return True
+            return self._page_rules()
         if u.path == "/api/templates":
             # M9/FR-2.8：母版目录（xlsx + meta.json 口径说明）
             self._json(200, {"ok": True, "templates": _list_templates()})
@@ -2704,16 +2897,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "themes": theme_tokens.builtin_names(), "active": active})
             return True
         if u.path == "/api/theme/export":
-            name = (parse_qs(u.query).get("name") or [""])[0]
-            try:
-                t = theme_tokens.load(name) if name else theme_tokens.load_active(APP_DATA)
-            except theme_tokens.ThemeError as e:
-                self._json(404, {"ok": False, "msg": str(e)})
-                return True
-            if not t:
-                self._json(404, {"ok": False, "msg": "当前没有生效的自定义主题"})
-            else:
-                self._json(200, {"ok": True, "theme": t})
+            self._page_theme_export(u)
             return True
         if u.path == "/api/i18n":
             # FR-5.5：界面文案字典。lang 收敛为白名单值，不接受任意文件名，
@@ -2742,7 +2926,7 @@ class Handler(BaseHTTPRequestHandler):
             SLOG.info("datakeeper", "data_export", files=len(names))
             self._json(200, {"ok": True, "file": str(zp), "files": names})
             return True
-        if u.path == "/api/rates":
+        if u.path == API_RATES:
             # M6/FR-2.3：费率与基准版本读取
             if RATES is None:
                 self._json(503, {"ok": False, **_m("rates.srv_unavail", "费率版本表不可用")})
@@ -2753,7 +2937,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _get_history_routes(self, u):
         # ---------------- M1 估算历史（FR-1.1/1.8/2.5） ----------------
-        if u.path == "/api/history":
+        if u.path == API_HISTORY:
             self._history_list(u)
             return True
         if u.path == "/api/history/ids/status":
@@ -2833,7 +3017,7 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, d)
 
     def _get_integration_routes(self, u):
-        if u.path == "/api/integrations":
+        if u.path == API_INTEGRATIONS:
             if INTEGRATIONS is None:
                 self._json(503, {"ok": False, **_m("integration.srv_unavailable", "外部同步未初始化")})
                 return True
@@ -2860,6 +3044,33 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "jobs": INTEGRATIONS.jobs(kind, limit)})
             return True
         return False
+
+    def _workflow_projects(self):
+        if WORKFLOW is None:
+            self._json(503, {"ok": False, **_m("workflow.srv_unavailable", ERR_WORKFLOW_NOT_READY)})
+            return
+        try:
+            WORKFLOW.sync_from_history(HIST)
+            projects = WORKFLOW.list_projects()
+            counts = dict.fromkeys(project_workflow.STATUSES, 0)
+            for p in projects:
+                counts[p["status"]] = counts.get(p["status"], 0) + 1
+            mode = (load_config().get("deployment") or {}).get("mode", "standalone")
+            self._json(200, {"ok": True, "mode": mode, "projects": projects, "counts": counts})
+        except Exception as e:
+            self._json(500, {"ok": False, **_m("workflow.srv_list_fail", "项目列表读取失败"), "msg": str(e)})
+
+    def _workflow_project(self, u):
+        q = parse_qs(u.query)
+        pid = (q.get("project_id") or [""])[0]
+        try:
+            detail = self._workflow_project_payload(pid)
+            self._json(200, {"ok": True, "project": detail})
+        except project_workflow.WorkflowError as e:
+            self._json(e.status, {"ok": False, "code": e.code, "msg": e.message})
+        except Exception as e:
+            self._json(500, {"ok": False, "msg": str(e)})
+        return True
 
     def _get_config_routes(self, u):
         if u.path == API_CONFIG:
@@ -2903,31 +3114,10 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if u.path == "/api/workflow/projects":
             # T06198 / AC-23：项目状态、签收列表；首次访问把已有版本组补登记为草稿。
-            if WORKFLOW is None:
-                self._json(503, {"ok": False, **_m("workflow.srv_unavailable", "状态机未初始化")})
-                return True
-            try:
-                WORKFLOW.sync_from_history(HIST)
-                projects = WORKFLOW.list_projects()
-                counts = {s: 0 for s in project_workflow.STATUSES}
-                for p in projects:
-                    counts[p["status"]] = counts.get(p["status"], 0) + 1
-                mode = (load_config().get("deployment") or {}).get("mode", "standalone")
-                self._json(200, {"ok": True, "mode": mode, "projects": projects, "counts": counts})
-            except Exception as e:
-                self._json(500, {"ok": False, **_m("workflow.srv_list_fail", "项目列表读取失败"), "msg": str(e)})
+            self._workflow_projects()
             return True
         if u.path == "/api/workflow/project":
-            q = parse_qs(u.query)
-            pid = (q.get("project_id") or [""])[0]
-            try:
-                detail = self._workflow_project_payload(pid)
-                self._json(200, {"ok": True, "project": detail})
-            except project_workflow.WorkflowError as e:
-                self._json(e.status, {"ok": False, "code": e.code, "msg": e.message})
-            except Exception as e:
-                self._json(500, {"ok": False, "msg": str(e)})
-            return True
+            return self._workflow_project(u)
         return False
 
     @staticmethod
@@ -2950,73 +3140,70 @@ class Handler(BaseHTTPRequestHandler):
             pass  # 拉取失败时静默回退预设清单，避免连接测试/模型获取因网络而 500
         return {"ok": True, "models": lst, "provider": cfg["provider"]}
 
+    def _send_attachment(self, data, content_type, name):
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _audit_download(self, u):
+        q = parse_qs(u.query)
+        name = (q.get("f") or [""])[0]
+        if not AUDIT_NAME_RE.fullmatch(name):
+            self._json(404, {"ok": False, **_m(CODE_FILE_MISSING, ERR_FILE_NOT_FOUND)})
+            return
+        f = AUDIT_DIR / name
+        if not f.is_file():
+            self._json(404, {"ok": False, **_m(CODE_FILE_MISSING, ERR_FILE_NOT_FOUND)})
+            return
+        self._send_attachment(f.read_bytes(), "application/pdf", name)
+
+    def _share_download(self, u):
+        q = parse_qs(u.query)
+        name = (q.get("f") or [""])[0]
+        if not SHARE_NAME_RE.fullmatch(name):
+            self._json(404, {"ok": False, **_m(CODE_FILE_MISSING, ERR_FILE_NOT_FOUND)})
+            return
+        f = SHARE_DIR / name
+        if not f.is_file():
+            self._json(404, {"ok": False, **_m(CODE_FILE_MISSING, ERR_FILE_NOT_FOUND)})
+            return
+        self._send_attachment(f.read_bytes(), "text/html; charset=utf-8", name)
+
+    def _outdir_download(self, u):
+        q = parse_qs(u.query)
+        s = (q.get("s") or [""])[0]
+        f = OUTDIR / s
+        if not f.exists():
+            self._json(404, {"ok": False, **_m(CODE_FILE_MISSING, ERR_FILE_NOT_FOUND)})
+            return
+        self._send_attachment(f.read_bytes(),
+                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", s)
+
     def _get_file_routes(self, u):
-        if u.path.startswith("/static/"):
+        if u.path.startswith(STATIC_PREFIX):
             # 前端静态资源（引导脚本等）：仅允许 frontend 根下的 .js/.css，防目录穿越
             self._serve_static(u)
             return True
         if u.path == "/api/audit/download":
             # T06181：审计包 PDF 下载。文件名白名单 + 只读 AUDIT_DIR，防目录穿越。
-            q = parse_qs(u.query)
-            name = (q.get("f") or [""])[0]
-            if not AUDIT_NAME_RE.fullmatch(name):
-                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
-                return True
-            f = AUDIT_DIR / name
-            if not f.is_file():
-                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
-                return True
-            data = f.read_bytes()
-            self.send_response(200)
-            self._cors()
-            self.send_header("Content-Type", "application/pdf")
-            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+            self._audit_download(u)
             return True
         if u.path == "/api/share/download":
             # T06182：离线脱敏分享包下载。文件名白名单 + 只读 SHARE_DIR。
-            q = parse_qs(u.query)
-            name = (q.get("f") or [""])[0]
-            if not SHARE_NAME_RE.fullmatch(name):
-                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
-                return True
-            f = SHARE_DIR / name
-            if not f.is_file():
-                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
-                return True
-            data = f.read_bytes()
-            self.send_response(200)
-            self._cors()
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+            self._share_download(u)
             return True
         if u.path == "/api/download":
-            q = parse_qs(u.query)
-            s = (q.get("s") or [""])[0]
-            f = OUTDIR / s
-            if f.exists():
-                data = f.read_bytes()
-                self.send_response(200)
-                self._cors()
-                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(s)}")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            else:
-                self._json(404, {"ok": False, **_m("srv.file_missing", "文件不存在")})
+            self._outdir_download(u)
             return True
         return False
 
     def _serve_static(self, u):
-        name = u.path[len("/static/"):]
+        name = u.path[len(STATIC_PREFIX):]
         fext = os.path.splitext(name)[1].lower()
         if fext not in (".js", ".css") or "/" in name or "\\" in name or ".." in name:
             self._json(404, {"ok": False, **_m("srv.static_missing", "静态资源不存在")})
@@ -3055,7 +3242,7 @@ class Handler(BaseHTTPRequestHandler):
     # 改为「路径 → 处理器」查表，处理器只处理自身端点；异常兜底与原实现一致（统一 500），
     # 未命中路径仍返回 404。分发顺序与原 if 链一致，行为不变。
     POST_ROUTES = {
-        "/api/recognize": "_post_recognize",
+        API_RECOGNIZE: "_post_recognize",
         "/api/recognize/jobs": "_post_recognize_jobs",
         "/api/recognize/cancel": "_post_recognize_cancel",
         "/api/recognize/resume": "_post_recognize_resume",
@@ -3082,7 +3269,7 @@ class Handler(BaseHTTPRequestHandler):
         "/api/workflow/signoff-package": "_post_workflow_signoff_package",
         "/api/pickdir": "_post_pickdir",
         "/api/config/test": "_post_config_test",
-        "/api/generate": "_post_generate",
+        API_GENERATE: "_post_generate",
         "/api/ifpug/summary": "_post_ifpug_summary",
         "/api/pert/project": "_post_pert_project",
         "/api/pert/projects": "_post_pert_projects",
@@ -3103,7 +3290,7 @@ class Handler(BaseHTTPRequestHandler):
     # 处理器入参形态：2=(path, raw)，1=(raw)，0=()；未列出的默认 1
     POST_ARITY = {
         "_post_recognize": 2, "_post_generate": 2, "_post_update_install": 0,
-        "_post_pickdir": 0, "_post_pert_projects": 0,
+        "_post_pickdir": 0, "_post_pert_projects": 0, "_post_eval_run": 0,
         "_post_theme_reset": 0, "_post_pert_calibration": 0,
         "_post_history_ids_migrate": 0, "_post_history_ids_rollback": 0,
     }
@@ -3177,7 +3364,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 cx_mode = engine.normalize_cx_mode(params.get("cx_mode"))
             except ValueError:
-                return self._json(400, {"ok": False, "msg": "未知复杂度口径"})
+                return self._json(400, {"ok": False, "msg": UNKNOWN_COMPLEXITY})
             summary = engine.summary([{"type": i["type"], "reuse": i["reuse"], "modify": i["modify"],
                                        "det": i.get("det"), "ret": i.get("ret"), "ftr": i.get("ftr")} for i in items],
                                      cx_mode=cx_mode)
@@ -3197,7 +3384,7 @@ class Handler(BaseHTTPRequestHandler):
         except V.VErr as e:
             return self._json(400, {"ok": False, "msg": e.msg, "field": e.field})
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         job_id = _recog_job_id(payload.get("job"))
         if _recog_job_get(job_id):
             return self._json(409, {"ok": False, "msg": "任务已存在"})
@@ -3215,10 +3402,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             job_id = str((json.loads(raw.decode("utf-8")) or {}).get("job") or "")
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         job = _recog_job_cancel(job_id)
         if not job:
-            return self._json(404, {"ok": False, "msg": "任务不存在"})
+            return self._json(404, {"ok": False, "msg": ERR_TASK_NOT_FOUND})
         return self._json(200, {"ok": True, "job": job})
 
     def _post_recognize_resume(self, raw):
@@ -3226,10 +3413,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             job_id = str((json.loads(raw.decode("utf-8")) or {}).get("job") or "")
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         job = _recog_job_resume(job_id)
         if not job:
-            return self._json(404, {"ok": False, "msg": "任务不存在"})
+            return self._json(404, {"ok": False, "msg": ERR_TASK_NOT_FOUND})
         if job.get("status") == "done":
             return self._json(409, {"ok": False, "msg": "任务已完成", "job": job})
         return self._json(202, {"ok": True, "job": job})
@@ -3244,7 +3431,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             theme = json.loads(raw.decode("utf-8"))
         except Exception:
-            return self._json(400, {"ok": False, "errors": ["请求体不是合法 JSON"]})
+            return self._json(400, {"ok": False, "errors": [ERR_BAD_JSON]})
         errors, normalized = theme_tokens.validate(theme)
         return self._json(200, {"ok": not errors, "errors": errors,
                                 "theme": normalized if not errors else None})
@@ -3392,7 +3579,7 @@ class Handler(BaseHTTPRequestHandler):
     def _post_update_install(self):
         return self._json(200, install_update())
 
-    def _post_eval_run(self, raw):
+    def _post_eval_run(self):
         """T06196/AC-20：运行 120 条标注样本的离线 P/R 评测，不调用在线 API。"""
         try:
             run = ai_eval.evaluate(recognize_local, save_dir=EVAL_RUNS)
@@ -3417,11 +3604,11 @@ class Handler(BaseHTTPRequestHandler):
     def _post_workflow_transition(self, raw):
         """T06198/AC-23：状态流转；非法流转 409，字段缺失 400，落审计事件。"""
         if WORKFLOW is None:
-            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": "状态机未初始化"})
+            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": ERR_WORKFLOW_NOT_READY})
         try:
             payload = json.loads(raw.decode("utf-8")) if raw else {}
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         try:
             actor = payload.get("actor")
             role = payload.get("role") or "评估师"
@@ -3442,11 +3629,11 @@ class Handler(BaseHTTPRequestHandler):
     def _post_workflow_signoff_package(self, raw):
         """T06198/AC-24：按已登记版本生成审计包；签收页使用冻结的签名与版本哈希。"""
         if WORKFLOW is None:
-            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": "状态机未初始化"})
+            return self._json(503, {"ok": False, "code": "workflow_unavailable", "msg": ERR_WORKFLOW_NOT_READY})
         try:
             payload = json.loads(raw.decode("utf-8")) if raw else {}
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         try:
             bundle = self._workflow_audit_payload(payload.get("project_id"))
             import audit_package
@@ -3573,7 +3760,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw.decode("utf-8"))
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         # T06198：当前版本已登记项目状态时，审计包签收页注入真实签名冻结信息。
         wf_pid = str(payload.get("workflow_project_id") or "").strip()
         if wf_pid and WORKFLOW is not None:
@@ -3612,7 +3799,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw.decode("utf-8"))
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         try:
             import share_package
             with SHARE_LOCK:
@@ -3637,7 +3824,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw.decode("utf-8"))
         except Exception:
-            return self._json(400, {"ok": False, "msg": "请求体不是合法 JSON"})
+            return self._json(400, {"ok": False, "msg": ERR_BAD_JSON})
         try:
             result = enhancement.classify(
                 payload.get("baseline"), payload.get("current"),
@@ -3648,8 +3835,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, "msg": str(e)})
         return self._json(200, result)
 
-    def _post_generate(self, path, raw):
-        payload = json.loads(raw.decode("utf-8"))
+    def _generate_context(self, payload):
+        """校验生成输入并完成提交前自检；返回 (错误响应, 上下文)。"""
         job = str(payload.get("job") or "")
         _gen_progress_set(job, 5, "正在校验并整理候选清单…")
         its = payload.get("items", [])
@@ -3658,7 +3845,7 @@ class Handler(BaseHTTPRequestHandler):
             _gen_progress_set(job, 100, "生成失败", done=True,
                               error=f"确认功能点 {len(its)} 条超出合理范围（>2000）")
             return self._json(400, {"ok": False, **_m("gen.over_range", "确认功能点 {n} 条超出合理范围（>2000），请核对后再生成。",
-                n=len(its))})
+                n=len(its))}) or True, None
         items = self._normalize_gen_items(its)
         # T06196/REQ-019：提交前自检（重复/漏字段/非法类型/无证据）并留痕；
         # 不阻断既有合法生成，硬性证据门仍由下方 validate_confirmable 执行。
@@ -3678,29 +3865,37 @@ class Handler(BaseHTTPRequestHandler):
                                     **_m("gen.evidence_required",
                                         "存在 {n} 项 AI 候选没有原文证据，不能确认或生成结果。请回到复核页补充证据。",
                                         n=len(bad_evidence)),
-                                    "items": bad_evidence})
+                                    "items": bad_evidence}) or True, None
         method = payload.get("method", "估算功能点")
         try:
             cx_mode = engine.normalize_cx_mode(payload.get("cx_mode"))
         except ValueError:
-            _gen_progress_set(job, 100, "生成失败", done=True, error="未知复杂度口径")
-            return self._json(400, {"ok": False, "msg": "未知复杂度口径"})
+            _gen_progress_set(job, 100, "生成失败", done=True, error=UNKNOWN_COMPLEXITY)
+            return self._json(400, {"ok": False, "msg": UNKNOWN_COMPLEXITY}) or True, None
         # T00866：生成文件名 = 需求标题 + "-工作量评估.xlsx"。需求标题取前端上传文档
         # 文件名基名（title），无则回退时间戳。净化 Windows 非法字符，保留原意不截断。
         req_title, sid = self._gen_output_name(payload)
-        out = OUTDIR / sid
-        _gen_progress_set(job, 15, "正在生成成品表（填充母版明细）…")
+        return None, {"job": job, "items": items, "q_check": q_check, "q_trace": q_trace,
+                      "method": method, "cx_mode": cx_mode, "req_title": req_title, "sid": sid}
+
+    def _generate_validation_error(self, payload, path):
+        try:
+            V.check_generate(payload)
+        except V.VErr as e:
+            SLOG.warn("api", "validate_fail", path=path, field=e.field)
+            body = {"ok": False, "msg": e.msg, "field": e.field}
+            if getattr(e, "key", None):
+                body["msgKey"] = e.key
+            if getattr(e, "vargs", None):
+                body["msgArgs"] = e.vargs
+            self._json(400, body)
+            return True
+        return None
+
+    def _render_workbook(self, payload, items, job, out, method, cx_mode):
         recalc_info = {}      # T00931：由 run_from_json 回填公式缓存重算的调度结果
         recalc_mode, recalc_timeout = _recalc_settings()   # T00962：配置中心 > 环境变量 > 默认
         try:
-            try:
-                V.check_generate(payload)
-            except V.VErr as e:
-                SLOG.warn("api", "validate_fail", path=path, field=e.field)
-                body = {"ok": False, "msg": e.msg, "field": e.field}
-                if getattr(e, "key", None): body["msgKey"] = e.key
-                if getattr(e, "vargs", None): body["msgArgs"] = e.vargs
-                return self._json(400, body)
             _tpl = self._resolve_template_arg(payload.get("template"))
             _gb_state = payload.get("gb_state") if isinstance(payload.get("gb_state"), dict) else None
             _brand = (payload.get("brand_color") or "").strip()
@@ -3720,6 +3915,27 @@ class Handler(BaseHTTPRequestHandler):
             # 失败也落到进度表：前端据此把进度条转红并给出错误文案
             _gen_progress_set(job, 100, "生成失败", done=True, error=str(e))
             raise
+        return summary, recalc_info
+
+    def _post_generate(self, path, raw):
+        payload = json.loads(raw.decode("utf-8"))
+        err, ctx = self._generate_context(payload)
+        if err:
+            return err
+        job = ctx["job"]
+        items = ctx["items"]
+        q_check = ctx["q_check"]
+        q_trace = ctx["q_trace"]
+        method = ctx["method"]
+        cx_mode = ctx["cx_mode"]
+        req_title = ctx["req_title"]
+        sid = ctx["sid"]
+        out = OUTDIR / sid
+        _gen_progress_set(job, 15, "正在生成成品表（填充母版明细）…")
+        err = self._generate_validation_error(payload, path)
+        if err:
+            return err
+        summary, recalc_info = self._render_workbook(payload, items, job, out, method, cx_mode)
         recalc_mode = recalc_info.get("mode", "off")
         _gen_progress_set(job, 100, "生成完成（公式缓存后台补算中）" if recalc_mode == "async" else "生成完成",
                           done=True)
@@ -3775,6 +3991,44 @@ class Handler(BaseHTTPRequestHandler):
         return req_title, re.sub(r'[\\/:*?"<>|]', "", req_title) + "-工作量评估.xlsx"
 
     @staticmethod
+    def _generation_summary(summary, hist_items, method, cx_mode):
+        hist_summary = dict(summary or {})
+        hist_summary.setdefault("count", len(hist_items))
+        if "us_total" not in hist_summary:
+            # total_us 对非法 type/reuse/modify 会抛错，脏明细不应连带历史落库失败
+            try:
+                hist_summary["us_total"] = engine.total_us(hist_items, method, cx_mode)
+            except Exception:
+                hist_summary["us_total"] = summary.get("us") if isinstance(summary, dict) else None
+        return hist_summary
+
+    @staticmethod
+    def _register_generation_workflow(hist, payload, req_title, sid, method, recalc_mode, cx_mode, hist_items, hist_summary):
+        try:
+            snap = HIST.get(hist.get("id")) if HIST is not None else None
+            if snap:
+                vhash = WORKFLOW.hash_snapshot(
+                    title=snap.get("title"), version_no=snap.get("version_no"),
+                    method=snap.get("method"), params=snap.get("params"),
+                    items=snap.get("items"), summary=snap.get("summary") or {},
+                )
+            else:
+                snap_params = {"llm_enabled": payload.get("llm_enabled"),
+                               "fee_version": payload.get("fee_version"),
+                               "cx_mode": cx_mode,
+                               "recalc_mode": recalc_mode}
+                vhash = WORKFLOW.hash_snapshot(
+                    title=req_title or sid, version_no=hist.get("version_no"),
+                    method=method, params=snap_params,
+                    items=hist_items, summary=hist_summary,
+                )
+            WORKFLOW.ensure(project_id=hist.get("version_group"), title=req_title or sid,
+                            version_no=hist.get("version_no"), history_id=hist.get("id"),
+                            version_hash=vhash)
+        except Exception as e:
+            print(f"[workflow] 版本登记失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
+
+    @staticmethod
     def _insert_generation_history(payload, items, summary, sid, req_title, method, recalc_mode, cx_mode="企业母版"):
         """M1/FR-1.1：估算历史落库（失败仅记日志，不影响生成响应）。
 
@@ -3786,14 +4040,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         try:
             hist_items = (payload.get("hist_items") or items)
-            hist_summary = dict(summary or {})
-            hist_summary.setdefault("count", len(hist_items))
-            if "us_total" not in hist_summary:
-                # total_us 对非法 type/reuse/modify 会抛错，脏明细不应连带历史落库失败
-                try:
-                    hist_summary["us_total"] = engine.total_us(hist_items, method, cx_mode)
-                except Exception:
-                    hist_summary["us_total"] = summary.get("us") if isinstance(summary, dict) else None
+            hist_summary = Handler._generation_summary(summary, hist_items, method, cx_mode)
             hist = HIST.insert(
                 title=req_title or sid, source_name=payload.get("source_name") or None,
                 method=method,
@@ -3805,29 +4052,8 @@ class Handler(BaseHTTPRequestHandler):
                 summary=hist_summary, sid=sid, reopen_group=payload.get("reopen_group") or None)
             # T06198：每个落库版本登记项目状态；新版本自动回到 draft，旧签收记录保留在事件表。
             if hist and WORKFLOW is not None:
-                try:
-                    snap = HIST.get(hist.get("id")) if HIST is not None else None
-                    if snap:
-                        vhash = WORKFLOW.hash_snapshot(
-                            title=snap.get("title"), version_no=snap.get("version_no"),
-                            method=snap.get("method"), params=snap.get("params"),
-                            items=snap.get("items"), summary=snap.get("summary") or {},
-                        )
-                    else:
-                        snap_params = {"llm_enabled": payload.get("llm_enabled"),
-                                       "fee_version": payload.get("fee_version"),
-                                       "cx_mode": cx_mode,
-                                       "recalc_mode": recalc_mode}
-                        vhash = WORKFLOW.hash_snapshot(
-                            title=req_title or sid, version_no=hist.get("version_no"),
-                            method=method, params=snap_params,
-                            items=hist_items, summary=hist_summary,
-                        )
-                    WORKFLOW.ensure(project_id=hist.get("version_group"), title=req_title or sid,
-                                    version_no=hist.get("version_no"), history_id=hist.get("id"),
-                                    version_hash=vhash)
-                except Exception as e:
-                    print(f"[workflow] 版本登记失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
+                Handler._register_generation_workflow(hist, payload, req_title, sid, method, recalc_mode,
+                                                      cx_mode, hist_items, hist_summary)
             return hist
         except Exception as e:
             print(f"[history] 落库失败（不影响生成）: {type(e).__name__}: {e}", flush=True)
@@ -3838,10 +4064,10 @@ class Handler(BaseHTTPRequestHandler):
     def _workflow_project_payload(project_id):
         """项目详情：工作流状态 + 版本列表 + 签收段，供页面与 API 共用。"""
         if WORKFLOW is None:
-            raise project_workflow.WorkflowError("workflow_unavailable", "状态机未初始化", 503)
+            raise project_workflow.WorkflowError("workflow_unavailable", ERR_WORKFLOW_NOT_READY, 503)
         detail = WORKFLOW.get(project_id)
         if detail is None:
-            raise project_workflow.WorkflowError("not_found", "项目不存在", 404)
+            raise project_workflow.WorkflowError("not_found", ERR_PROJECT_NOT_FOUND, 404)
         versions = []
         if HIST is not None and detail.get("history_id"):
             try:
@@ -3854,16 +4080,7 @@ class Handler(BaseHTTPRequestHandler):
         return detail
 
     @staticmethod
-    def _workflow_audit_payload(project_id):
-        """从 estimation.db 版本快照组装审计包 payload；签收页使用冻结的 workflow 哈希。"""
-        detail = Handler._workflow_project_payload(project_id)
-        if HIST is None:
-            raise project_workflow.WorkflowError("history_unavailable", "估算历史未初始化", 503)
-        hist = HIST.get(detail.get("history_id"))
-        if not hist:
-            raise project_workflow.WorkflowError("history_missing", "签收版本在估算历史中不存在", 404)
-        params = hist.get("params") or {}
-        items = hist.get("items") or []
+    def _workflow_changes(detail):
         status_label = {"draft": "草稿", "review": "评审中", "rejected": "已驳回", "signed": "已签收"}
         action_label = {"create": "创建", "new_version": "新增版本", "submit_review": "提交评审",
                         "reject": "驳回", "revise": "修订", "withdraw": "撤回", "sign": "签收"}
@@ -3881,39 +4098,42 @@ class Handler(BaseHTTPRequestHandler):
                 "after": e.get("to_status") or "—",
                 "operator": e.get("actor") or "—",
             })
-        signoff = detail.get("signoff") or {}
-        payload = {
-            "project": {
-                "name": detail.get("title") or hist.get("title") or "工作量评估项目",
-                "client": "内部",
-                "version": f"v{detail.get('version_no')}",
-                "classification": "内部",
-                "owner": detail.get("submitted_by") or "评估师",
-                "reviewer": detail.get("signer") or detail.get("reviewer") or "审核人",
-                "date": (detail.get("signed_at") or hist.get("created_at") or project_workflow.now_iso())[:10],
-                "source": f"估算历史 · {detail.get('history_id')}",
-            },
-            "method": hist.get("method") or engine.METHOD_ESTIMATE,
-            "timing": "估算中期",
-            "cx_mode": params.get("cx_mode") or engine.CX_MASTER,
-            "items": items,
-            "changes": changes,
-            "ai": {
-                "enabled": bool(params.get("llm_enabled")),
-                "model": "本地规则" if not params.get("llm_enabled") else "已配置模型",
-                "prompt_version": "rules-evidence-v1",
-                "created_at": hist.get("created_at") or now_iso(),
-                "rules_version": params.get("rules_version") or "rules-v1",
-                "evidence": {},
-                "adjustments": "签收版本来自估算历史快照，数值未二次调整",
-                "items": [],
-            },
-            "signoff": signoff,
-            "version_hash": detail.get("short_hash"),
-            "workflow": {"project_id": project_id, "status": detail.get("status"),
-                         "signer": detail.get("signer"), "signed_at": detail.get("signed_at"),
-                         "opinion": detail.get("sign_opinion"), "version_hash": detail.get("version_hash")},
+        return changes
+
+    @staticmethod
+    def _audit_project(detail, hist):
+        return {
+            "name": detail.get("title") or hist.get("title") or "工作量评估项目",
+            "client": "内部",
+            "version": f"v{detail.get('version_no')}",
+            "classification": "内部",
+            "owner": detail.get("submitted_by") or "评估师",
+            "reviewer": detail.get("signer") or detail.get("reviewer") or "审核人",
+            "date": (detail.get("signed_at") or hist.get("created_at") or project_workflow.now_iso())[:10],
+            "source": f"估算历史 · {detail.get('history_id')}",
         }
+
+    @staticmethod
+    def _audit_ai(params, hist):
+        return {
+            "enabled": bool(params.get("llm_enabled")),
+            "model": "本地规则" if not params.get("llm_enabled") else "已配置模型",
+            "prompt_version": "rules-evidence-v1",
+            "created_at": hist.get("created_at") or now_iso(),
+            "rules_version": params.get("rules_version") or "rules-v1",
+            "evidence": {},
+            "adjustments": "签收版本来自估算历史快照，数值未二次调整",
+            "items": [],
+        }
+
+    @staticmethod
+    def _audit_workflow(detail, project_id):
+        return {"project_id": project_id, "status": detail.get("status"),
+                "signer": detail.get("signer"), "signed_at": detail.get("signed_at"),
+                "opinion": detail.get("sign_opinion"), "version_hash": detail.get("version_hash")}
+
+    @staticmethod
+    def _audit_hash_check(detail, hist, params, items):
         try:
             key = project_workflow.WorkflowStore.hash_snapshot(
                 title=detail.get("title"), version_no=detail.get("version_no"), method=hist.get("method"),
@@ -3922,6 +4142,33 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[workflow] 版本哈希不一致：store={detail.get('version_hash')[:12]} snapshot={key[:12]}", flush=True)
         except Exception:
             pass
+
+    @staticmethod
+    def _workflow_audit_payload(project_id):
+        """从 estimation.db 版本快照组装审计包 payload；签收页使用冻结的 workflow 哈希。"""
+        detail = Handler._workflow_project_payload(project_id)
+        if HIST is None:
+            raise project_workflow.WorkflowError("history_unavailable", "估算历史未初始化", 503)
+        hist = HIST.get(detail.get("history_id"))
+        if not hist:
+            raise project_workflow.WorkflowError("history_missing", "签收版本在估算历史中不存在", 404)
+        params = hist.get("params") or {}
+        items = hist.get("items") or []
+        changes = Handler._workflow_changes(detail)
+        signoff = detail.get("signoff") or {}
+        payload = {
+            "project": Handler._audit_project(detail, hist),
+            "method": hist.get("method") or engine.METHOD_ESTIMATE,
+            "timing": "估算中期",
+            "cx_mode": params.get("cx_mode") or engine.CX_MASTER,
+            "items": items,
+            "changes": changes,
+            "ai": Handler._audit_ai(params, hist),
+            "signoff": signoff,
+            "version_hash": detail.get("short_hash"),
+            "workflow": Handler._audit_workflow(detail, project_id),
+        }
+        Handler._audit_hash_check(detail, hist, params, items)
         return payload
 
     # ---------------- PERT 三点估算 ----------------
@@ -3962,7 +4209,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             p = con.execute("SELECT id,name,estimator,actual_days,actual_note FROM projects WHERE id=?", (pid,)).fetchone()
             if not p:
-                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+                return self._json(404, {"ok": False, **_m(CODE_PROJECT_NOT_FOUND, ERR_PROJECT_NOT_FOUND)})
             items = con.execute(
                 "SELECT id,phase,system,module,desc,optimistic,most_likely,pessimistic "
                 "FROM pert_items WHERE project_id=? ORDER BY id", (pid,)).fetchall()
@@ -4028,7 +4275,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.loads(raw.decode("utf-8"))
         pid = payload.get("project_id")
         if not pid:
-            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+            return self._json(400, {"ok": False, **_m(CODE_PROJECT_REQUIRED, MSG_PROJECT_REQUIRED)})
         actual = payload.get("actual_days")
         if actual is None or (isinstance(actual, str) and not actual.strip()):
             actual = None
@@ -4044,7 +4291,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             exists = con.execute("SELECT id FROM projects WHERE id=?", (pid,)).fetchone()
             if not exists:
-                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+                return self._json(404, {"ok": False, **_m(CODE_PROJECT_NOT_FOUND, ERR_PROJECT_NOT_FOUND)})
             con.execute("UPDATE projects SET actual_days=?,actual_note=? WHERE id=?",
                         (actual, note, pid))
             con.commit()
@@ -4067,7 +4314,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.loads(raw.decode("utf-8"))
         pid = payload.get("project_id")
         if not pid:
-            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+            return self._json(400, {"ok": False, **_m(CODE_PROJECT_REQUIRED, MSG_PROJECT_REQUIRED)})
         try:
             sims = int(payload.get("simulations") or pert.MC_DEFAULT_SIMS)
         except (TypeError, ValueError):
@@ -4087,7 +4334,7 @@ class Handler(BaseHTTPRequestHandler):
         con = _pert_connect()
         try:
             if not con.execute("SELECT id FROM projects WHERE id=?", (pid,)).fetchone():
-                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+                return self._json(404, {"ok": False, **_m(CODE_PROJECT_NOT_FOUND, ERR_PROJECT_NOT_FOUND)})
             rows = con.execute(
                 "SELECT phase,system,module,desc,optimistic,most_likely,pessimistic "
                 "FROM pert_items WHERE project_id=? ORDER BY id", (pid,)).fetchall()
@@ -4118,7 +4365,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.loads(raw.decode("utf-8"))
         pid = payload.get("project_id")
         if not pid:
-            return self._json(400, {"ok": False, **_m("pert.srv_need_proj", "请先新建或选择项目")})
+            return self._json(400, {"ok": False, **_m(CODE_PROJECT_REQUIRED, MSG_PROJECT_REQUIRED)})
         saved = load_config()["llm"]
         # T00928：前端可携带配置中心「启用大模型辅助识别」开关的当前状态；
         # 未携带（null/缺省）时回退已保存配置，保持原有行为不变。
@@ -4195,7 +4442,7 @@ class Handler(BaseHTTPRequestHandler):
         con = _pert_connect()
         try:
             if not con.execute("SELECT 1 FROM projects WHERE id=?", (pid,)).fetchone():
-                return self._json(404, {"ok": False, **_m("pert.srv_no_proj", "项目不存在")})
+                return self._json(404, {"ok": False, **_m(CODE_PROJECT_NOT_FOUND, ERR_PROJECT_NOT_FOUND)})
             if payload.get("replace"):
                 con.execute("DELETE FROM pert_items WHERE project_id=?", (pid,))
             added = self._insert_pert_candidates(con, pid, payload.get("items", []) or [])

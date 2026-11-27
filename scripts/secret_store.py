@@ -28,7 +28,7 @@ def _dpapi(data, protect):
     from ctypes import wintypes
     crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    blob_in, buf_in = _blob(data)
+    blob_in, _ = _blob(data)
     blob_out = _DataBlob()
     pblob_in = ctypes.byref(blob_in)
     pblob_out = ctypes.byref(blob_out)

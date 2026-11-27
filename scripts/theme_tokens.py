@@ -12,6 +12,10 @@ import json
 import re
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+THEME_ACTIVE_FILE = 'theme_active.json'
+
 ROOT = Path(__file__).resolve().parent.parent
 THEMES_DIR = ROOT / "data" / "themes"
 MAX_BYTES = 50 * 1024
@@ -160,11 +164,8 @@ def contrast_checks(resolved):
     return checks, errors
 
 
-def validate(theme):
-    """返回 (errors, normalized)。errors 为空才算合法；normalized 带解析后的 css 变量。"""
+def _validate_meta(theme):
     errors = []
-    if not isinstance(theme, dict):
-        return ["主题必须是 JSON 对象"], None
     name = str(theme.get("name") or "")
     if not NAME_RE.match(name):
         errors.append("name 必须为 2–32 位小写字母/数字/连字符")
@@ -173,6 +174,11 @@ def validate(theme):
         errors.append("label 最长 40 字符")
     if not isinstance(theme.get("version", 1), int):
         errors.append("version 必须是整数")
+    return errors, name, label
+
+
+def _validate_layers(theme):
+    errors = []
     for layer in ("raw", "semantic", "component"):
         obj = theme.get(layer)
         if not isinstance(obj, dict) or not obj:
@@ -181,8 +187,12 @@ def validate(theme):
         if len(obj) > 200:
             errors.append(f"{layer} 层最多 200 个 token")
     if errors:
-        return errors, None
-    raw, sem, comp = theme["raw"], theme["semantic"], theme["component"]
+        return errors, None, None, None
+    return [], theme["raw"], theme["semantic"], theme["component"]
+
+
+def _validate_keys(raw, sem, comp):
+    errors = []
     # raw 键用于被引用，不直接落 CSS；只校验命名与值类型
     for k, v in raw.items():
         if not VAR_RE.match(k):
@@ -195,31 +205,51 @@ def validate(theme):
     for k in comp:
         if not re.match(r"^[a-z0-9][a-z0-9.-]*$", k):
             errors.append(f"component 键不合法：{k}")
+    return errors
+
+
+def _resolve_layer(values, theme, layer):
+    errors = []
+    resolved = {}
+    for k, v in values.items():
+        try:
+            resolved[k] = _resolve(v, theme)
+        except ThemeError as e:
+            errors.append(f"{layer}.{k}: {e}")
+    return errors, resolved
+
+
+def _serialized_errors(theme):
+    try:
+        if len(json.dumps(theme, ensure_ascii=False).encode("utf-8")) > MAX_BYTES:
+            return ["主题 JSON 超过 50KB"]
+    except Exception:
+        return ["主题 JSON 不可序列化"]
+    return []
+
+
+def validate(theme):
+    """返回 (errors, normalized)。errors 为空才算合法；normalized 带解析后的 css 变量。"""
+    if not isinstance(theme, dict):
+        return ["主题必须是 JSON 对象"], None
+    errors, name, label = _validate_meta(theme)
     if errors:
         return errors, None
-    resolved_sem = {}
-    for k, v in sem.items():
-        try:
-            resolved_sem[k] = _resolve(v, theme)
-        except ThemeError as e:
-            errors.append(f"semantic.{k}: {e}")
-    resolved_comp = {}
-    for k, v in comp.items():
-        try:
-            resolved_comp[k] = _resolve(v, theme)
-        except ThemeError as e:
-            errors.append(f"component.{k}: {e}")
+    layer_errors, raw, sem, comp = _validate_layers(theme)
+    if layer_errors:
+        return layer_errors, None
+    errors = _validate_keys(raw, sem, comp)
+    if errors:
+        return errors, None
+    sem_errors, resolved_sem = _resolve_layer(sem, theme, "semantic")
+    comp_errors, resolved_comp = _resolve_layer(comp, theme, "component")
+    errors = sem_errors + comp_errors
     if errors:
         return errors, None
     resolved = {"semantic": resolved_sem, "component": resolved_comp}
     checks, contrast_errors = contrast_checks(resolved)
-    if contrast_errors:
-        errors.extend(contrast_errors)
-    try:
-        if len(json.dumps(theme, ensure_ascii=False).encode("utf-8")) > MAX_BYTES:
-            errors.append("主题 JSON 超过 50KB")
-    except Exception:
-        errors.append("主题 JSON 不可序列化")
+    errors.extend(contrast_errors)
+    errors.extend(_serialized_errors(theme))
     if errors:
         return errors, None
     normalized = {
@@ -236,7 +266,7 @@ def validate(theme):
 
 
 def load_active(data_dir):
-    path = Path(data_dir) / "theme_active.json"
+    path = Path(data_dir) / THEME_ACTIVE_FILE
     if not path.is_file():
         return None
     try:
@@ -250,7 +280,7 @@ def save_active(data_dir, theme):
     errors, normalized = validate(theme)
     if errors:
         raise ThemeError("；".join(errors))
-    path = Path(data_dir) / "theme_active.json"
+    path = Path(data_dir) / THEME_ACTIVE_FILE
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(theme, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
@@ -258,7 +288,7 @@ def save_active(data_dir, theme):
 
 
 def reset_active(data_dir):
-    path = Path(data_dir) / "theme_active.json"
+    path = Path(data_dir) / THEME_ACTIVE_FILE
     try:
         path.unlink()
     except FileNotFoundError:

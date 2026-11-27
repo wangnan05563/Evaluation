@@ -27,10 +27,10 @@ ws.onmessage = e => {
 const send = (method, params, sid) => { const i = ++id; ws.send(JSON.stringify({ id: i, method, params, ...(sid ? { sessionId: sid } : {}) })); return new Promise((ok, no) => { pend.set(i, { ok, no }); setTimeout(() => { if (pend.has(i)) { pend.delete(i); no(new Error('cdp timeout: ' + method)); } }, 20000); }); };
 const S = (await send('Target.attachToTarget', { targetId: t.id, flatten: true })).sessionId;
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S); await send('DOM.enable', {}, S);
-const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) throw new Error('eval: ' + (r.exceptionDetails.exception?.description || '')); return r.result.value; };
+const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, userGesture: true }, S); if (r.exceptionDetails) { throw new Error('eval: ' + (r.exceptionDetails.exception?.description || '')); } return r.result.value; };
 const shot = async n => { const r = await send('Page.captureScreenshot', { format: 'png' }, S); fs.writeFileSync(path.join(OUT, n), Buffer.from(r.data, 'base64')); };
 const setFiles = async (sel, files) => { const { root } = await send('DOM.getDocument', { depth: 1 }, S); const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: sel }, S); await send('DOM.setFileInputFiles', { nodeId, files }, S); };
-const waitFor = async (fn, timeout = 60000, label = '') => { const t0 = Date.now(); while (Date.now() - t0 < timeout) { if (await fn()) return true; await sleep(120); } console.log('  !! timeout ' + label); return false; };
+const waitFor = async (fn, timeout = 60000, label = '') => { const t0 = Date.now(); while (Date.now() - t0 < timeout) { if (await fn()) { return true; } await sleep(120); } console.log('  !! timeout ' + label); return false; };
 const boot = async () => {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('wl_guide_done_pages_v1',JSON.stringify({work:true,pert:true,config:true,help:true}));}catch(e){}` }, S);
   await send('Page.navigate', { url: APP }, S);
@@ -48,7 +48,7 @@ const panelOn = await waitFor(async () => (await ev(`!document.querySelector('#l
 await waitFor(async () => /解析|提取|扫描|匹配|识别/.test(await ev(`document.querySelector('#ltaskStage').textContent`)), 8000, '真实阶段');
 const run = JSON.parse(await ev(`(()=>{const p=document.querySelector('#ltaskPanel');return JSON.stringify({status:p.dataset.status,pct:document.querySelector('#ltaskPct').textContent,stage:document.querySelector('#ltaskStage').textContent,eta:document.querySelector('#ltaskEta').textContent,job:p.dataset.job,cancelHidden:document.querySelector('#ltaskCancel').hidden})})()`));
 check('S1 识别请求进入长任务面板', panelOn && run.status === 'running', JSON.stringify(run));
-check('S1 面板显示真实阶段与百分比', /解析|识别|准备/.test(run.stage) && /%$/.test(run.pct), `${run.pct} ${run.stage}`);
+check('S1 面板显示真实阶段与百分比', /解析|识别|准备/.test(run.stage) && run.pct.endsWith('%'), `${run.pct} ${run.stage}`);
 check('S1 面板显示剩余时间估算', /预计剩余|即将完成/.test(run.eta) && /\d|即将/.test(run.eta), run.eta);
 check('S1 运行中取消按钮可见', run.cancelHidden === false);
 await shot('long_task_running_1440.png');
@@ -63,7 +63,7 @@ const wallMs = Date.now() - t0;
 check('S2 点击取消后 UI 立即停止（≤2s）', canceled && cancelMs < 2000 && wallMs < 2000, `panel ${cancelMs}ms / wall ${wallMs}ms`);
 check('S2 取消后展示已取消与续跑入口', (await ev(`!document.querySelector('#ltaskResumeBanner').hidden`)) === true && /已取消|停在/.test(await ev(`document.querySelector('#ltaskResumeStage').textContent`)));
 const beforeReload = JSON.parse(await ev(`(()=>{const p=document.querySelector('#ltaskPanel');return JSON.stringify({pct:p.querySelector('#ltaskPct').textContent,stage:document.querySelector('#ltaskStage').textContent})})()`));
-check('S2 取消断点保留完成百分比', /%$/.test(beforeReload.pct), JSON.stringify(beforeReload));
+check('S2 取消断点保留完成百分比', beforeReload.pct.endsWith('%'), JSON.stringify(beforeReload));
 await shot('long_task_canceled_1440.png');
 
 await boot();

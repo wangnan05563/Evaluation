@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { openPage, checker, sleep, loadAxe, axeAudit } from './cdp.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const API_PORT = 8033, CDP_PORT = 9335, API = `http://127.0.0.1:${API_PORT}`, CDP = `http://127.0.0.1:${CDP_PORT}`;
 const OUT = path.join(ROOT, 'docs', 'test-reports', 'phase3-20261122');

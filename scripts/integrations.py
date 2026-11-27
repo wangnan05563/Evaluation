@@ -17,6 +17,10 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+ERR_CONNECTOR_NOT_FOUND = '连接器不存在'
+
 KINDS = {
     "github": {"name": "GitHub Issues", "required": ("repo", "token")},
     "jira": {"name": "Jira", "required": ("base_url", "project_key", "email", "api_token")},
@@ -74,7 +78,7 @@ class Adapter:
             code = {401: "AUTH_FAILED", 403: "FORBIDDEN", 404: "NOT_FOUND",
                     429: "RATE_LIMITED"}.get(e.code, "HTTP_ERROR")
             raise IntegrationError(code, f"HTTP {e.code}: {raw or e.reason}", e.code,
-                                    retryable=(e.code >= 500 or e.code == 429)) from e
+                                    retryable=e.code >= 500 or e.code == 429) from e
         except urllib.error.URLError as e:
             raise IntegrationError("NETWORK", f"连接失败: {e.reason}", retryable=True) from e
         except Exception as e:
@@ -289,7 +293,7 @@ class IntegrationStore:
                         " VALUES(?,?,?,0,'{}',?,?,?)",
                         (str(uuid.uuid4()), kind, meta["name"], json.dumps(DEFAULT_MAPPING), now, now))
 
-    def _decrypt(self, kind, cfg):
+    def _decrypt(self, cfg):
         out = dict(cfg or {})
         for key in SECRET_FIELDS:
             if out.get(key):
@@ -309,7 +313,7 @@ class IntegrationStore:
     def _row(self, row):
         if row is None:
             return None
-        cfg = self._decrypt(row["kind"], json.loads(row["config_json"] or "{}"))
+        cfg = self._decrypt(json.loads(row["config_json"] or "{}"))
         return {
             "id": row["id"], "kind": row["kind"], "name": row["name"],
             "enabled": bool(row["enabled"]), "config": cfg,
@@ -336,7 +340,7 @@ class IntegrationStore:
             raise IntegrationError("CONFIG", f"不支持的集成类型: {kind}", retryable=False)
         conn = self.get(kind)
         if not conn:
-            raise IntegrationError("CONFIG", "连接器不存在", retryable=False)
+            raise IntegrationError("CONFIG", ERR_CONNECTOR_NOT_FOUND, retryable=False)
         cfg = dict(conn["config"])
         for k, v in (config or {}).items():
             if k in ("base_url", "repo", "project", "project_key", "issue_type", "email") or k in SECRET_FIELDS:
@@ -356,7 +360,7 @@ class IntegrationStore:
     def save_mapping(self, kind, mapping):
         return self.save(kind, mapping=mapping)
 
-    def record_test(self, kind, ok, detail, error=""):
+    def record_test(self, kind, ok, error=""):
         now = _now()
         with self._conn() as con:
             con.execute("UPDATE connectors SET last_test_at=?,last_test_ok=?,last_test_error=? WHERE kind=?",
@@ -365,13 +369,13 @@ class IntegrationStore:
     def test(self, kind):
         conn = self.get(kind)
         if not conn:
-            raise IntegrationError("NOT_FOUND", "连接器不存在", status=404, retryable=False)
+            raise IntegrationError("NOT_FOUND", ERR_CONNECTOR_NOT_FOUND, status=404, retryable=False)
         try:
             result = build_adapter(kind, conn).test()
-            self.record_test(kind, True, result.get("detail", ""))
+            self.record_test(kind, True)
             return {"ok": True, "detail": result.get("detail", ""), "tested_at": _now()}
         except IntegrationError as e:
-            self.record_test(kind, False, "", e.message)
+            self.record_test(kind, False, error=e.message)
             return {"ok": False, "code": e.code, "error": e.message, "retryable": e.retryable,
                     "tested_at": _now()}
 
@@ -409,7 +413,7 @@ class IntegrationStore:
             raise IntegrationError("CONFIG", f"不支持的集成类型: {kind}", retryable=False)
         conn = self.get(kind)
         if not conn:
-            raise IntegrationError("NOT_FOUND", "连接器不存在", status=404, retryable=False)
+            raise IntegrationError("NOT_FOUND", ERR_CONNECTOR_NOT_FOUND, status=404, retryable=False)
         if not conn["enabled"]:
             raise IntegrationError("DISABLED", "连接器未启用，请先保存并启用配置", retryable=False)
         miss = [k for k in KINDS[kind]["required"] if not str(conn["config"].get(k) or "").strip()]
@@ -419,39 +423,48 @@ class IntegrationStore:
         jid = self._new_job(conn["id"], items, "running")
         return self.run_job(jid)
 
+    def _sync_item(self, adapter, item, mapping):
+        """单条明细重试同步；返回 (是否成功, 错误字典, 尝试次数)。"""
+        last = None
+        attempts = 0
+        for n in range(1, MAX_ATTEMPTS + 1):
+            attempts += 1
+            try:
+                res = adapter.create(item)
+                item["_remote_id"] = res.get("remote_id", "")
+                return True, None, attempts
+            except IntegrationError as e:
+                last = e
+                if not e.retryable or n == MAX_ATTEMPTS:
+                    break
+                time.sleep(0.15 * n)
+            except Exception as e:
+                last = IntegrationError("SYNC_FAILED", f"{type(e).__name__}: {e}")
+                break
+        title_key = mapping.get("title", "title")
+        err = {"code": last.code, "message": last.message,
+               "status": last.status, "retryable": last.retryable}
+        err["title"] = str(item.get(title_key) or item.get("title") or "")[:160]
+        return False, err, attempts
+
     def run_job(self, job_id):
         job = self.get_job(job_id)
         if not job:
             raise IntegrationError("NOT_FOUND", "同步任务不存在", status=404, retryable=False)
         conn = self.get(job["connector_id"])
         if not conn:
-            raise IntegrationError("NOT_FOUND", "连接器不存在", status=404, retryable=False)
+            raise IntegrationError("NOT_FOUND", ERR_CONNECTOR_NOT_FOUND, status=404, retryable=False)
         adapter = build_adapter(conn["kind"], conn)
         items = json.loads(job["payload_json"])
+        mapping = normalize_mapping(conn["mapping"])
         errors, ok_n, attempts = [], 0, 0
         for idx, item in enumerate(items):
-            last = None
-            for n in range(1, MAX_ATTEMPTS + 1):
-                attempts += 1
-                try:
-                    res = adapter.create(item)
-                    ok_n += 1
-                    last = None
-                    item["_remote_id"] = res.get("remote_id", "")
-                    break
-                except IntegrationError as e:
-                    last = e
-                    if not e.retryable or n == MAX_ATTEMPTS:
-                        break
-                    time.sleep(0.15 * n)
-                except Exception as e:
-                    last = IntegrationError("SYNC_FAILED", f"{type(e).__name__}: {e}")
-                    break
-            if last is not None:
-                title_key = normalize_mapping(conn["mapping"]).get("title", "title")
-                errors.append({"index": idx, "title": str(item.get(title_key) or item.get("title") or "")[:160],
-                               "code": last.code, "message": last.message,
-                               "status": last.status, "retryable": last.retryable})
+            ok, err, tries = self._sync_item(adapter, item, mapping)
+            attempts += tries
+            if ok:
+                ok_n += 1
+            else:
+                errors.append({"index": idx, **err})
         failed = len(errors)
         status = "success" if not failed else ("failed" if ok_n == 0 else "partial")
         summary = "" if not failed else f"{failed} 条失败，首因：{errors[0]['message']}"[:ERROR_LIMIT]

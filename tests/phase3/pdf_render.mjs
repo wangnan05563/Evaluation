@@ -20,7 +20,7 @@ try {
   }
   process.env.PHASE3_APP = 'file:///';
   const page = await openPage({ width: 794, height: 1123, cdp: `http://127.0.0.1:${port}` });
-  const url = 'file:///' + input.replace(/\\/g, '/').replace(/^\//, '');
+  const url = 'file:///' + input.replaceAll('\\', '/').replace(/^\//, '');
   await page.nav(url, `document.readyState === 'complete'`);
   await page.ev(`document.fonts.ready.then(() => true)`);
   await sleep(700);

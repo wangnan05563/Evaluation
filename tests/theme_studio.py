@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import theme_tokens as T
 
+MSG_LOW_CONTRAST = '对比度不足'
+MSG_SAVE_REJECT = 'save_active 拒绝低对比主题'
+
 CASES = []
 
 
@@ -31,10 +34,7 @@ def mutate(base, changes=None, **kw):
     return theme
 
 
-def main():
-    base = load_raw("base")
-    lime = load_raw("lime")
-
+def _check_default(base):
     errors, norm = T.validate(base)
     check("默认主题通过校验", not errors and norm is not None, str(errors))
     check("默认主题输出 6 组对比度检查", len(norm["contrast"]) == 6, str(norm.get("contrast")))
@@ -42,19 +42,26 @@ def main():
     check("默认主题主按钮对比度 5.17:1", [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [5.17],
           str(norm["contrast"]))
 
+
+def _check_lime(lime):
     errors, norm = T.validate(lime)
     check("青柠主题通过校验", not errors and norm is not None, str(errors))
     check("青柠主题主按钮改为深色文字后对比度 7.4:1",
           [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [7.4], str(norm["contrast"]))
 
+
+def _make_low(base):
     low = mutate(base, semantic__brand="#FFFF00")
     low["component"]["button.primary.foreground"] = "#FFFFFF"
     low["label"] = "低对比"
     errors, norm = T.validate(low)
     check("低对比主题被拒绝", bool(errors) and norm is None, str(errors))
     check("拒绝原因包含主按钮对比度不足",
-          any("对比度不足" in e and "主按钮" in e for e in errors), str(errors))
+          any(MSG_LOW_CONTRAST in e and "主按钮" in e for e in errors), str(errors))
+    return low
 
+
+def _check_readable(base):
     readable = mutate(base, {
         "semantic__brand": "#FFFF00",
         "semantic__brand-ink": "#FFFF00",
@@ -66,17 +73,16 @@ def main():
     check("修正按钮文字后同主色可通过", not errors and norm is not None, str(errors))
     check("修正后主按钮对比度 19.56:1",
           [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [19.56], str(norm["contrast"]))
+    return readable
 
-    bad_color = mutate(base, semantic__ink="not-a-color")
-    errors, norm = T.validate(bad_color)
-    check("不可解析颜色被阻断", bool(errors) and any("无法解析颜色" in e for e in errors), str(errors))
 
+def _check_persist(readable, low):
     with tempfile.TemporaryDirectory() as tmp:
         try:
             T.save_active(tmp, low)
-            check("save_active 拒绝低对比主题", False)
+            check(MSG_SAVE_REJECT, False)
         except T.ThemeError as e:
-            check("save_active 拒绝低对比主题", "对比度不足" in str(e), str(e))
+            check(MSG_SAVE_REJECT, MSG_LOW_CONTRAST in str(e), str(e))
         saved = T.save_active(tmp, readable)
         check("save_active 写入达标主题并返回对比度", saved["contrast"] and saved["name"] == "high-contrast-brand",
               str(saved))
@@ -84,6 +90,78 @@ def main():
         check("持久化后重新加载主题", loaded is not None and loaded["name"] == "high-contrast-brand", str(loaded))
         T.reset_active(tmp)
         check("重置后无生效主题", T.load_active(tmp) is None)
+
+
+def _check_default(base):
+    errors, norm = T.validate(base)
+    check("默认主题通过校验", not errors and norm is not None, str(errors))
+    check("默认主题输出 6 组对比度检查", len(norm["contrast"]) == 6, str(norm.get("contrast")))
+    check("默认主题 6/6 对比度通过", all(c["ok"] for c in norm["contrast"]), str(norm["contrast"]))
+    check("默认主题主按钮对比度 5.17:1", [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [5.17],
+          str(norm["contrast"]))
+
+
+def _check_lime(lime):
+    errors, norm = T.validate(lime)
+    check("青柠主题通过校验", not errors and norm is not None, str(errors))
+    check("青柠主题主按钮改为深色文字后对比度 7.4:1",
+          [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [7.4], str(norm["contrast"]))
+
+
+def _make_low(base):
+    low = mutate(base, semantic__brand="#FFFF00")
+    low["component"]["button.primary.foreground"] = "#FFFFFF"
+    low["label"] = "低对比"
+    errors, norm = T.validate(low)
+    check("低对比主题被拒绝", bool(errors) and norm is None, str(errors))
+    check("拒绝原因包含主按钮对比度不足",
+          any(MSG_LOW_CONTRAST in e and "主按钮" in e for e in errors), str(errors))
+    return low
+
+
+def _check_readable(base):
+    readable = mutate(base, {
+        "semantic__brand": "#FFFF00",
+        "semantic__brand-ink": "#FFFF00",
+        "semantic__brand-soft": "#1A1A00",
+        "component__button.primary.foreground": "#000000",
+    })
+    readable["name"] = "high-contrast-brand"
+    errors, norm = T.validate(readable)
+    check("修正按钮文字后同主色可通过", not errors and norm is not None, str(errors))
+    check("修正后主按钮对比度 19.56:1",
+          [c["ratio"] for c in norm["contrast"] if c["key"] == "button"] == [19.56], str(norm["contrast"]))
+    return readable
+
+
+def _check_persist(readable, low):
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            T.save_active(tmp, low)
+            check(MSG_SAVE_REJECT, False)
+        except T.ThemeError as e:
+            check(MSG_SAVE_REJECT, MSG_LOW_CONTRAST in str(e), str(e))
+        saved = T.save_active(tmp, readable)
+        check("save_active 写入达标主题并返回对比度", saved["contrast"] and saved["name"] == "high-contrast-brand",
+              str(saved))
+        loaded = T.load_active(tmp)
+        check("持久化后重新加载主题", loaded is not None and loaded["name"] == "high-contrast-brand", str(loaded))
+        T.reset_active(tmp)
+        check("重置后无生效主题", T.load_active(tmp) is None)
+
+
+def main():
+    base = load_raw("base")
+    lime = load_raw("lime")
+    _check_default(base)
+    _check_lime(lime)
+    low = _make_low(base)
+    readable = _check_readable(base)
+
+    bad_color = mutate(base, semantic__ink="not-a-color")
+    errors, _ = T.validate(bad_color)
+    check("不可解析颜色被阻断", bool(errors) and any("无法解析颜色" in e for e in errors), str(errors))
+    _check_persist(readable, low)
 
     failed = [c for c in CASES if not c[1]]
     for name, ok, detail in CASES:

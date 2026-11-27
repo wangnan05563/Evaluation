@@ -62,14 +62,13 @@ try {
   check('样例流程在 5 分钟内到达结果页', done, (Date.now() - t0) + ' ms / ' + last);
   if (!done) throw new Error('样例未到达结果页：' + last);
 
-  const elapsed = Date.now() - t0;
   check('样例结果摘要非零', summaryFp > 0 && summaryScale > 0, `FP=${summaryFp} 调整后=${summaryScale}`);
   check('样例 6 项全部确认', resultRows >= 6, `result rows=${resultRows}`);
   const stored = JSON.parse(await page.ev(`(() => JSON.stringify({role:localStorage.getItem('wl_role_v1'),metrics:localStorage.getItem('wl_onboard_metrics_v1')}))()`));
   role = stored.role ? JSON.parse(stored.role) : null;
   metrics = stored.metrics ? JSON.parse(stored.metrics) : null;
   check('角色持久化为评估师', role && role.id === 'evaluator', JSON.stringify(role));
-  const lastMetric = Array.isArray(metrics) ? metrics[metrics.length - 1] : metrics;
+  const lastMetric = Array.isArray(metrics) ? metrics.at(-1) : metrics;
   check('本地匿名耗时记录成功且 ≤5 分钟', lastMetric && lastMetric.success === true && lastMetric.elapsed_ms <= 300000,
     JSON.stringify(lastMetric));
   check('匿名记录含 6 项且无上传字段', lastMetric && lastMetric.items === 6 && !('token' in lastMetric), JSON.stringify(lastMetric));

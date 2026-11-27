@@ -2,6 +2,7 @@
 #v-review .ct-scroll {
   max-height: max(300px, calc(100vh - 506px));   /* 表格下沿止于底部 sticky dockbar 上方，避免行被汇总条遮住 */
   overflow: auto !important;
+  position: relative;
 }
 
 /* T06174：复核表改为 div 网格，行体不再进入 <table> 布局；虚拟窗口约 20 行。 */
@@ -30,7 +31,6 @@
 }
 #v-review .ct-h.sortable { cursor: pointer; }
 #v-review .ct-ck { justify-content: center; padding-left: 0; padding-right: 0; }
-#v-review .ct-scroll { position: relative; }
 #v-review .ct-body { position: relative; }
 #v-review .ct-body .rowr {
   position: relative;

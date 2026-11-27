@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { openPage, checker, sleep, OUT, loadAxe, axeAudit } from './cdp.mjs';
 
 const ROOT = path.resolve('.');
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const { check, finish } = checker('rbac-sso-ui');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'we_rbac_ui_'));
 const data = path.join(temp, 'data');

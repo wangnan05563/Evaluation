@@ -26,8 +26,8 @@ CONTENT_KEYS = {
     "raw_text", "content", "msg", "message", "err", "error_detail", "note",
     "description", "paragraph",
 }
-_TOKEN_RE = re.compile(r"(?i)(sk-[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._~+/=-]{8,})")
-_WIN_PATH_RE = re.compile(r"(?i)(?:[A-Z]:\\[^\s\"'<>|]+)")
+_TOKEN_RE = re.compile(r"(?i)(sk-[a-z0-9_-]{8,}|Bearer\s+[a-z0-9._~+/=-]{8,})")
+_WIN_PATH_RE = re.compile(r"(?i)[A-Z]:\\[^\s\"'<>|]+")
 _POSIX_PATH_RE = re.compile(r"(?<![A-Za-z0-9])/(?:Users|home|tmp|var|opt|private)/[^\s\"'<>|]+")
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 

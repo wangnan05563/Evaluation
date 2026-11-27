@@ -30,14 +30,21 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import theme_tokens  # noqa: E402
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+INSTALLER_HEADER_BMP = 'installerHeader.bmp'
+INSTALLER_SIDEBAR_BMP = 'installerSidebar.bmp'
+THEME_ACTIVE_FILE = 'theme_active.json'
+WINDOWS_DIR = 'C:\\Windows'
+
 HEADER_SIZE = (150, 57)
 SIDEBAR_SIZE = (164, 314)
 DEFAULT_OUT = ROOT / "release" / "brand"
 FONT_CANDIDATES = (
-    Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "msyhbd.ttc",
-    Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "msyh.ttc",
-    Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "simhei.ttf",
-    Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Deng.ttf",
+    Path(os.environ.get("WINDIR", WINDOWS_DIR)) / "Fonts" / "msyhbd.ttc",
+    Path(os.environ.get("WINDIR", WINDOWS_DIR)) / "Fonts" / "msyh.ttc",
+    Path(os.environ.get("WINDIR", WINDOWS_DIR)) / "Fonts" / "simhei.ttf",
+    Path(os.environ.get("WINDIR", WINDOWS_DIR)) / "Fonts" / "Deng.ttf",
 )
 PRODUCT_NAME = "工作量评估工具"
 PRODUCT_EN = "WorkloadEval"
@@ -91,12 +98,12 @@ def resolve_theme(theme_path: str | None, data_dir: str | None) -> tuple[dict, P
     if theme_path:
         candidates.append(Path(theme_path))
     else:
-        candidates.append(ROOT / "data" / "theme_active.json")
+        candidates.append(ROOT / "data" / THEME_ACTIVE_FILE)
         appdata = Path(os.environ.get("APPDATA", ""))
         if appdata:
-            candidates.append(appdata / "WorkloadEval" / "theme_active.json")
+            candidates.append(appdata / "WorkloadEval" / THEME_ACTIVE_FILE)
         if data_dir:
-            candidates.append(Path(data_dir) / "theme_active.json")
+            candidates.append(Path(data_dir) / THEME_ACTIVE_FILE)
         candidates.append(ROOT / "data" / "themes" / "base.json")
     for path in candidates:
         if path.is_file():
@@ -185,8 +192,8 @@ def build_assets(theme: dict, source: Path, out_dir: Path,
     header = render_header(theme)
     sidebar = render_sidebar(theme)
     files = {
-        "installerHeader.bmp": header,
-        "installerSidebar.bmp": sidebar,
+        INSTALLER_HEADER_BMP: header,
+        INSTALLER_SIDEBAR_BMP: sidebar,
         "uninstallerSidebar.bmp": sidebar.copy(),
     }
     for name, image in files.items():
@@ -229,35 +236,30 @@ def build_assets(theme: dict, source: Path, out_dir: Path,
     return manifest
 
 
-def verify_assets(out_dir: Path, theme: dict) -> list[str]:
+def _verify_image(path, name, size):
+    if not path.is_file():
+        return [f"缺少资源：{name}"]
     errors = []
-    expected = {
-        "installerHeader.bmp": HEADER_SIZE,
-        "installerSidebar.bmp": SIDEBAR_SIZE,
-        "uninstallerSidebar.bmp": SIDEBAR_SIZE,
-    }
-    for name, size in expected.items():
-        path = out_dir / name
-        if not path.is_file():
-            errors.append(f"缺少资源：{name}")
-            continue
-        try:
-            with Image.open(path) as img:
-                if img.size != size:
-                    errors.append(f"{name} 尺寸 {img.size} != {size}")
-                if img.mode != "RGB":
-                    errors.append(f"{name} 模式 {img.mode} != RGB")
-        except Exception as exc:
-            errors.append(f"{name} 无法读取：{exc}")
+    try:
+        with Image.open(path) as img:
+            if img.size != size:
+                errors.append(f"{name} 尺寸 {img.size} != {size}")
+            if img.mode != "RGB":
+                errors.append(f"{name} 模式 {img.mode} != RGB")
+    except Exception as exc:
+        errors.append(f"{name} 无法读取：{exc}")
+    return errors
+
+
+def _verify_manifest(out_dir, theme, expected):
     manifest_path = out_dir / "brand-assets.json"
     if not manifest_path.is_file():
-        errors.append("缺少 brand-assets.json")
-        return errors
+        return ["缺少 brand-assets.json"], None
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        errors.append(f"brand-assets.json 无法解析：{exc}")
-        return errors
+        return [f"brand-assets.json 无法解析：{exc}"], None
+    errors = []
     if manifest.get("theme", {}).get("name") != theme["name"]:
         errors.append("manifest 主题名不一致")
     expected_brand = theme["resolved"]["semantic"].get("brand")
@@ -267,14 +269,37 @@ def verify_assets(out_dir: Path, theme: dict) -> list[str]:
         got = manifest.get("assets", {}).get(name, {}).get("sha256")
         if got != _sha256(out_dir / name):
             errors.append(f"{name} 哈希不一致")
-    # 页眉/侧栏必须真实带品牌主色，防止只生成纯白占位图
+    return errors, manifest
+
+
+def _verify_brand_color(out_dir, theme):
+    """页眉/侧栏必须真实带品牌主色，防止只生成纯白占位图。"""
+    errors = []
+    expected_brand = theme["resolved"]["semantic"].get("brand")
     brand_rgb = theme_tokens._hex_rgb(expected_brand)
-    if brand_rgb:
-        for name in ("installerHeader.bmp", "installerSidebar.bmp"):
-            with Image.open(out_dir / name).convert("RGB") as img:
-                colors = img.getcolors(maxcolors=1 << 24) or []
-                if not any(rgb == brand_rgb and count > 0 for count, rgb in colors):
-                    errors.append(f"{name} 未出现品牌主色 {expected_brand}")
+    if not brand_rgb:
+        return errors
+    for name in (INSTALLER_HEADER_BMP, INSTALLER_SIDEBAR_BMP):
+        with Image.open(out_dir / name).convert("RGB") as img:
+            colors = img.getcolors(maxcolors=1 << 24) or []
+            if not any(rgb == brand_rgb and count > 0 for count, rgb in colors):
+                errors.append(f"{name} 未出现品牌主色 {expected_brand}")
+    return errors
+
+
+def verify_assets(out_dir: Path, theme: dict) -> list[str]:
+    expected = {
+        INSTALLER_HEADER_BMP: HEADER_SIZE,
+        INSTALLER_SIDEBAR_BMP: SIDEBAR_SIZE,
+        "uninstallerSidebar.bmp": SIDEBAR_SIZE,
+    }
+    errors = []
+    for name, size in expected.items():
+        errors.extend(_verify_image(out_dir / name, name, size))
+    manifest_errors, manifest = _verify_manifest(out_dir, theme, expected)
+    errors.extend(manifest_errors)
+    if manifest is not None:
+        errors.extend(_verify_brand_color(out_dir, theme))
     return errors
 
 

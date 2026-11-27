@@ -17,6 +17,11 @@ import urllib.request
 from http.cookiejar import CookieJar
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+API_DEPLOY_STANDALONE = '/api/deployment/standalone'
+CONFIG_FILE = 'config.json'
+
 ROOT = Path(__file__).resolve().parent.parent
 PY = os.environ.get("PYTHON") or r"F:\Program Files\Python3.14\python.exe"
 if not Path(PY).exists():
@@ -91,6 +96,97 @@ def audit_actions(data):
         con.close()
 
 
+def _switch_checks(client, data, port):
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"Origin": f"http://127.0.0.1:{port}"})
+    check("缺少本机恢复令牌被拒", st == 403 and body.get("code") == "BAD_LOCAL_TOKEN", f"{st} {body}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"Origin": f"http://127.0.0.1:{port}", "X-We-Local-Recovery": "wrong"})
+    check("错误本机恢复令牌被拒", st == 403 and body.get("code") == "BAD_LOCAL_TOKEN", f"{st} {body}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"Origin": "http://evil.example", "X-We-Local-Recovery": TOKEN})
+    check("跨站 Origin 被拒", st == 403 and body.get("code") == "BAD_ORIGIN", f"{st} {body}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"Origin": "http://127.0.0.1:" + str(port + 1), "X-We-Local-Recovery": TOKEN})
+    check("不同端口 Origin 被拒", st == 403 and body.get("code") == "BAD_ORIGIN", f"{st} {body}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"Origin": f"https://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN},
+                              content_type="text/plain")
+    check("非 JSON Content-Type 被拒", st == 415 and body.get("code") == "UNSUPPORTED_MEDIA_TYPE",
+          f"{st} {body}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "NO"},
+                              {"Origin": f"https://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN})
+    check("HTTPS 同源 Origin 被接受（确认词仍拦截）",
+          st == 400 and body.get("code") == "CONFIRM_REQUIRED", f"{st} {body}")
+
+    st, body, _ = client.call("/api/auth/bootstrap", {"username": "root", "password": "AdminPass123",
+                                                       "display_name": "系统管理员"})
+    check("初始化管理员成功", st == 200 and body.get("user", {}).get("role") == "admin", f"{st} {body}")
+    st, body, _ = client.call("/api/auth/login", {"username": "root", "password": "AdminPass123"})
+    check("管理员登录成功", st == 200 and body.get("user", {}).get("username") == "root", f"{st} {body}")
+    sessions_before = db_count(data, "sessions")
+    audit_before = db_count(data, "audit")
+
+    st, body, headers = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                                    {"Origin": f"http://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN})
+    check("合法令牌+Origin 切换成功", st == 200 and body.get("mode") == "standalone"
+          and body.get("changed") is True, f"{st} {body}")
+    check("切换清除浏览器 Cookie", "Max-Age=0" in (headers.get("Set-Cookie") or ""),
+          headers.get("Set-Cookie", "")[:120])
+    cfg = json.loads((data / CONFIG_FILE).read_text(encoding="utf-8"))
+    check("只改 deployment.mode，保留其他配置",
+          cfg.get("deployment", {}).get("mode") == "standalone"
+          and cfg.get("provider") == "agnes"
+          and cfg.get("llm", {}).get("enabled") is False
+          and cfg.get("sso", {}).get("enabled") is False,
+          json.dumps(cfg, ensure_ascii=False)[:220])
+    check("切换撤销全部服务端会话", db_count(data, "sessions") == 0,
+          f"before={sessions_before} after={db_count(data, 'sessions')}")
+    actions = [row[0] for row in audit_actions(data)]
+    check("切换新增审计事件", "deployment_switch" in actions,
+          f"before={audit_before} after={db_count(data, 'audit')} actions={actions[-4:]}")
+
+    st, body, _ = client.call(API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+                              {"X-We-Local-Recovery": TOKEN})
+    check("无 Origin 但带令牌可幂等调用", st == 200 and body.get("changed") is False, f"{st} {body}")
+
+
+def _no_token_checks():
+    # 令牌未配置时必须 fail-closed，而不是退回“无 Origin 放行”
+    tmp2 = Path(tempfile.mkdtemp(prefix="we_deployment_notoken_"))
+    data2 = tmp2 / "data"
+    data2.mkdir(parents=True, exist_ok=True)
+    (data2 / CONFIG_FILE).write_text(json.dumps(
+        {"deployment": {"mode": "workgroup"}}), encoding="utf-8")
+    port2 = free_port()
+    env2 = {**os.environ, "WE_DATA": str(data2), "WE_UPDATE_URL": "off",
+            "WE_LTASK_TEST": "1"}
+    env2.pop("WE_LOCAL_RECOVERY_TOKEN", None)
+    p2 = subprocess.Popen([PY, "-u", "scripts/server.py", str(port2), "--serve-frontend"],
+                          cwd=str(ROOT), env=env2, stdout=subprocess.DEVNULL,
+                          stderr=subprocess.STDOUT)
+    try:
+        check("无令牌服务健康", wait_health(f"http://127.0.0.1:{port2}"), f"port={port2}")
+        st, body, _ = Client(f"http://127.0.0.1:{port2}").call(
+            API_DEPLOY_STANDALONE, {"confirm": "STANDALONE"},
+            {"Origin": f"http://127.0.0.1:{port2}"})
+        check("未配置令牌时 fail-closed", st == 403 and body.get("code") == "LOCAL_TOKEN_UNCONFIGURED",
+              f"{st} {body}")
+    finally:
+        p2.terminate()
+        try:
+            p2.wait(timeout=5)
+        except Exception:
+            p2.kill()
+        import shutil
+        shutil.rmtree(tmp2, ignore_errors=True)
+
+
 def main():
     global SERVER
     port = free_port()
@@ -98,7 +194,7 @@ def main():
     tmp = Path(tempfile.mkdtemp(prefix="we_deployment_api_"))
     data = tmp / "data"
     data.mkdir(parents=True, exist_ok=True)
-    (data / "config.json").write_text(json.dumps({
+    (data / CONFIG_FILE).write_text(json.dumps({
         "deployment": {"mode": "workgroup"},
         "provider": "agnes",
         "llm": {"enabled": False, "api": "https://legacy.example/v1", "model": "legacy"},
@@ -118,93 +214,8 @@ def main():
         if not healthy:
             print("--- server log ---\n" + "".join(LOG[-80:]))
             return 1
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"Origin": f"http://127.0.0.1:{port}"})
-        check("缺少本机恢复令牌被拒", st == 403 and body.get("code") == "BAD_LOCAL_TOKEN", f"{st} {body}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"Origin": f"http://127.0.0.1:{port}", "X-We-Local-Recovery": "wrong"})
-        check("错误本机恢复令牌被拒", st == 403 and body.get("code") == "BAD_LOCAL_TOKEN", f"{st} {body}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"Origin": "http://evil.example", "X-We-Local-Recovery": TOKEN})
-        check("跨站 Origin 被拒", st == 403 and body.get("code") == "BAD_ORIGIN", f"{st} {body}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"Origin": "http://127.0.0.1:" + str(port + 1), "X-We-Local-Recovery": TOKEN})
-        check("不同端口 Origin 被拒", st == 403 and body.get("code") == "BAD_ORIGIN", f"{st} {body}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"Origin": f"https://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN},
-                                  content_type="text/plain")
-        check("非 JSON Content-Type 被拒", st == 415 and body.get("code") == "UNSUPPORTED_MEDIA_TYPE",
-              f"{st} {body}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "NO"},
-                                  {"Origin": f"https://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN})
-        check("HTTPS 同源 Origin 被接受（确认词仍拦截）",
-              st == 400 and body.get("code") == "CONFIRM_REQUIRED", f"{st} {body}")
-
-        st, body, _ = client.call("/api/auth/bootstrap", {"username": "root", "password": "AdminPass123",
-                                                           "display_name": "系统管理员"})
-        check("初始化管理员成功", st == 200 and body.get("user", {}).get("role") == "admin", f"{st} {body}")
-        st, body, _ = client.call("/api/auth/login", {"username": "root", "password": "AdminPass123"})
-        check("管理员登录成功", st == 200 and body.get("user", {}).get("username") == "root", f"{st} {body}")
-        sessions_before = db_count(data, "sessions")
-        audit_before = db_count(data, "audit")
-
-        st, body, headers = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                        {"Origin": f"http://127.0.0.1:{port}", "X-We-Local-Recovery": TOKEN})
-        check("合法令牌+Origin 切换成功", st == 200 and body.get("mode") == "standalone"
-              and body.get("changed") is True, f"{st} {body}")
-        check("切换清除浏览器 Cookie", "Max-Age=0" in (headers.get("Set-Cookie") or ""),
-              headers.get("Set-Cookie", "")[:120])
-        cfg = json.loads((data / "config.json").read_text(encoding="utf-8"))
-        check("只改 deployment.mode，保留其他配置",
-              cfg.get("deployment", {}).get("mode") == "standalone"
-              and cfg.get("provider") == "agnes"
-              and cfg.get("llm", {}).get("enabled") is False
-              and cfg.get("sso", {}).get("enabled") is False,
-              json.dumps(cfg, ensure_ascii=False)[:220])
-        check("切换撤销全部服务端会话", db_count(data, "sessions") == 0,
-              f"before={sessions_before} after={db_count(data, 'sessions')}")
-        actions = [row[0] for row in audit_actions(data)]
-        check("切换新增审计事件", "deployment_switch" in actions,
-              f"before={audit_before} after={db_count(data, 'audit')} actions={actions[-4:]}")
-
-        st, body, _ = client.call("/api/deployment/standalone", {"confirm": "STANDALONE"},
-                                  {"X-We-Local-Recovery": TOKEN})
-        check("无 Origin 但带令牌可幂等调用", st == 200 and body.get("changed") is False, f"{st} {body}")
-
-        # 令牌未配置时必须 fail-closed，而不是退回“无 Origin 放行”
-        tmp2 = Path(tempfile.mkdtemp(prefix="we_deployment_notoken_"))
-        data2 = tmp2 / "data"
-        data2.mkdir(parents=True, exist_ok=True)
-        (data2 / "config.json").write_text(json.dumps(
-            {"deployment": {"mode": "workgroup"}}), encoding="utf-8")
-        port2 = free_port()
-        env2 = {**os.environ, "WE_DATA": str(data2), "WE_UPDATE_URL": "off",
-                "WE_LTASK_TEST": "1"}
-        env2.pop("WE_LOCAL_RECOVERY_TOKEN", None)
-        p2 = subprocess.Popen([PY, "-u", "scripts/server.py", str(port2), "--serve-frontend"],
-                              cwd=str(ROOT), env=env2, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.STDOUT)
-        try:
-            check("无令牌服务健康", wait_health(f"http://127.0.0.1:{port2}"), f"port={port2}")
-            st, body, _ = Client(f"http://127.0.0.1:{port2}").call(
-                "/api/deployment/standalone", {"confirm": "STANDALONE"},
-                {"Origin": f"http://127.0.0.1:{port2}"})
-            check("未配置令牌时 fail-closed", st == 403 and body.get("code") == "LOCAL_TOKEN_UNCONFIGURED",
-                  f"{st} {body}")
-        finally:
-            p2.terminate()
-            try:
-                p2.wait(timeout=5)
-            except Exception:
-                p2.kill()
-            import shutil
-            shutil.rmtree(tmp2, ignore_errors=True)
+        _switch_checks(client, data, port)
+        _no_token_checks()
         return 0 if all(x["ok"] for x in CHECKS) else 1
     finally:
         if SERVER:

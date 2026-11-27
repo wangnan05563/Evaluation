@@ -375,6 +375,7 @@ td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
 #v-review .ct-scroll {
   max-height: max(300px, calc(100vh - 506px));   /* 表格下沿止于底部 sticky dockbar 上方，避免行被汇总条遮住 */
   overflow: auto !important;
+  position: relative;
 }
 
 /* T06174：复核表改为 div 网格，行体不再进入 <table> 布局；虚拟窗口约 20 行。 */
@@ -403,7 +404,6 @@ td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
 }
 #v-review .ct-h.sortable { cursor: pointer; }
 #v-review .ct-ck { justify-content: center; padding-left: 0; padding-right: 0; }
-#v-review .ct-scroll { position: relative; }
 #v-review .ct-body { position: relative; }
 #v-review .ct-body .rowr {
   position: relative;
@@ -904,14 +904,14 @@ body.pz-open { overflow: hidden; }
 .pz-counter { margin-left: auto; font-variant-numeric: tabular-nums; color: #b9c7e6; font-size: 16px; }
 .pz-exit {
   border: 1px solid rgba(255,255,255,.28);
-  background: rgba(255,255,255,.08);
+  background: #24344d;
   color: #fff;
   border-radius: 10px;
   padding: 8px 14px;
   cursor: pointer;
   font-size: 14px;
 }
-.pz-exit:hover { background: rgba(255,255,255,.16); }
+.pz-exit:hover { background: #33496b; }
 .pz-stage {
   flex: 1;
   min-height: 0;
@@ -990,7 +990,7 @@ body.pz-open { overflow: hidden; }
 }
 .pz-nav button {
   border: 1px solid rgba(143,182,255,.38);
-  background: rgba(255,255,255,.06);
+  background: #1f2c42;
   color: #dce7ff;
   padding: 9px 18px;
   border-radius: 10px;
@@ -1552,13 +1552,13 @@ body.auth-locked{overflow:hidden}
     <div id="authSsoMsg" class="auth-alert" hidden role="alert"></div>
     <form id="authForm" class="auth-form" onsubmit="event.preventDefault();RbacAuth.submit()">
       <label class="auth-field"><span data-i18n="auth.username">账号</span>
-        <input id="authUsername" name="username" autocomplete="username" required maxlength="40" spellcheck="false">
+        <input id="authUsername" name="username" type="text" autocomplete="username" required maxlength="40" spellcheck="false">
       </label>
       <label class="auth-field"><span data-i18n="auth.password">密码</span>
         <input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
       </label>
       <label class="auth-field" id="authDisplayRow" hidden><span data-i18n="auth.display_name">显示名称</span>
-        <input id="authDisplayName" name="display_name" maxlength="60" autocomplete="name">
+        <input id="authDisplayName" name="display_name" type="text" maxlength="60" autocomplete="name">
       </label>
       <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span data-i18n="auth.login">登录</span></button>
     </form>
@@ -1667,14 +1667,14 @@ body.auth-locked{overflow:hidden}
       <details id="migrationCard" class="glass pad" style="margin-top:14px">
         <summary style="cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px">
           <i aria-hidden="true" data-lucide="database" style="width:15px;height:15px;color:var(--brand)"></i>
-          数据迁移与双读兼容 <span id="migrationBadge" class="badge" style="font-size:11px">读取中…</span>
+           <span data-i18n="history.migration.title">数据迁移与双读兼容</span> <span id="migrationBadge" class="badge" style="font-size:11px" data-i18n="history.migration.badge.loading">读取中…</span>
         </summary>
         <div style="margin-top:10px">
           <div id="migrationInfo" style="font-size:12px;color:var(--muted);line-height:1.9">正在读取迁移状态…</div>
           <div class="toolbar" style="margin-top:10px;gap:8px">
-            <button class="btn btn-primary" id="migrationRunBtn" onclick="migrationRun()"><i aria-hidden="true" data-lucide="play" style="width:14px;height:14px"></i><span>执行迁移</span></button>
-            <button class="btn btn-ghost" id="migrationRollbackBtn" onclick="migrationRollback()"><i aria-hidden="true" data-lucide="undo-2" style="width:14px;height:14px"></i><span>回滚迁移</span></button>
-            <button class="btn btn-ghost" onclick="migrationRender()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span>刷新状态</span></button>
+            <button class="btn btn-primary" id="migrationRunBtn" onclick="migrationRun()"><i aria-hidden="true" data-lucide="play" style="width:14px;height:14px"></i><span data-i18n="history.migration.run">执行迁移</span></button>
+            <button class="btn btn-ghost" id="migrationRollbackBtn" onclick="migrationRollback()"><i aria-hidden="true" data-lucide="undo-2" style="width:14px;height:14px"></i><span data-i18n="history.migration.rollback">回滚迁移</span></button>
+            <button class="btn btn-ghost" onclick="migrationRender()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="history.migration.refresh">刷新状态</span></button>
           </div>
           <div id="migrationMsg" style="font-size:12px;margin-top:8px"></div>
         </div>
@@ -1732,7 +1732,7 @@ body.auth-locked{overflow:hidden}
   <section class="view" id="v-review">
     <div class="mark" id="reopenBanner" style="display:none;margin-bottom:12px"></div>
     <div class="av rwb">
-      <aside class="glass pad rwb-left" style="padding:16px">
+      <aside class="glass pad rwb-left" aria-label="功能模块" style="padding:16px">
         <div class="cap" data-i18n="review.cap.module">功能模块</div>
         <div class="tree" id="tree"></div>
         <div class="total"><span data-i18n="review.side.ufp_unadj">未调整功能点 UFP</span><b id="treeUfp">0</b><span><span data-i18n="review.side.pending_pre">待确认</span> <b class="num" id="leftCnt">0</b> <span data-i18n="review.side.pending_post">项</span></span></div>
@@ -1903,7 +1903,7 @@ body.auth-locked{overflow:hidden}
     <div class="pz-top">
       <span class="pz-brand">WORKLOAD EVALUATION · 演示模式</span>
       <span class="pz-counter" id="presenterCounter">1 / 1</span>
-      <button class="pz-exit" id="presenterExit" onclick="presenterClose()" aria-label="退出演示模式">退出 Esc</button>
+      <button class="pz-exit" id="presenterExit" onclick="presenterClose()">退出 Esc</button>
     </div>
     <div class="pz-stage" id="presenterStage" aria-live="polite"></div>
     <div class="pz-nav">
@@ -2119,7 +2119,7 @@ body.auth-locked{overflow:hidden}
         <select id="ratesSel" onchange="ratesPick()" style="max-width:150px;font-size:12px"></select>
         <button class="btn btn-ghost" onclick="ratesAdd()" data-i18n="title=config.rates.add_title" title="新增年度版本"><span data-i18n="config.common.add_ver">+版本</span></button>
         <button class="btn btn-ghost" onclick="ratesDel()" data-i18n="title=config.rates.del_title" title="删除当前版本"><span data-i18n="config.common.delete">删除</span></button>
-        <button class="btn btn-primary" onclick="ratesSave()" data-i18n="title=config.rates.save_title" title="保存当前版本（不发版更新）">保存</button>
+        <button class="btn btn-primary" onclick="ratesSave()" data-i18n="title=config.rates.save_title" title="保存当前版本（不发版更新）"><span data-i18n="config.common.save">保存</span></button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0">
         <label style="font-size:12px;color:var(--muted)"><span data-i18n="config.rates.pdr">生产率 PDR（人时/FP）</span><input id="ratesPdr" type="number" step="0.01" style="width:100%;margin-top:4px"></label>
@@ -2425,7 +2425,7 @@ body.auth-locked{overflow:hidden}
           <div class="wf-versions" id="wfVersions"></div>
           <div class="wf-signed" id="wfSigned" hidden></div>
           <h3 class="wf-h3" id="wfTimelineTitle" data-i18n="flow.timeline">审计轨迹</h3>
-          <div class="wf-timeline" id="wfTimeline" tabindex="0" role="region" aria-labelledby="wfTimelineTitle"></div>
+          <div class="wf-timeline" id="wfTimeline" role="region" aria-labelledby="wfTimelineTitle"></div>
           <div class="wf-form" id="wfForm">
             <h3 class="wf-h3" data-i18n="flow.action.title">状态操作</h3>
             <div class="wf-form-grid">
@@ -2465,7 +2465,7 @@ body.auth-locked{overflow:hidden}
 
       <section class="glass pad team-card" id="rbacUsersCard" aria-labelledby="rbacUsersTitle">
         <div class="card-title" id="rbacUsersTitle"><i aria-hidden="true" data-lucide="user-plus"></i><span data-i18n="team.users.title">成员账号</span><span class="team-count" id="rbacUserCount"></span></div>
-        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacUsersTitle" tabindex="0"><table class="rbac-table" aria-label="成员账号列表">
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacUsersTitle"><table class="rbac-table" aria-label="成员账号列表">
           <thead><tr><th data-i18n="team.users.name">成员</th><th data-i18n="team.users.role">角色</th><th data-i18n="team.users.status">状态</th><th data-i18n="team.users.last">最近登录</th><th data-i18n="team.users.action">操作</th></tr></thead>
           <tbody id="rbacUserRows"></tbody>
         </table></div>
@@ -2537,19 +2537,19 @@ body.auth-locked{overflow:hidden}
               <button type="button" class="btn btn-ghost" onclick="IntegrationAdmin.loadJobs()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="team.int.refresh">刷新任务</span></button>
             </div>
           <div class="int-section" data-i18n="team.int.jobs">最近同步任务</div>
-            <ol class="int-jobs" id="intJobs" tabindex="0" aria-label="最近同步任务"></ol>
+            <ol class="int-jobs" id="intJobs" aria-label="最近同步任务"></ol>
           </div>
         </div>
       </section>
 
       <section class="glass pad team-card team-wide" id="rbacMatrixCard" aria-labelledby="rbacMatrixTitle">
         <div class="card-title" id="rbacMatrixTitle"><i aria-hidden="true" data-lucide="table-2"></i><span data-i18n="team.matrix.title">角色权限矩阵</span></div>
-        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacMatrixTitle" tabindex="0"><table class="rbac-table rbac-matrix" aria-label="角色权限矩阵"><thead id="rbacMatrixHead"></thead><tbody id="rbacMatrixBody"></tbody></table></div>
+        <div class="rbac-table-wrap" role="region" aria-labelledby="rbacMatrixTitle"><table class="rbac-table rbac-matrix" aria-label="角色权限矩阵"><thead id="rbacMatrixHead"><tr><th scope="col">角色</th><th scope="col">权限</th></tr></thead><tbody id="rbacMatrixBody"></tbody></table></div>
       </section>
 
       <section class="glass pad team-card team-wide" id="rbacAuditCard" aria-labelledby="rbacAuditTitle">
         <div class="card-title" id="rbacAuditTitle"><i aria-hidden="true" data-lucide="scroll-text"></i><span data-i18n="team.audit.title">越权与登录审计</span><span class="team-count" id="rbacAuditCount"></span></div>
-        <ol class="rbac-audit" id="rbacAudit" tabindex="0" aria-labelledby="rbacAuditTitle"></ol>
+        <ol class="rbac-audit" id="rbacAudit" aria-labelledby="rbacAuditTitle"></ol>
         <div class="wf-actions"><button type="button" class="btn btn-ghost" onclick="RbacAuth.loadAudit()"><i aria-hidden="true" data-lucide="refresh-cw" style="width:14px;height:14px"></i><span data-i18n="team.audit.refresh">刷新审计</span></button></div>
       </section>
     </div>
@@ -2876,31 +2876,31 @@ const LV={低:"low",中:"mid",高:"high",新增:"new",修改:"change",删除:"de
 const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 /* T06173/WCAG 4.1.2：配置页/表格内存在大量“视觉有标题、程序无名称”的输入控件。
    统一按最近的表头、.f-w 字段名或卡片标题补 aria-label；已有 name 的控件不覆盖。 */
+function _a11yTableName(el){
+  const tr=el.closest("tr");
+  if(!tr)return "";
+  const cell=el.closest("td,th"),table=tr.closest("table");
+  if(!cell||!table)return "";
+  const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
+  return th?th.textContent.replaceAll(/\s+/g," ").trim():"";
+}
+function _a11yWrapName(el){
+  const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
+  const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
+  return lab?lab.textContent.replaceAll(/\s+/g," ").trim():"";
+}
+function _a11yCardName(el){
+  const card=el.closest(".glass.pad,.card");
+  const title=card&&card.querySelector(".card-title");
+  return title?(title.querySelector("span")||title).textContent.replaceAll(/\s+/g," ").trim():"";
+}
 function a11yLabelControls(root=document){
   const scope=root&&root.querySelectorAll?root:document;
   scope.querySelectorAll("input,select,textarea").forEach(el=>{
     const type=(el.getAttribute("type")||"").toLowerCase();
     if(type==="hidden"||type==="file")return;
     if(el.getAttribute("aria-label")||el.getAttribute("aria-labelledby")||el.closest("label"))return;
-    let name="";
-    const tr=el.closest("tr");
-    if(tr){
-      const cell=el.closest("td,th"),table=tr.closest("table");
-      if(cell&&table){
-        const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
-        if(th)name=th.textContent.replace(/\s+/g," ").trim();
-      }
-    }
-    if(!name){
-      const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
-      const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
-      if(lab)name=lab.textContent.replace(/\s+/g," ").trim();
-    }
-    if(!name){
-      const card=el.closest(".glass.pad,.card");
-      const title=card&&card.querySelector(".card-title");
-      if(title)name=(title.querySelector("span")||title).textContent.replace(/\s+/g," ").trim();
-    }
+    let name=_a11yTableName(el)||_a11yWrapName(el)||_a11yCardName(el);
     if(!name&&el.getAttribute("placeholder"))name=el.getAttribute("placeholder").trim();
     if(!name&&el.id)name=el.id;
     if(name)el.setAttribute("aria-label",name.slice(0,96));
@@ -2919,7 +2919,7 @@ function confidenceOf(it){
 function confBadge(it){
   const c=confidenceOf(it);
   if(c==null)return "";
-  const pct=Math.round(c*100), lv=c<0.70?"low":c<0.85?"mid":"high";
+  const pct=Math.round(c*100), lv=c<0.7?"low":c<0.85?"mid":"high";
   const label=(typeof tf==="function")?tf("review.confidence.short",{n:pct}):"置信 "+pct+"%";
   return `<span class="rwb-conf-badge ${lv}" title="${escAttr(label)}">${escAttr(label)}</span>`;
 }
@@ -2942,24 +2942,29 @@ window.confBadge=confBadge;
 function badge(it){return (it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>')+confBadge(it);}
 function cxInt(v,d){const n=Number.parseInt(v,10);return Number.isFinite(n)?n:d;}
 function cxDefaultDet(type){return (type==='ILF'||type==='EIF')?20:10;}
+function _stdIlf(d,r){
+  if(r<=1)return d<=50?'低':'中';
+  if(r<=5)return d<=19?'低':(d<=50?'中':'高');
+  return d<=19?'中':'高';
+}
+function _stdEi(d,f){
+  if(f<=2)return d<=4?'低':(d<=15?'中':'高');
+  return d<=4?'中':'高';
+}
+function _stdOther(d,f){
+  if(f<=3)return d<=5?'低':(d<=19?'中':'高');
+  return d<=5?'中':'高';
+}
 function stdComplexity(it){
   const d=Math.max(1,cxInt(it.det,cxDefaultDet(it.type)));
   const r=Math.max(1,cxInt(it.ret,2));
   const f=Math.max(0,cxInt(it.ftr,1));
-  if(it.type==='ILF'||it.type==='EIF'){
-    if(r<=1)return d<=50?'低':'中';
-    if(r<=5)return d<=19?'低':(d<=50?'中':'高');
-    return d<=19?'中':'高';
-  }
-  if(it.type==='EI'){
-    if(f<=2)return d<=4?'低':(d<=15?'中':'高');
-    return d<=4?'中':'高';
-  }
-  if(f<=3)return d<=5?'低':(d<=19?'中':'高');
-  return d<=5?'中':'高';
+  if(it.type==='ILF'||it.type==='EIF')return _stdIlf(d,r);
+  if(it.type==='EI')return _stdEi(d,f);
+  return _stdOther(d,f);
 }
 function stdUfp(it){const w=STD_WEIGHT[it.type];return w?w[stdComplexity(it)]:(WEIGHT[it.type]||0);}
-function ufp(it){if(cxMode==='标准IFPUG')return stdUfp(it);const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
+function ufp(it){if(cxMode==='标准IFPUG'){return stdUfp(it);}const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function cxHintText(){
   const en=(document.documentElement.lang||"zh").toLowerCase().startsWith("en");
@@ -2988,7 +2993,10 @@ function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":
 function cxCellHTML(it){return `<select class="pick" aria-label="${t("review.th.cx")} ${it.seq}" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
 function stdCxHTML(it){
   const d=cxInt(it.det,cxDefaultDet(it.type)),r=cxInt(it.ret,2),f=cxInt(it.ftr,1),cx=stdComplexity(it);
-  const inp=(k,v,lab,max)=>`<input class="pick" type="number" min="0" ${max?`max="${max}"`:''} step="1" value="${v}" data-k="${k}" data-seq="${it.seq}" aria-label="${lab} ${it.seq}" style="width:42px;padding:2px 3px;font-size:11px">`;
+  const inp=(k,v,lab,max)=>{
+    const maxAttr=max?`max="${max}"`:'';
+    return `<input class="pick" type="number" min="0" ${maxAttr} step="1" value="${v}" data-k="${k}" data-seq="${it.seq}" aria-label="${lab} ${it.seq}" style="width:42px;padding:2px 3px;font-size:11px">`;
+  };
   return `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap" title="DET / RET / FTR">`+
     inp('det',d,'DET',null)+inp('ret',r,'RET',null)+inp('ftr',f,'FTR',null)+
     `<span class="cat ${CATCOLOR[it.type]}" data-cx="${it.seq}" style="min-width:28px;text-align:center">${cx}</span></div>`;
@@ -3072,10 +3080,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
   $("#fTodo").checked=false;sortState=null;render();toast(t("review.filter.cleared"));}
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
-function rowHTML(it,lite){
+function _liteRowHTML(it){
   const blocked=!canConfirmItem(it);
   const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
-  if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
+  return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
       <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
@@ -3083,6 +3091,10 @@ function rowHTML(it,lite){
       <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${it.reuse||''}</div><div class="ct-c" role="gridcell">${it.modify||'新增'}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
       <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
     </div>`;
+}
+function _fullRowHTML(it){
+  const blocked=!canConfirmItem(it);
+  const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
   return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
       <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div>${it.stable_id?`<div style="font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px" title="稳定功能ID">${escAttr(it.stable_id)}</div>`:''}<div class="basis">${it.basis||''}</div></div>
@@ -3090,7 +3102,33 @@ function rowHTML(it,lite){
       <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap">${typeCell(it)}${cxMode==='标准IFPUG'?stdCxHTML(it):cxCellHTML(it)}</div></div>
       <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${reuseHTML(it)}</div><div class="ct-c" role="gridcell">${modHTML(it)}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
       <div class="ct-c" role="gridcell"><span class="rowst">${badge(it)}</span></div>
-    </div>`;}
+    </div>`;
+}
+function rowHTML(it,lite){return lite?_liteRowHTML(it):_fullRowHTML(it);}
+function _clearTable(tb){
+  tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+}
+function _renderEmpty(light,icon,titleKey,bodyKey,extra){
+  const tb=$("#tbody");
+  _clearTable(tb);
+  tb.innerHTML=`<div class="ct-empty">${emptyState(icon,t(titleKey),t(bodyKey),extra)}</div>`;
+  if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+}
+function _renderVirtual(arr,lite,light){
+  const tb=$("#tbody");
+  if(!light){tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
+  tb.setAttribute("role","rowgroup");
+  ctRenderVirtual(tb,arr,it=>rowHTML(it,lite),curSeq,window.__showb);
+  ctBindScroll(tb,()=>render({light:true}));
+  if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+}
+function _renderRows(arr,lite){
+  const tb=$("#tbody");
+  _clearTable(tb);
+  tb.setAttribute("role","rowgroup");
+  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
+  refreshTotals();window.lucide&&lucide.createIcons();
+}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
   if(!light&&window.RWB) setTimeout(()=>RWB.onRender(),0);
@@ -3101,45 +3139,33 @@ function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/�
   const vrEl=$("#v-review");if(vrEl)vrEl.classList.toggle("ct-lite",lite);
   if(!light){$("#listCnt").textContent=tf("review.count",{n:arr.length});
     const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;}
-  if(!items.length){
-    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
-    tb.innerHTML=`<div class="ct-empty">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</div>`;
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
-  if(!arr.length){
-    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
-    tb.innerHTML=`<div class="ct-empty">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</div>`;
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
+  if(!items.length){_renderEmpty(light,"inbox","review.empty.title","review.empty.body","");return;}
+  if(!arr.length){_renderEmpty(light,"search-x","review.empty2.title","review.empty2.body",'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>');return;}
   if(!window.__showb)window.__showb=new Set();   // FR-3.3：展开状态改 Set 驱动（虚拟路径可还原）
   if(arr.length>CT.threshold){   // FR-3.3（UI03）：虚拟滚动窗口渲染
-    if(!light){const tb=$("#tbody");tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
-    $("#tbody").setAttribute("role","rowgroup");
-    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it,lite),curSeq,window.__showb);
-    ctBindScroll($("#tbody"),()=>render({light:true}));
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+    _renderVirtual(arr,lite,light);
     return;
   }
-  const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.setAttribute("role","rowgroup");
-  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
-  refreshTotals();window.lucide&&lucide.createIcons();
+  _renderRows(arr,lite);
 }
-$("#tbody").addEventListener("change",e=>{
-  const ck=e.target.closest(".ck");
-  if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
-    if(!it)return;
-    if(ck.checked && !canConfirmItem(it)){
-      ck.checked=false;
-      if(window.toast)toast(t("review.evidence.no_confirm"));
-      return;
-    }
-    if(it.ok===ck.checked)return;
-    pushUndo("确认状态");
-    it.ok=ck.checked;row.classList.toggle("done",ck.checked);
-    if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
-    const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
-    if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
-    return;}
-  const s=e.target;if(!s.dataset.k)return;
+function _handleRowCheck(ck){
+  const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+  if(!it)return;
+  if(ck.checked && !canConfirmItem(it)){
+    ck.checked=false;
+    if(window.toast)toast(t("review.evidence.no_confirm"));
+    return;
+  }
+  if(it.ok===ck.checked)return;
+  pushUndo("确认状态");
+  it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+  if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
+  const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
+  window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
+  if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
+}
+function _handleFieldChange(s){
+  if(!s.dataset.k)return;
   const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
   if(String(it[s.dataset.k])===String(s.value))return;
   pushUndo("编辑 "+(s.dataset.k||""));
@@ -3147,7 +3173,13 @@ $("#tbody").addEventListener("change",e=>{
   if(cxMode==='标准IFPUG'&&['type','det','ret','ftr'].includes(s.dataset.k)){
     it.det=cxInt(it.det,cxDefaultDet(it.type));it.ret=cxInt(it.ret,2);it.ftr=cxInt(it.ftr,1);it.cx=stdComplexity(it);
   }
-  refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
+  refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();
+}
+$("#tbody").addEventListener("change",e=>{
+  const ck=e.target.closest(".ck");
+  if(ck){_handleRowCheck(ck);return;}
+  _handleFieldChange(e.target);
+});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -3167,7 +3199,7 @@ document.addEventListener("keydown",e=>{
 });
 function toggleBasis(seq){
   const row=document.querySelector(`#tbody [data-seq="${seq}"]`);
-  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn){btn.setAttribute("aria-expanded",on?"true":"false");}on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
 function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const row=document.querySelector(`#tbody [data-seq="${it.seq}"]`);if(row)row.classList.add("showb");});
@@ -3225,36 +3257,47 @@ const PERT_PHASE_KEYS={"需求分析":"pert.phase.req","系统设计":"pert.phas
 function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
-function goPage(p){
-  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+const PAGE_INIT={
+  config:[()=>bindConfig(),()=>typeof initWindowBehavior==="function"&&initWindowBehavior(),()=>rulesLoad(),()=>ratesLoad(),
+    ()=>typeof themeTokenPanel==="function"&&themeTokenPanel(),()=>typeof evalInit==="function"&&evalInit()],
+  flow:[()=>typeof flowInit==="function"&&flowInit()],
+  team:[()=>window.RbacAuth&&RbacAuth.teamInit()],
+  fast:[()=>fastRender()],pert:[()=>pertInit()],help:[()=>loadAppInfo()],
+};
+function _runPageInit(p){
+  (PAGE_INIT[p]||[]).forEach(fn=>{if(typeof fn==="function")fn();});
+}
+function _teamPageDenied(){
+  if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return true;}
+  if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return true;}
+  return false;
+}
+function _configPageDenied(){
+  return !!(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read"));
+}
+function _flowPageDenied(){
+  if(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){toast(tl("rbac.denied.project","当前角色无权查看项目"));return true;}
+  if(document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return true;}
+  return false;
+}
+function _pageAccessDenied(p){
   if(document.body.classList.contains('auth-locked')&&p!=="work"){
     if(window.RbacAuth)RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));
-    return;
+    return true;
   }
-  if(p==="team"){
-    if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return;}
-    if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return;}
+  if(p==="team")return _teamPageDenied();
+  if(p==="config"&&_configPageDenied()){
+    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return true;
   }
-  if(p==="config"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read")){
-    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return;
-  }
-  if(p==="flow"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){
-    toast(tl("rbac.denied.project","当前角色无权查看项目"));return;
-  }
-  if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
+  if(p==="flow")return _flowPageDenied();
+  return false;
+}
+function goPage(p){
+  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+  if(_pageAccessDenied(p))return;
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
-  if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
-  if(p==="config"&&typeof initWindowBehavior==="function")initWindowBehavior();   // T03779 窗口关闭行为
-  if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
-  if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
-  if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
-  if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
-  if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
-  if(p==="team"&&window.RbacAuth)RbacAuth.teamInit();           // T06199：团队与权限
-  if(p==="fast")fastRender();     // M6/FR-2.1：快算页
-  if(p==="pert")pertInit();
-  if(p==="help")loadAppInfo();
+  _runPageInit(p);
   window.scrollTo({top:0,behavior:'smooth'});
   saveFormState();
 }
@@ -3273,7 +3316,7 @@ function pertStep(s){
   document.body.dataset.pertstep=s;
   const map={in:1,edit:2,gen:3};
   Object.keys(map).forEach(k=>{$("#pst"+map[k]).classList.toggle("on",k===s);});
-  if(s==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}   // T06191/T06192：实际值校准 + 蒙特卡洛
+  if(s==="gen"){if(typeof calibrationRender==="function"){calibrationRender();}if(typeof monteCarloRender==="function"){monteCarloRender();}}   // T06191/T06192：实际值校准 + 蒙特卡洛
   window.lucide&&lucide.createIcons();
   saveFormState();
 }
@@ -3329,7 +3372,7 @@ async function pertRefresh(){
   pertItems=r.items;
   renderPert();
   applyPertSummary(r.summary);
-  if(document.body.dataset.pertstep==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}
+  if(document.body.dataset.pertstep==="gen"){if(typeof calibrationRender==="function"){calibrationRender();}if(typeof monteCarloRender==="function"){monteCarloRender();}}
 }
 async function pertAdd(){
   if(!pertPid){toast(t("pert.need_project"));return;}
@@ -3430,13 +3473,14 @@ function renderPertPhases(s){
       </div></td>
     </tr>`;
   }).join("");
+  const zeroNote=zeroCount?`<p class="cfg-note" style="margin:8px 0 0">${tf("pert.phase.zero_note",{n:zeroCount})}</p>`:'';
   box.innerHTML=`<div class="card-title" style="margin-bottom:8px"><i aria-hidden="true" data-lucide="layers"></i><span>${t("pert.phase.title")}</span></div>
     <div style="overflow:auto"><table id="pertPhaseTable">
       <thead><tr><th>${t("pert.th.phase")}</th><th class="num">${t("pert.phase.days")}</th><th class="num">${t("pert.phase.items")}</th><th>${t("pert.phase.pct")}</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td><b>${t("pert.phase.total")}</b></td><td class="num"><b>${totalDays.toFixed(2)}</b></td><td class="num"><b>${totalCount}</b></td><td><b>100.0%</b></td></tr></tfoot>
     </table></div>
-    ${zeroCount?`<p class="cfg-note" style="margin:8px 0 0">${tf("pert.phase.zero_note",{n:zeroCount})}</p>`:""}`;
+    ${zeroNote}`;
   window.lucide&&lucide.createIcons();
 }
 async function pertGen(){
@@ -3555,7 +3599,7 @@ function pertCandSyncAll(){
   all.checked=!!boxes.length&&n===boxes.length;
   all.indeterminate=n>0&&n<boxes.length;
 }
-function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c)c.checked=v;pertCandSyncAll();}
+function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c){c.checked=v;}pertCandSyncAll();}
 function pertCandAll(v){
   pertCands.forEach(c=>c.checked=!!v);
   document.querySelectorAll("#pertCandTbody input[data-cb]").forEach(el=>el.checked=!!v);
@@ -4094,35 +4138,42 @@ window.LTASK_ON_RECOGNIZED=(res,meta)=>{
   applyRecognitionResult(res,$("#progressMark"));
   if(meta&&meta.restored)toast("已恢复上次识别结果");
 };
+function _recognizeParams(){
+  if(!llmCfg)return {};
+  return {llm_enabled:llmCfg.llm.enabled,llm_api:llmCfg.llm.api,llm_model:llmCfg.llm.model,llm_key:llmCfg.llm.key};
+}
+async function _runRecognition(params,mk){
+  if(window.LTASK){
+    // T06180：识别走长任务通道（真实阶段进度 + 取消 + 断点续跑）
+    const res=await LTASK.createAndRun(curFile,params);
+    applyRecognitionResult(res,mk);
+    return;
+  }
+  const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
+  const res=await resp.json();
+  if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
+  applyRecognitionResult(res,mk);
+}
+function _resetStartButton(b){
+  b.disabled=false;
+  b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';
+  window.lucide&&lucide.createIcons();
+}
+function _showRecogError(err,mk){
+  if(err&&err.code==="canceled"){dynText(mk,()=>"已取消，可继续未完成任务");return;}
+  dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);
+}
 $("#startBtn").addEventListener("click",async ()=>{
   if(!curFile)return;
   const b=$("#startBtn");b.disabled=true;const mk=$("#progressMark");dynText(mk,()=>t("work.uploading"));
   try{
-    // 大模型配置来源：配置中心已保存配置（llmCfg 为 null 时后端回退读 data/config.json）
-    let params={};
-    if(llmCfg){  // 已在会话中加载过配置中心，直接携带，保证即时性
-      params={llm_enabled:llmCfg.llm.enabled,llm_api:llmCfg.llm.api,llm_model:llmCfg.llm.model,llm_key:llmCfg.llm.key};
-    }else{  // 尚未进入过配置中心：不传 params，后端回退读已存配置
-      params={};
-    }
-    if(window.LTASK){
-      // T06180：识别走长任务通道（真实阶段进度 + 取消 + 断点续跑）
-      const res=await LTASK.createAndRun(curFile,params);
-      applyRecognitionResult(res,mk);
-    }else{
-      const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
-      const res=await resp.json();
-      if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
-      applyRecognitionResult(res,mk);
-    }
+    await _runRecognition(_recognizeParams(),mk);
   }catch(err){
-    if(err&&err.code==="canceled")dynText(mk,()=>"已取消，可继续未完成任务");
-    else{dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
+    _showRecogError(err,mk);
   }
-  b.disabled=false;b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';window.lucide&&lucide.createIcons();
+  _resetStartButton(b);
 });
-
 // T06188：复杂度口径提示随模式/语言切换刷新（dynText 已注册可重绘）
 (function(){
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",refreshCxHint,{once:true});
@@ -4325,16 +4376,34 @@ function genErrorMessage(err){
     return tf("gen.timeout",{s:Math.round(genTimeoutMs()/1000)});
   return err.message;
 }
+async function _precheckBeforeGenerate(){
+  if(typeof qualityPrecheck!=="function")return;
+  try{
+    const q=await qualityPrecheck(items,{stage:"generate"});
+    if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
+  }catch(e){/* 自检不可用时不阻断生成 */}
+}
+async function _applyGenerateResult(res,prog){
+  gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
+  // T06187：把服务端落库分配的稳定功能ID回填到当前明细，后续重开/另存可原样回传
+  if(Array.isArray(res.items)&&res.items.length===items.length){
+    res.items.forEach((it,i)=>{if(it&&it.stable_id)items[i].stable_id=it.stable_id;});
+  }
+  if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
+  if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+  if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
+  window.lastWorkflowProject=res.version_group||"";
+  if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
+  const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
+  await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
+  goStep("result");
+  showRecalcState(res.recalc,prog.job);   // T00963：结果页展示补算状态
+}
 $("#goRes").addEventListener("click",async ()=>{
   const pending=items.filter(x=>!x.ok).length;
   if(pending>0){toast(tf("gen.pending_confirm",{n:pending}));return;}  // 未全确认给反馈，避免静默无反应
   // T06196：提交前自检留痕（重复/漏项/非法类型/无证据）；不阻断既有合法生成。
-  if(typeof qualityPrecheck==="function"){
-    try{
-      const q=await qualityPrecheck(items,{stage:"generate"});
-      if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
-    }catch(e){/* 自检不可用时不阻断生成 */}
-  }
+  await _precheckBeforeGenerate();
   const btn=$("#goRes");btn.disabled=true;
   const prog=beginGenProgress();
   const ctl=new AbortController();
@@ -4345,20 +4414,7 @@ $("#goRes").addEventListener("click",async ()=>{
     const res=await resp.json();
     // 服务端 msg 经 lm() 映射；缺 msg 时用字典兜底（不直写中文，防英文态漏中文）
     if(!res.ok)throw new Error(res.msg?lm(res):t("gen.fail"));
-    gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
-    // T06187：把服务端落库分配的稳定功能ID回填到当前明细，后续重开/另存可原样回传
-    if(Array.isArray(res.items)&&res.items.length===items.length){
-      res.items.forEach((it,i)=>{if(it&&it.stable_id)items[i].stable_id=it.stable_id;});
-    }
-    if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
-    if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
-    if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
-    window.lastWorkflowProject=res.version_group||"";
-    if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
-    const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
-    await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
-    goStep("result");
-    showRecalcState(res.recalc,prog.job);   // T00963：结果页展示补算状态
+    await _applyGenerateResult(res,prog);
   }catch(err){
     const msg=genErrorMessage(err);
     prog.fail(msg);toast(msg);
@@ -4877,7 +4933,7 @@ document.addEventListener("keydown",e=>{
   if(document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
   const k=String(e.key||"").toLowerCase();
   if(k!=="z"&&k!=="y")return;
-  if(k==="z"&&!e.shiftKey){if(undoEdit())e.preventDefault();return;}
+  if(k==="z"&&!e.shiftKey){if(undoEdit()){e.preventDefault();}return;}
   if(k==="y"||(k==="z"&&e.shiftKey)){if(redoEdit())e.preventDefault();}
 });
 function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
@@ -4886,11 +4942,11 @@ function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function markDecision(it,ok){if(!it)return;if((window.isAiOrigin?window.isAiOrigin(it):(it.origin==="ai"||it.origin==="llm"||it.origin==="rule"))||it.origin==="manual"){it.human_decision=ok?"confirmed":"unconfirmed";it.decision_at=new Date().toISOString();}}
-function batchConfirm(){const arr=visibleItems().filter(it=>window.canConfirmItem?window.canConfirmItem(it):true);const skipped=visibleItems().length-arr.length;pushUndo("批量确认");arr.forEach(it=>{it.ok=true;markDecision(it,true);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_confirm",{n:arr.length});toast(skipped?tf("review.evidence.blocked_n",{n:skipped}):tf("batch.confirmed",{n:arr.length}));}
+function markDecision(it,ok){if(!it){return;}if((window.isAiOrigin?window.isAiOrigin(it):(it.origin==="ai"||it.origin==="llm"||it.origin==="rule"))||it.origin==="manual"){it.human_decision=ok?"confirmed":"unconfirmed";it.decision_at=new Date().toISOString();}}
+function batchConfirm(){const arr=visibleItems().filter(it=>window.canConfirmItem?window.canConfirmItem(it):true);const skipped=visibleItems().length-arr.length;pushUndo("批量确认");arr.forEach(it=>{it.ok=true;markDecision(it,true);});render();saveFormState();if(window.ReviewPerf){ReviewPerf.action("batch_confirm",{n:arr.length});}toast(skipped?tf("review.evidence.blocked_n",{n:skipped}):tf("batch.confirmed",{n:arr.length}));}
 function batchUnconfirm(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.unconfirm_confirm",{n:arr.length})))return;
-  pushUndo("批量取消确认");arr.forEach(it=>{it.ok=false;markDecision(it,false);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_unconfirm",{n:arr.length});toast(tf("batch.unconfirmed",{n:arr.length}));}
+  pushUndo("批量取消确认");arr.forEach(it=>{it.ok=false;markDecision(it,false);});render();saveFormState();if(window.ReviewPerf){ReviewPerf.action("batch_unconfirm",{n:arr.length});}toast(tf("batch.unconfirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
   pushUndo("批量删除");
@@ -4949,7 +5005,7 @@ function pasteParse(){
 function pasteApply(){
   pushUndo("粘贴导入");
   let seq=items.length?Math.max(...items.map(x=>x.seq)):0;
-  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,origin:"manual",can_confirm:true,confidence:0.90,evidence:[{kind:"manual",locator:"粘贴导入",quote:r.desc||r.count_item||"人工录入",context:r.desc||r.count_item||"人工录入",verified:true}],_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
+  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,origin:"manual",can_confirm:true,confidence:0.9,evidence:[{kind:"manual",locator:"粘贴导入",quote:r.desc||r.count_item||"人工录入",context:r.desc||r.count_item||"人工录入",verified:true}],_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
   const n=pasteRows.length;pasteClose();render();saveFormState();
   dynClear("#pastePreview");
   toast(tf("batch.paste_applied",{n}));}
@@ -5172,7 +5228,7 @@ function saveFormState(){
 function assignIfpugState(s){
   items=s.items;gSummary=s.gSummary||null;gSid=s.gSid||null;curFile=s.curFile||null;
   window.lastRecogMeta=s.recogMeta||null;
-  if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel)sel.value=s.cxMode;if(typeof refreshCxHint==='function')refreshCxHint();}
+  if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel){sel.value=s.cxMode;}if(typeof refreshCxHint==='function'){refreshCxHint();}}
 }
 function renderIfpugState(s){
   render();
@@ -5549,13 +5605,12 @@ function tf(key, vars){
   return s.replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
 }
 /** 切换语言后重渲染动态文案（计数/徽章/图表/PERT 明细）。 */
-function reRenderAfterLang(){
-  const page = document.body.dataset.page;
-  if(typeof render === "function" && Array.isArray(items)) render();
-  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
-  if(page === "config" && typeof rulesLoad === "function") rulesLoad();
-  // 供应商下拉的 option 是 JS 动态生成的，切换语言后需按新字典重绘标签（保留当前选中值）。
-  if(page === "config" && typeof renderProviderOptions === "function") renderProviderOptions();
+function _reRenderPage(page){
+  if(page === "config"){
+    if(typeof rulesLoad === "function") rulesLoad();
+    // 供应商下拉的 option 是 JS 动态生成的，切换语言后需按新字典重绘标签（保留当前选中值）。
+    if(typeof renderProviderOptions === "function") renderProviderOptions();
+  }
   if(page === "pert"){
     if(typeof pertSyncStart === "function") pertSyncStart();
     if(typeof pertFillPhase === "function") pertFillPhase();
@@ -5565,7 +5620,13 @@ function reRenderAfterLang(){
   // 快速估算页的计数标签/公式不是 data-i18n 静态节点，切语言必须重绘。
   if(page === "fast" && typeof fastRender === "function") fastRender();
 }
-/** 切换语言：落盘 → 重载字典 → 重刷 data-i18n 标注的节点 */
+function reRenderAfterLang(){
+  const page = document.body.dataset.page;
+  if(typeof render === "function" && Array.isArray(items)) render();
+  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
+  if(typeof migrationRender === "function" && document.getElementById("migrationCard")) migrationRender();
+  _reRenderPage(page);
+}
 async function setLang(lang){
   if(!lang || lang === __I18N_LANG) return;
   localStorage.setItem("wl_lang", lang);
@@ -5653,9 +5714,9 @@ const CT = { rowH: 44, over: 0, threshold: 120, liteLimit: 1000 };   // 行高 /
 let CT_SC = null, CT_VPH = 600;
 const CT_TPL = document.createElement("template");
 function ctScrollParent(el) {
-  if (CT_SC && CT_SC.contains(el)) { if (!CT_VPH) CT_VPH = CT_SC.clientHeight || 600; return CT_SC; }   // 缓存：滚动容器/视口高每帧不再强制布局
+  if (CT_SC && CT_SC.contains(el)) { if (!CT_VPH) { CT_VPH = CT_SC.clientHeight || 600; } return CT_SC; }   // 缓存：滚动容器/视口高每帧不再强制布局
   let p = el && el.parentElement;
-  while (p) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY)) { CT_SC = p; if (p.clientHeight > 0) CT_VPH = p.clientHeight; return p; } p = p.parentElement; }
+  while (p) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY)) { CT_SC = p; if (p.clientHeight > 0) { CT_VPH = p.clientHeight; } return p; } p = p.parentElement; }
   return null;
 }
 function ctWindow(total, scrollTop, viewportH) {
@@ -5669,66 +5730,87 @@ function ctRowNode(rowHtmlFn, it, cur, showbSet) {
   return CT_TPL.content.firstElementChild;
 }
 /* 虚拟渲染：body 高度=总行高，行节点绝对定位；固定 ~20 个节点，滚动只更新进出窗口的行。 */
+function _ctAnchorWindow(arr, cur, first, count) {
+  if (cur == null) return { first, count };
+  const idx = arr.findIndex(x => x.seq === cur);
+  if (idx < 0) return { first, count };
+  if (idx < first) first = Math.max(0, idx - CT.over);
+  else if (idx >= first + count) { first = Math.min(arr.length - 1, idx - count + 4); count = Math.min(arr.length - first, count); }
+  return { first, count };
+}
+function _ctEnsureRows(body) {
+  const rows = body.__ctRows;
+  if (rows && body.contains(rows)) return rows;
+  const fresh = document.createElement("div");
+  fresh.className = "ct-rows"; fresh.setAttribute("role", "presentation");
+  body.appendChild(fresh); body.__ctRows = fresh;
+  return fresh;
+}
+function _ctPruneSlots(map, firstSeq, lastSeq) {
+  for (const [seq, slot] of map) {
+    if (seq < firstSeq || seq > lastSeq) { slot.el.remove(); map.delete(seq); }
+  }
+}
+function _ctSlotMark(it, cur, showbSet) {
+  return it.seq + "|" + (it.seq === cur ? "c" : "") + "|" + (showbSet && showbSet.has(it.seq) ? "s" : "") + "|" + (it.ok ? "d" : "");
+}
+function _ctEnsureSlot(map, it, newEls) {
+  let slot = map.get(it.seq);
+  if (slot) return slot;
+  const el = document.createElement("div");
+  el.className = "rowr";
+  slot = { el, mark: "" };
+  map.set(it.seq, slot);
+  newEls.push(el);
+  return slot;
+}
+function _ctUpdateSlot(slot, it, cur, showbSet, rowHtmlFn) {
+  const mark = _ctSlotMark(it, cur, showbSet);
+  if (slot.mark === mark) return;
+  const fresh = ctRowNode(rowHtmlFn, it, cur, showbSet);
+  for (const a of fresh.attributes) slot.el.setAttribute(a.name, a.value);
+  slot.el.innerHTML = fresh.innerHTML;
+  slot.mark = mark;
+}
+function _ctOrderBad(rows, map, arr, first, count) {
+  if (rows.children.length !== count) return true;
+  for (let i = 0; i < count; i++) {
+    const it = arr[first + i], el = map.get(it.seq).el;
+    if (rows.children[i] !== el) return true;
+  }
+  return false;
+}
+function _ctFixOrder(rows, map, arr, first, count) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) frag.appendChild(map.get(arr[first + i].seq).el);
+  rows.replaceChildren(frag);
+}
 function ctRenderVirtual(body, arr, rowHtmlFn, cur, showbSet) {
   const sc = ctScrollParent(body);
   const vpH = sc ? ((CT_VPH || sc.clientHeight) || 600) : 600;
   const st = sc ? sc.scrollTop : 0;
   let { first, count } = ctWindow(arr.length, st, vpH);
-  if (cur != null) {                       // 键盘焦点行必须在窗口内
-    const idx = arr.findIndex(x => x.seq === cur);
-    if (idx >= 0) {
-      if (idx < first) first = Math.max(0, idx - CT.over);
-      else if (idx >= first + count) { first = Math.min(arr.length - 1, idx - count + 4); count = Math.min(arr.length - first, count); }
-    }
-  }
+  ({ first, count } = _ctAnchorWindow(arr, cur, first, count));
   body.classList.add("virtual");
   const totalH = arr.length * CT.rowH;
   if (body.__ctTotalH !== totalH) { body.__ctTotalH = totalH; body.style.height = totalH + "px"; }
-  let rows = body.__ctRows;
-  if (!rows || !body.contains(rows)) { rows = document.createElement("div"); rows.className = "ct-rows"; rows.setAttribute("role", "presentation"); body.appendChild(rows); body.__ctRows = rows; }
-  const count2 = count;
+  const rows = _ctEnsureRows(body);
   const map = rows.__map || (rows.__map = new Map());
   const firstSeq = arr[first] ? arr[first].seq : -1;
-  const lastSeq = arr[first + count2 - 1] ? arr[first + count2 - 1].seq : -1;
-  for (const [seq, slot] of map) {
-    if (seq < firstSeq || seq > lastSeq) { slot.el.remove(); map.delete(seq); }
-  }
+  const lastSeq = arr[first + count - 1] ? arr[first + count - 1].seq : -1;
+  _ctPruneSlots(map, firstSeq, lastSeq);
   const newEls = [];
-  for (let i = 0; i < count2; i++) {
+  for (let i = 0; i < count; i++) {
     const it = arr[first + i];
-    const mark = it.seq + "|" + (it.seq === cur ? "c" : "") + "|" + (showbSet && showbSet.has(it.seq) ? "s" : "") + "|" + (it.ok ? "d" : "");
-    let slot = map.get(it.seq);
-    if (!slot) {
-      const el = document.createElement("div");
-      el.className = "rowr";
-      slot = { el, mark: "" };
-      map.set(it.seq, slot);
-      newEls.push(el);
-    }
-    if (slot.mark !== mark) {
-      const fresh = ctRowNode(rowHtmlFn, it, cur, showbSet);
-      for (const a of fresh.attributes) slot.el.setAttribute(a.name, a.value);
-      slot.el.innerHTML = fresh.innerHTML;
-      slot.mark = mark;
-    }
+    const slot = _ctEnsureSlot(map, it, newEls);
+    _ctUpdateSlot(slot, it, cur, showbSet, rowHtmlFn);
   }
   if (newEls.length) {
     const frag = document.createDocumentFragment();
     for (const el of newEls) frag.appendChild(el);
     rows.appendChild(frag);
   }
-  let orderBad = rows.children.length !== count2;
-  if (!orderBad) {
-    for (let i = 0; i < count2; i++) {
-      const it = arr[first + i], el = map.get(it.seq).el;
-      if (rows.children[i] !== el) { orderBad = true; break; }
-    }
-  }
-  if (orderBad) {
-    const frag = document.createDocumentFragment();
-    for (let i = 0; i < count2; i++) frag.appendChild(map.get(arr[first + i].seq).el);
-    rows.replaceChildren(frag);
-  }
+  if (_ctOrderBad(rows, map, arr, first, count)) _ctFixOrder(rows, map, arr, first, count);
   if (rows.__first !== first) { rows.__first = first; rows.style.transform = `translateY(${first * CT.rowH}px)`; }
   if (sc && !body.__ctReflow && sc.clientHeight > 0 && sc.clientHeight !== vpH) {
     body.__ctReflow = 1;
@@ -5918,7 +6000,7 @@ function bindDropZone(el, onFile){
   }
   function s(k) { return TEXT[lang()][k] || TEXT['zh-CN'][k] || k; }
   function esc(v) {
-    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return String(v ?? '').replaceAll(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
   function readArr(key) {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
@@ -6012,19 +6094,17 @@ function bindDropZone(el, onFile){
     if (builtFor !== key) { entries = buildEntries(); builtFor = key; }
   }
 
-  function fetchProjects() {
+  async function fetchProjects() {
     if (projectFetching || projects.length) return;
     projectFetching = true;
     try {
-      fetch((typeof API !== 'undefined' ? API : '') + '/api/pert/projects', {
+      const r = await fetch((typeof API !== 'undefined' ? API : '') + '/api/pert/projects', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store'
-      })
-        .then(r => r.json()).then(j => {
-          projects = (j && j.projects || []).map(p => ({ id: p.id, name: p.name || ('#' + p.id) }));
-          builtFor = null;   // 索引失效：下次打开/输入重建
-        }).catch(() => { /* 项目列表不可用不阻塞页面/功能项搜索 */ })
-        .finally(() => { projectFetching = false; });
-    } catch { projectFetching = false; }
+      });
+      const j = await r.json();
+      projects = (j && j.projects || []).map(p => ({ id: p.id, name: p.name || ('#' + p.id) }));
+      builtFor = null;   // 索引失效：下次打开/输入重建
+    } catch { /* 项目列表不可用不阻塞页面/功能项搜索 */ } finally { projectFetching = false; }
   }
 
   function entryMap() {
@@ -6072,33 +6152,39 @@ function bindDropZone(el, onFile){
     return out;
   }
 
+  function _clampActive(active, visible) {
+    if (active >= visible.length) return Math.max(0, visible.length - 1);
+    if (visible.length && active < 0) return 0;
+    return active;
+  }
+  function _renderRows(visible) {
+    let html = '', lastGroup = '', opened = false;
+    visible.forEach((e, i) => {
+      if (e.group && e.group !== lastGroup) {
+        if (opened) html += '</div>';
+        html += '<div class="cmdk-group" role="group" aria-label="' + esc(e.group) + '"><div class="cmdk-group-label" aria-hidden="true">' + esc(e.group) + '</div>';
+        lastGroup = e.group; opened = true;
+      }
+      const fav = isFav(e.id);
+      html += '<div class="cmdk-item">' +
+        '<div id="cmdk-opt-' + i + '" class="cmdk-row" role="option" tabindex="-1" aria-selected="' + (i === active) + '" data-id="' + esc(e.id) + '">' +
+        '<i aria-hidden="true" data-lucide="' + esc(e.icon || ICONS.page) + '" class="lic cmdk-ico"></i>' +
+        '<span class="cmdk-main"><span class="cmdk-label">' + esc(e.label) + '</span><span class="cmdk-sub">' + esc(e.sub) + '</span></span>' +
+        '</div>' +
+        '<span class="cmdk-star" aria-hidden="true">' + (fav ? '★' : '☆') + '</span>' +
+        '</div>';
+    });
+    if (opened) html += '</div>';
+    return html;
+  }
   function render() {
     if (!list) return;
     const t0 = performance.now();
     visible = computeVisible();
-    if (active >= visible.length) active = Math.max(0, visible.length - 1);
-    if (visible.length && active < 0) active = 0;
-    let html = '', lastGroup = '', opened = false;
-    if (!visible.length) {
-      html = '<div class="cmdk-empty" role="presentation"><div>' + esc(s('empty')) + '</div><div>' + esc(s('emptyHint')) + '</div></div>';
-    } else {
-      visible.forEach((e, i) => {
-        if (e.group && e.group !== lastGroup) {
-          if (opened) html += '</div>';
-          html += '<div class="cmdk-group" role="group" aria-label="' + esc(e.group) + '"><div class="cmdk-group-label" aria-hidden="true">' + esc(e.group) + '</div>';
-          lastGroup = e.group; opened = true;
-        }
-        const fav = isFav(e.id);
-        html += '<div class="cmdk-item">' +
-          '<div id="cmdk-opt-' + i + '" class="cmdk-row" role="option" tabindex="-1" aria-selected="' + (i === active) + '" data-id="' + esc(e.id) + '">' +
-          '<i aria-hidden="true" data-lucide="' + esc(e.icon || ICONS.page) + '" class="lic cmdk-ico"></i>' +
-          '<span class="cmdk-main"><span class="cmdk-label">' + esc(e.label) + '</span><span class="cmdk-sub">' + esc(e.sub) + '</span></span>' +
-          '</div>' +
-          '<span class="cmdk-star" aria-hidden="true">' + (fav ? '★' : '☆') + '</span>' +
-          '</div>';
-      });
-      if (opened) html += '</div>';
-    }
+    active = _clampActive(active, visible);
+    const html = visible.length
+      ? _renderRows(visible)
+      : '<div class="cmdk-empty" role="presentation"><div>' + esc(s('empty')) + '</div><div>' + esc(s('emptyHint')) + '</div></div>';
     list.innerHTML = html;
     if (window.lucide && lucide.createIcons) lucide.createIcons();
     if (visible.length) {
@@ -6284,7 +6370,7 @@ function themeTokenResolve(theme) {
   const comp = theme.resolved.component || {};
   const vars = {};
   Object.keys(sem).forEach(k => { vars["--" + k.replace(/^--/, "")] = String(sem[k]); });
-  Object.keys(comp).forEach(k => { vars["--c-" + k.replace(/\./g, "-")] = String(comp[k]); });
+  Object.keys(comp).forEach(k => { vars["--c-" + k.replaceAll(".", "-")] = String(comp[k]); });
   const brand = comp["button.primary.background"] || sem.brand;
   if (brand) vars["--brand"] = String(brand);
   const brandFg = comp["button.primary.foreground"];
@@ -6312,8 +6398,7 @@ function applyThemeTokens(theme) {
 function themeTokensClear() {
   const root = document.documentElement;
   const names = [];
-  for (let i = 0; i < root.style.length; i++) {
-    const n = root.style[i];
+  for (const n of root.style) {
     if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--on-brand", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
   }
   names.forEach(n => root.style.removeProperty(n));
@@ -6381,15 +6466,16 @@ function themeTokenPanel() {
   div.className = "glass pad";
   div.id = "themeTokenCard";
   div.style.marginTop = "16px";
-  div.innerHTML = '<div class="card-title"><span>主题 Token（raw / semantic / component）</span></div>' +
-    '<div class="cfg-row"><span>内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-    '<select id="themeTokenSel" aria-label="选择主题 Token"></select>' +
+  div.innerHTML = '<div class="card-title"><span data-i18n="theme.token.title">主题 Token（raw / semantic / component）</span></div>' +
+    '<div class="cfg-row"><span data-i18n="theme.token.builtin">内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<select id="themeTokenSel" aria-label="选择主题 Token" data-i18n="aria-label=theme.token.select"></select>' +
     '<button class="btn btn-ghost" id="themeTokenOpenStudio" onclick="themeStudioOpen()" data-i18n="theme.studio.open" title="打开主题工作室">主题工作室</button>' +
-    '<button class="btn btn-ghost" id="themeTokenApply">应用</button>' +
-    '<button class="btn btn-ghost" id="themeTokenExport">导出 JSON</button>' +
-    '<label class="btn btn-ghost" style="margin:0">导入 JSON<input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +
-    '</span></div><p class="cfg-note" style="margin-top:10px">主题由三层 Token 描述：raw 原始值 → semantic 语义变量 → component 组件绑定；新增主题只改 JSON，组件代码不动。</p>';
-  card.insertAdjacentElement("afterend", div);
+    '<button class="btn btn-ghost" id="themeTokenApply" data-i18n="theme.token.apply">应用</button>' +
+    '<button class="btn btn-ghost" id="themeTokenExport" data-i18n="theme.token.export">导出 JSON</button>' +
+    '<label class="btn btn-ghost" style="margin:0"><span data-i18n="theme.token.import">导入 JSON</span><input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +
+    '</span></div><p class="cfg-note" style="margin-top:10px" data-i18n="theme.token.note">主题由三层 Token 描述：raw 原始值 → semantic 语义变量 → component 组件绑定；新增主题只改 JSON，组件代码不动。</p>';
+  card.after(div);
+  if (typeof applyI18n === "function") applyI18n(div);
   const sel = div.querySelector("#themeTokenSel");
   if (sel) sel.innerHTML = themeTokenOptionsHtml();
   div.querySelector("#themeTokenApply").onclick = async () => {
@@ -6431,7 +6517,7 @@ async function themeTokensBoot() {
    只写 projects.actual_days/actual_note；pert_items 的历史三点估算只读，
    校准建议也不自动回写任何估算值。 */
 function calibrationEsc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replaceAll(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 function calibrationEnsureUI() {
@@ -6472,7 +6558,7 @@ async function calibrationRender() {
 }
 
 async function calibrationSaveActual() {
-  if (!pertPid) { if (typeof toast === "function") toast("请先选择 PERT 项目"); return; }
+  if (!pertPid) { if (typeof toast === "function") { toast("请先选择 PERT 项目"); } return; }
   const card = calibrationEnsureUI();
   const val = card.querySelector("#calibActual").value;
   const r = await pertPost("/api/pert/actual", {
@@ -6480,7 +6566,7 @@ async function calibrationSaveActual() {
     actual_days: val === "" ? null : Number(val),
     actual_note: card.querySelector("#calibNote").value,
   });
-  if (!r.ok) { if (typeof toast === "function") toast(r.msg || "保存失败"); return; }
+  if (!r.ok) { if (typeof toast === "function") { toast(r.msg || "保存失败"); } return; }
   card.querySelector("#calibMsg").textContent = "已保存：实际 " + (r.actual_days == null ? "未填" : r.actual_days) + " 人天（历史估算未改动）";
   if (typeof toast === "function") toast("实际值已保存");
 }
@@ -6529,7 +6615,7 @@ function calibrationRun() {
 /* T06192 / REQ-014 / AC-14：PERT 结果的蒙特卡洛概率预测。
    固定种子可复现；只读三点估算，不写历史数据。 */
 function mcEsc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replaceAll(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 function mcEnsureUI() {
@@ -6577,7 +6663,7 @@ function mcRun() {
   const card = mcEnsureUI();
   if (!card) return;
   return (async () => {
-    if (typeof pertPid === "undefined" || !pertPid) { if (typeof toast === "function") toast("请先选择 PERT 项目"); return; }
+    if (typeof pertPid === "undefined" || !pertPid) { if (typeof toast === "function") { toast("请先选择 PERT 项目"); } return; }
     const out = card.querySelector("#mcOut");
     const msg = card.querySelector("#mcMsg");
     out.innerHTML = '<div class="cfg-note">正在模拟…</div>';
@@ -6655,11 +6741,16 @@ async function migrationApi(pathname, method = 'GET') {
   return j;
 }
 
+function migrationText(key, fallback, vars) {
+  const s = (typeof tl === 'function' && typeof __I18N !== 'undefined' && __I18N && __I18N[key]) ? __I18N[key] : fallback;
+  return String(s).replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+}
+
 function migrationBadgeHTML(s) {
-  if (!s) return '读取中…';
-  if (s.missing_items > 0) return `待迁移 ${s.missing_items} 项`;
-  if (s.migration_state === 'rolled_back') return '已回滚';
-  return '已完成';
+  if (!s) return migrationText('history.migration.badge.loading', '读取中…');
+  if (s.missing_items > 0) return migrationText('history.migration.badge.pending', '待迁移 {n} 项', { n: s.missing_items });
+  if (s.migration_state === 'rolled_back') return migrationText('history.migration.badge.rolled_back', '已回滚');
+  return migrationText('history.migration.badge.done', '已完成');
 }
 
 async function migrationRender() {
@@ -6673,18 +6764,18 @@ async function migrationRender() {
     migrationLast = s;
     badge.textContent = migrationBadgeHTML(s);
     badge.style.color = s.missing_items > 0 ? 'var(--danger-ink)' : 'var(--brand)';
-    const versions = Object.entries(s.schema_versions || {}).map(([v, n]) => `v${v} ${n}`).join(' / ') || '无';
+    const versions = Object.entries(s.schema_versions || {}).map(([v, n]) => `v${v} ${n}`).join(' / ') || migrationText('history.migration.none', '无');
     info.innerHTML =
-      `Schema 目标 <b>v${s.schema_ver}</b> · 当前版本分布 <b>${migrationEsc(versions)}</b> · 迁移状态 <b>${migrationEsc(s.migration_state)}</b><br>` +
-      `历史 <b>${s.rows}</b> 条 / 明细 <b>${s.items}</b> 项 · 稳定ID映射 <b>${s.mapped}</b> 条 · 缺稳定ID <b>${s.missing_items}</b> 项（${s.missing_rows} 条）<br>` +
-      `备份 <b>${s.backups}</b> 份 · 双读兼容 <b>${s.dual_read ? '开启' : '关闭'}</b>` +
-      (s.migrated_at ? ` · 最近迁移 ${migrationEsc(s.migrated_at.replace('T', ' '))}` : '');
+      `${migrationText('history.migration.schema_target', 'Schema 目标')} <b>v${s.schema_ver}</b> · ${migrationText('history.migration.current_versions', '当前版本分布')} <b>${migrationEsc(versions)}</b> · ${migrationText('history.migration.state', '迁移状态')} <b>${migrationEsc(s.migration_state)}</b><br>` +
+      `${migrationText('history.migration.history', '历史')} <b>${s.rows}</b> ${migrationText('history.migration.records', '条')} / ${migrationText('history.migration.details', '明细')} <b>${s.items}</b> ${migrationText('history.migration.items', '项')} · ${migrationText('history.migration.mapped', '稳定ID映射')} <b>${s.mapped}</b> ${migrationText('history.migration.records', '条')} · ${migrationText('history.migration.missing', '缺稳定ID')} <b>${s.missing_items}</b> ${migrationText('history.migration.items', '项')}（${s.missing_rows} ${migrationText('history.migration.records', '条')}）<br>` +
+      `${migrationText('history.migration.backups', '备份')} <b>${s.backups}</b> ${migrationText('history.migration.copies', '份')} · ${migrationText('history.migration.dual_read', '双读兼容')} <b>${s.dual_read ? migrationText('history.migration.on', '开启') : migrationText('history.migration.off', '关闭')}</b>` +
+      (s.migrated_at ? ` · ${migrationText('history.migration.last', '最近迁移')} ${migrationEsc(s.migrated_at.replace('T', ' '))}` : '');
     if (run) run.disabled = s.missing_items === 0;
     if (rb) rb.disabled = !s.can_rollback;
     return s;
   } catch (e) {
-    badge.textContent = '读取失败';
-    info.textContent = '迁移状态读取失败：' + e.message;
+    badge.textContent = migrationText('history.migration.badge.read_failed', '读取失败');
+    info.textContent = migrationText('history.migration.read_failed', '迁移状态读取失败：') + e.message;
     return null;
   }
 }
@@ -6701,27 +6792,31 @@ async function migrationRun() {
   if (btn) btn.disabled = true;
   try {
     const r = await migrationApi('/api/history/ids/migrate', 'POST');
-    migrationMsg(`迁移完成：本次处理 ${r.migrated || 0} 条历史；旧数据已补稳定 ID。`, true);
+    migrationMsg(migrationText('history.migration.migrate_ok',
+      '迁移完成：本次处理 {n} 条历史；旧数据已补稳定 ID。', { n: r.migrated || 0 }), true);
     await migrationRender();
     if (typeof histOpen === 'function') histOpen();
   } catch (e) {
-    migrationMsg('迁移失败：' + e.message + '；未迁移数据保持原样，可回滚后重试。', false);
+    migrationMsg(migrationText('history.migration.migrate_fail',
+      '迁移失败：{err}；未迁移数据保持原样，可回滚后重试。', { err: e.message }), false);
   } finally {
     if (btn && migrationLast) btn.disabled = migrationLast.missing_items === 0;
   }
 }
 
 async function migrationRollback() {
-  if (!confirm('回滚会恢复迁移前的旧明细（不再自动迁移），确定继续？')) return;
+  if (!confirm(migrationText('history.migration.rollback_confirm',
+      '回滚会恢复迁移前的旧明细（不再自动迁移），确定继续？'))) return;
   const btn = document.getElementById('migrationRollbackBtn');
   if (btn) btn.disabled = true;
   try {
     const r = await migrationApi('/api/history/ids/rollback', 'POST');
-    migrationMsg(`已回滚 ${r.restored || 0} 条历史的明细；旧项目数据未丢失。`, true);
+    migrationMsg(migrationText('history.migration.rollback_ok',
+      '已回滚 {n} 条历史的明细；旧项目数据未丢失。', { n: r.restored || 0 }), true);
     await migrationRender();
     if (typeof histOpen === 'function') histOpen();
   } catch (e) {
-    migrationMsg('回滚失败：' + e.message, false);
+    migrationMsg(migrationText('history.migration.rollback_fail', '回滚失败：{err}', { err: e.message }), false);
   } finally {
     if (btn && migrationLast) btn.disabled = !migrationLast.can_rollback;
   }

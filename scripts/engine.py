@@ -57,6 +57,26 @@ def _int_or(v, default):
         return default
 
 
+def _band(value, low_max, mid_max):
+    if value <= low_max:
+        return "低"
+    return "中" if value <= mid_max else "高"
+
+
+def _file_complexity(ret, det):
+    if ret <= 1:
+        return "低" if det <= 50 else "中"
+    if ret <= 5:
+        return _band(det, 19, 50)
+    return "中" if det <= 19 else "高"
+
+
+def _transaction_complexity(ftr, det, ftr_low, det_low, det_mid):
+    if ftr <= ftr_low:
+        return _band(det, det_low, det_mid)
+    return "中" if det <= det_low else "高"
+
+
 def complexity(type_: str, det=None, ret=None, ftr=None) -> str:
     """标准 IFPUG DET/RET/FTR → 低/中/高（ILF/EIF 用 RET+DET；EI/EO/EQ 用 FTR+DET）。"""
     if type_ not in STD_WEIGHT:
@@ -65,19 +85,11 @@ def complexity(type_: str, det=None, ret=None, ftr=None) -> str:
     r = max(1, _int_or(ret, DEFAULT_RET))
     f = max(0, _int_or(ftr, DEFAULT_FTR))
     if type_ in ("ILF", "EIF"):
-        if r <= 1:
-            return "低" if d <= 50 else "中"
-        if r <= 5:
-            return "低" if d <= 19 else ("中" if d <= 50 else "高")
-        return "中" if d <= 19 else "高"
+        return _file_complexity(r, d)
     if type_ == "EI":
-        if f <= 2:
-            return "低" if d <= 4 else ("中" if d <= 15 else "高")
-        return "中" if d <= 4 else "高"
+        return _transaction_complexity(f, d, 2, 4, 15)
     # EO / EQ
-    if f <= 3:
-        return "低" if d <= 5 else ("中" if d <= 19 else "高")
-    return "中" if d <= 5 else "高"
+    return _transaction_complexity(f, d, 3, 5, 19)
 
 
 def standard_weight(type_: str, det=None, ret=None, ftr=None) -> int:

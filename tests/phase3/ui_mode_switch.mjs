@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { openPage, sleep } from './cdp.mjs';
 
 const ROOT = path.resolve('.');
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const CDP = process.env.PHASE3_CDP || 'http://127.0.0.1:9340';
 const RECOVERY_TOKEN = 'test-local-recovery-token-0123456789';
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'we_mode_switch_'));

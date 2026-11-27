@@ -1,5 +1,4 @@
 /** T06171 / AC-01 / REQ-001：三层 Token 主题导入导出、校验与无组件改动生效。 */
-import fs from 'node:fs';
 import path from 'node:path';
 import { openPage, checker, sleep, OUT, APP } from './cdp.mjs';
 
@@ -24,7 +23,7 @@ try {
   check('内置主题可导出完整三层 JSON', limeExport.body.ok === true && ['raw', 'semantic', 'component'].every(k => limeExport.body.theme[k]), Object.keys(limeExport.body.theme || {}).join(','));
   const lime = limeExport.body.theme;
 
-  const bad = JSON.parse(JSON.stringify(lime));
+  const bad = structuredClone(lime);
   bad.semantic.brand = 'raw.not-exist';
   const badRes = await postJson(`${BASE}/api/theme/validate`, bad);
   check('引用缺失的 raw token 被校验拦截', badRes.body.ok === false && /raw 引用不存在/.test((badRes.body.errors || []).join('')), JSON.stringify(badRes.body.errors));

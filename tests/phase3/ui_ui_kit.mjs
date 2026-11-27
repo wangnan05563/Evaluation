@@ -1,5 +1,4 @@
 /** T06172 / REQ-002：核心 UI 组件库（按钮/输入/弹窗/抽屉/表格/图表）UI 验收。 */
-import fs from 'node:fs';
 import path from 'node:path';
 import { openPage, checker, sleep, OUT } from './cdp.mjs';
 
@@ -7,9 +6,9 @@ const { check, finish } = checker('ui-kit');
 const page = await openPage({ width: 1440, height: 900 });
 
 function rgb(s) {
-  const m = String(s).match(/rgba?\(([^\\)]+)/);
+  const m = /rgba?\(([^)]+)/.exec(String(s));
   if (!m) return null;
-  const p = m[1].split(',').map(x => parseFloat(x));
+  const p = m[1].split(',').map(x => Number.parseFloat(x));
   return [p[0], p[1], p[2]];
 }
 function lum(c) {

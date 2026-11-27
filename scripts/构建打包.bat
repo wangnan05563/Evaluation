@@ -171,6 +171,11 @@ if exist "%ZIP_DIR%\logs\prod_smoke.log" del /q "%ZIP_DIR%\logs\prod_smoke.log" 
 set "EB_TMP=%TEMP%\we-eb-out"
 if exist "%EB_TMP%" rd /s /q "%EB_TMP%" >nul 2>&1
 if not exist "%EB_TMP%" mkdir "%EB_TMP%"
+"%PY_EXE%" scripts\brand_installer.py --out "%ZIP_DIR%\brand" --ensure-default --verify
+if errorlevel 1 (
+    echo   [ERROR] brand assets generation failed
+    exit /b 1
+)
 "!NODE_EXE!" node_modules\electron-builder\cli.js --win nsis -c.directories.output=%EB_TMP%
 if errorlevel 1 (
     echo   [ERROR] electron-builder failed, see output above

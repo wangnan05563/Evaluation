@@ -95,6 +95,39 @@ def _sha256(path):
     return h.hexdigest()
 
 
+def _backup_entry(data_dir, dst, fname):
+    src = os.path.join(data_dir, fname)
+    item = {"exists": os.path.exists(src)}
+    if item["exists"]:
+        try:
+            item["size"] = os.path.getsize(src)
+            item["sha256"] = _sha256(src)
+            shutil.copy2(src, os.path.join(dst, fname))
+        except Exception as e:
+            item["error"] = f"{type(e).__name__}: {e}"
+    return item
+
+
+def _backup_schema_ver(data_dir):
+    ver_path = os.path.join(data_dir, F_SCHEMA_VER)
+    if not os.path.exists(ver_path):
+        return None
+    try:
+        return int(open(ver_path, encoding="utf-8").read().strip() or 1)
+    except Exception:
+        return None
+
+
+def _prune_backups(data_dir, keep):
+    root = os.path.join(data_dir, "backups")
+    olds = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))
+    for d in olds[:-keep]:
+        try:
+            shutil.rmtree(os.path.join(root, d))
+        except Exception:
+            pass
+
+
 def backup_on_start(data_dir, keep=KEEP_BACKUPS, reason="startup"):
     """FR-5.6 / AC-39：启动时备份数据+配置到 backups/<ts>/，保留最近 keep 份。
 
@@ -112,36 +145,15 @@ def backup_on_start(data_dir, keep=KEEP_BACKUPS, reason="startup"):
         n += 1
     os.makedirs(dst, exist_ok=True)
     manifest = {"created_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "reason": reason,
-                "schema_ver": None, "files": {}}
+                "schema_ver": _backup_schema_ver(data_dir), "files": {}}
     for fname in BACKUP_FILES:
-        src = os.path.join(data_dir, fname)
-        item = {"exists": os.path.exists(src)}
-        if item["exists"]:
-            try:
-                item["size"] = os.path.getsize(src)
-                item["sha256"] = _sha256(src)
-                shutil.copy2(src, os.path.join(dst, fname))
-            except Exception as e:
-                item["error"] = f"{type(e).__name__}: {e}"
-        manifest["files"][fname] = item
-    ver_path = os.path.join(data_dir, F_SCHEMA_VER)
-    if os.path.exists(ver_path):
-        try:
-            manifest["schema_ver"] = int(open(ver_path, encoding="utf-8").read().strip() or 1)
-        except Exception:
-            manifest["schema_ver"] = None
+        manifest["files"][fname] = _backup_entry(data_dir, dst, fname)
     try:
         with open(os.path.join(dst, F_BACKUP_MANIFEST), "w", encoding="utf-8") as f:
             json.dump(manifest, f, ensure_ascii=False, indent=1)
     except Exception:
         pass
-    root = os.path.join(data_dir, "backups")
-    olds = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))
-    for d in olds[:-keep]:
-        try:
-            shutil.rmtree(os.path.join(root, d))
-        except Exception:
-            pass
+    _prune_backups(data_dir, keep)
     return dst
 
 
@@ -189,6 +201,62 @@ def _rollback_log(data_dir, record):
         pass
 
 
+def _load_manifest(src_dir):
+    mp = os.path.join(src_dir, F_BACKUP_MANIFEST)
+    try:
+        if os.path.exists(mp):
+            return json.load(open(mp, encoding="utf-8"))
+    except Exception:
+        return {}
+    return {}
+
+
+def _restore_entry(data_dir, src_dir, fname, info, backup_id, restored, removed, skipped):
+    src = os.path.join(src_dir, fname)
+    dst = os.path.join(data_dir, fname)
+    if info.get("exists"):
+        if not os.path.exists(src):
+            skipped.append({"file": fname, "reason": "备份文件缺失"})
+            return
+        expected = info.get("sha256")
+        if expected and _sha256(src) != expected:
+            skipped.append({"file": fname, "reason": "备份哈希不符，拒绝还原"})
+            _rollback_log(data_dir, {"backup": backup_id, "file": fname,
+                                     "action": "restore", "ok": False, "reason": "hash_mismatch"})
+            return
+        _restore_one(data_dir, fname, src, dst, expected, backup_id, restored, skipped)
+    elif os.path.exists(dst):
+        try:
+            os.remove(dst)
+            removed.append(fname)
+            _rollback_log(data_dir, {"backup": backup_id, "file": fname,
+                                     "action": "remove", "ok": True})
+        except Exception as e:
+            skipped.append({"file": fname, "reason": f"{type(e).__name__}: {e}"})
+
+
+def _restore_one(data_dir, fname, src, dst, expected, backup_id, restored, skipped):
+    tmp = dst + ".rollback.tmp"
+    try:
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dst)
+        if expected and _sha256(dst) != expected:
+            raise VImportErr(f"{fname} 还原后哈希不一致")
+        restored.append(fname)
+        _rollback_log(data_dir, {"backup": backup_id, "file": fname,
+                                 "action": "restore", "ok": True, "sha256": expected})
+    except Exception as e:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        skipped.append({"file": fname, "reason": f"{type(e).__name__}: {e}"})
+        _rollback_log(data_dir, {"backup": backup_id, "file": fname,
+                                 "action": "restore", "ok": False,
+                                 "reason": f"{type(e).__name__}: {e}"})
+
+
 def restore_backup(data_dir, backup_id=None):
     """AC-39：把最近一次（或指定）备份精确恢复到 data_dir。
 
@@ -209,13 +277,7 @@ def restore_backup(data_dir, backup_id=None):
     src_dir = chosen["path"]
     if os.path.abspath(src_dir) == os.path.abspath(data_dir):
         raise VImportErr("备份目录不合法")
-    manifest = {}
-    try:
-        mp = os.path.join(src_dir, F_BACKUP_MANIFEST)
-        if os.path.exists(mp):
-            manifest = json.load(open(mp, encoding="utf-8"))
-    except Exception:
-        manifest = {}
+    manifest = _load_manifest(src_dir)
     recorded = manifest.get("files") or {}
     # 兼容旧备份：无清单时按目录内实际文件还原，但不删除任何现有文件
     if not recorded:
@@ -223,47 +285,8 @@ def restore_backup(data_dir, backup_id=None):
     restored, removed, skipped = [], [], []
     for fname in BACKUP_FILES:
         info = recorded.get(fname)
-        if not info:
-            continue
-        src = os.path.join(src_dir, fname)
-        dst = os.path.join(data_dir, fname)
-        if info.get("exists"):
-            if not os.path.exists(src):
-                skipped.append({"file": fname, "reason": "备份文件缺失"})
-                continue
-            expected = info.get("sha256")
-            if expected and _sha256(src) != expected:
-                skipped.append({"file": fname, "reason": "备份哈希不符，拒绝还原"})
-                _rollback_log(data_dir, {"backup": chosen["id"], "file": fname,
-                                         "action": "restore", "ok": False, "reason": "hash_mismatch"})
-                continue
-            tmp = dst + ".rollback.tmp"
-            try:
-                shutil.copy2(src, tmp)
-                os.replace(tmp, dst)
-                if expected and _sha256(dst) != expected:
-                    raise VImportErr(f"{fname} 还原后哈希不一致")
-                restored.append(fname)
-                _rollback_log(data_dir, {"backup": chosen["id"], "file": fname,
-                                         "action": "restore", "ok": True, "sha256": expected})
-            except Exception as e:
-                try:
-                    if os.path.exists(tmp):
-                        os.remove(tmp)
-                except Exception:
-                    pass
-                skipped.append({"file": fname, "reason": f"{type(e).__name__}: {e}"})
-                _rollback_log(data_dir, {"backup": chosen["id"], "file": fname,
-                                         "action": "restore", "ok": False,
-                                         "reason": f"{type(e).__name__}: {e}"})
-        elif os.path.exists(dst):
-            try:
-                os.remove(dst)
-                removed.append(fname)
-                _rollback_log(data_dir, {"backup": chosen["id"], "file": fname,
-                                         "action": "remove", "ok": True})
-            except Exception as e:
-                skipped.append({"file": fname, "reason": f"{type(e).__name__}: {e}"})
+        if info:
+            _restore_entry(data_dir, src_dir, fname, info, chosen["id"], restored, removed, skipped)
     ok = not skipped
     _rollback_log(data_dir, {"backup": chosen["id"], "action": "rollback_done",
                              "ok": ok, "restored": restored, "removed": removed,

@@ -18,6 +18,19 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import history as H          # noqa: E402
 import datakeeper as DK      # noqa: E402
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+BAD_JSON = '{this-is-not-json'
+BASE_TIME = '2026-11-01T00:00:00'
+ESTIMATION_DB = 'estimation.db'
+METHOD_NAME = '估算功能点'
+MIGRATION_LOG = 'migration.jsonl'
+PERT_DB = 'pert.db'
+SQL_INSERT_HISTORY = (
+    "INSERT INTO estimation_history(id,created_at,updated_at,title,method,params_json,"
+    "items_json,summary_json,sid,version_group,version_no,schema_ver) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
+)
+
 PASS = FAIL = 0
 CHECKS = []
 
@@ -95,7 +108,7 @@ def read_jsonl(path):
 
 
 def seed_legacy(data_dir):
-    db = os.path.join(data_dir, "estimation.db")
+    db = os.path.join(data_dir, ESTIMATION_DB)
     con = sqlite3.connect(db)
     con.executescript("""
     CREATE TABLE estimation_history (
@@ -113,34 +126,31 @@ def seed_legacy(data_dir):
         ("a" * 32, "旧项目A", "gA", 1, items, 1),
         ("b" * 32, "旧项目A", "gA", 2, items, 1),
         ("c" * 32, "旧项目A", "gA", 3, items, 1),
-        ("d" * 32, "损坏JSON样本", "gBad", 1, "{this-is-not-json", 1),
+        ("d" * 32, "损坏JSON样本", "gBad", 1, BAD_JSON, 1),
     ]
     for hid, title, vg, vn, its, sv in rows:
-        con.execute("INSERT INTO estimation_history(id,created_at,updated_at,title,method,params_json,"
-                    "items_json,summary_json,sid,version_group,version_no,schema_ver) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (hid, "2026-11-01T00:00:00", "2026-11-01T00:00:00", title, "估算功能点", "{}", its,
+        con.execute(SQL_INSERT_HISTORY,
+                    (hid, BASE_TIME, BASE_TIME, title, METHOD_NAME, "{}", its,
                      json.dumps({"count": 3, "us_total": 30}, ensure_ascii=False), "", vg, vn, sv))
     dup = json.dumps([
         {"desc": "重复ID-1", "type": "ILF", "system": "票据", "stable_id": "F-AAAAAAAAAA"},
         {"desc": "重复ID-2", "type": "EIF", "system": "票据", "stable_id": "F-AAAAAAAAAA"},
         {"desc": "缺ID", "type": "EI", "system": "票据"},
     ], ensure_ascii=False)
-    con.execute("INSERT INTO estimation_history(id,created_at,updated_at,title,method,params_json,"
-                "items_json,summary_json,sid,version_group,version_no,schema_ver) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("e" * 32, "2026-11-01T00:00:00", "2026-11-01T00:00:00", "重复ID样本", "估算功能点", "{}", dup,
+    con.execute(SQL_INSERT_HISTORY,
+                ("e" * 32, BASE_TIME, BASE_TIME, "重复ID样本", METHOD_NAME, "{}", dup,
                  json.dumps({"count": 3, "us_total": 15}, ensure_ascii=False), "", "gDup", 1, 1))
     # 已迁移行（有稳定 ID 但映射缺失），验证迁移会补登记映射
     migrated = json.dumps([
         {"desc": "已迁移项", "type": "ILF", "system": "票据", "stable_id": "F-BBBBBBBBBB"},
     ], ensure_ascii=False)
-    con.execute("INSERT INTO estimation_history(id,created_at,updated_at,title,method,params_json,"
-                "items_json,summary_json,sid,version_group,version_no,schema_ver) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("f" * 32, "2026-11-01T00:00:00", "2026-11-01T00:00:00", "已迁移样本", "估算功能点", "{}", migrated,
+    con.execute(SQL_INSERT_HISTORY,
+                ("f" * 32, BASE_TIME, BASE_TIME, "已迁移样本", METHOD_NAME, "{}", migrated,
                  json.dumps({"count": 1, "us_total": 10}, ensure_ascii=False), "", "gDone", 1, 2))
     con.commit(); con.close()
 
     # datakeeper v1→v2：旧 pert.db 缺 doc_name/gen_count
-    pdb = os.path.join(data_dir, "pert.db")
+    pdb = os.path.join(data_dir, PERT_DB)
     pc = sqlite3.connect(pdb)
     pc.executescript("""
     CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT, estimator TEXT, created_at TEXT);
@@ -162,35 +172,35 @@ def main(out_path):
     os.makedirs(data)
     try:
         seed_legacy(data)
-        before_raw = raw_hash(os.path.join(data, "estimation.db"))
-        before_logical = logical_hash(os.path.join(data, "estimation.db"))
-        ok(os.path.isfile(os.path.join(data, "estimation.db")), "旧库样本就位", before_raw[:12])
+        before_raw = raw_hash(os.path.join(data, ESTIMATION_DB))
+        before_logical = logical_hash(os.path.join(data, ESTIMATION_DB))
+        ok(os.path.isfile(os.path.join(data, ESTIMATION_DB)), "旧库样本就位", before_raw[:12])
 
         pre = DK.backup_on_start(data, keep=7, reason="drill-pre")
         ok(bool(pre) and os.path.isdir(pre), "迁移前备份生成", pre)
         manifest = json.load(open(os.path.join(pre, "backup.json"), encoding="utf-8"))
-        ok(manifest["files"]["estimation.db"]["sha256"] == sha_file(os.path.join(data, "estimation.db")), "备份清单记录旧库哈希")
+        ok(manifest["files"][ESTIMATION_DB]["sha256"] == sha_file(os.path.join(data, ESTIMATION_DB)), "备份清单记录旧库哈希")
         pre_ver = DK.list_backups(data)[0]
         ok(pre_ver["schema_ver"] == 1, "备份记录 schema v1", pre_ver["schema_ver"])
 
         ver, applied = DK._migrate(data)
         ok(ver == 2 and applied == [1], "datakeeper v1→v2 迁移执行", f"ver={ver} applied={applied}")
-        pc = sqlite3.connect(os.path.join(data, "pert.db"))
+        pc = sqlite3.connect(os.path.join(data, PERT_DB))
         cols = {r[1] for r in pc.execute("PRAGMA table_info(projects)")}
         pc.close()
         ok({"doc_name", "gen_count"} <= cols, "pert.db 旧库补列", sorted(cols))
         ok(open(os.path.join(data, "schema_ver"), encoding="utf-8").read().strip() == "2", "schema_ver 写入 2")
 
-        obj_hash_before_hist = sha_file(os.path.join(data, "estimation.db"))
-        hist = H.HistStore(os.path.join(data, "estimation.db"))
+        obj_hash_before_hist = sha_file(os.path.join(data, ESTIMATION_DB))
+        hist = H.HistStore(os.path.join(data, ESTIMATION_DB))
         st = hist.migration_status()
         ok(st["migration_state"] == "migrated" and st["missing_items"] == 0,
            "稳定ID自动迁移完成", json.dumps(st, ensure_ascii=False))
         ok(st["rows"] == 6 and st["items"] == 13, "迁移行/项计数符合样本", f"rows={st['rows']} items={st['items']}")
         ok(st["mapped"] >= 7, "映射表登记全部可迁移 ID", st["mapped"])
 
-        rows = {r["id"]: r for r in raw_rows(os.path.join(data, "estimation.db"))}
-        ok(rows["d" * 32]["items_json"] == "{this-is-not-json", "损坏 JSON 行原样保留")
+        rows = {r["id"]: r for r in raw_rows(os.path.join(data, ESTIMATION_DB))}
+        ok(rows["d" * 32]["items_json"] == BAD_JSON, "损坏 JSON 行原样保留")
         ok(rows["f" * 32]["schema_ver"] == 2, "已迁移行 schema 保持 v2")
 
         # 同一 gA 三版本稳定 ID 一致；重复 ID 被拆开
@@ -203,27 +213,27 @@ def main(out_path):
 
         val = hist.validate_ids()
         ok(val["ok"] and not val["issues"], "迁移后映射校验通过", val)
-        after_logical = logical_hash(os.path.join(data, "estimation.db"))
+        after_logical = logical_hash(os.path.join(data, ESTIMATION_DB))
         ok(before_logical == after_logical, "迁移前后业务数据逻辑哈希一致", before_logical[:12])
-        ok(os.path.isfile(os.path.join(data, "logs", "migration.jsonl")), "迁移日志落盘")
-        logs = read_jsonl(os.path.join(data, "logs", "migration.jsonl"))
+        ok(os.path.isfile(os.path.join(data, "logs", MIGRATION_LOG)), "迁移日志落盘")
+        logs = read_jsonl(os.path.join(data, "logs", MIGRATION_LOG))
         ok(any(x.get("event") == "migration_start" for x in logs) and any(x.get("event") == "migration_done" for x in logs),
            "迁移日志含 start/done", [x.get("event") for x in logs])
 
         # 回滚：items_json 精确恢复
         rb = hist.rollback_migration()
         ok(rb["restored"] == 5, "回滚恢复 5 条旧记录", rb)
-        ok(raw_hash(os.path.join(data, "estimation.db")) == before_raw, "回滚后旧库逐字节哈希一致")
-        ok(any(x.get("event") == "migration_rollback" for x in read_jsonl(os.path.join(data, "logs", "migration.jsonl"))),
+        ok(raw_hash(os.path.join(data, ESTIMATION_DB)) == before_raw, "回滚后旧库逐字节哈希一致")
+        ok(any(x.get("event") == "migration_rollback" for x in read_jsonl(os.path.join(data, "logs", MIGRATION_LOG))),
            "回滚日志落盘")
 
         # 回滚后双读，再显式迁移
-        h2 = H.HistStore(os.path.join(data, "estimation.db"))
+        h2 = H.HistStore(os.path.join(data, ESTIMATION_DB))
         ok(all("stable_id" not in x for x in h2.get("a" * 32)["items"]), "回滚后双读旧明细")
         mg = h2.migrate_legacy()
         ok(mg["migrated"] == 5, "回滚后重迁 5 条", mg)
         ok(h2.validate_ids()["ok"], "重迁后映射校验通过（含已迁移行补登记）")
-        ok(sha_file(os.path.join(data, "estimation.db")) != obj_hash_before_hist, "重迁后库文件已变化")
+        ok(sha_file(os.path.join(data, ESTIMATION_DB)) != obj_hash_before_hist, "重迁后库文件已变化")
 
         # 导出 → 导入（历史库必须随包恢复）
         zip_path = os.path.join(tmp, "data.zip")
@@ -231,9 +241,9 @@ def main(out_path):
         imported = os.path.join(tmp, "imported")
         os.makedirs(imported)
         names = DK.import_zip(zip_path, imported)
-        ok("estimation.db" in names, "导出包包含 estimation.db", names)
-        ok(os.path.isfile(os.path.join(imported, "estimation.db")), "导入后历史库落盘")
-        hi = H.HistStore(os.path.join(imported, "estimation.db"))
+        ok(ESTIMATION_DB in names, "导出包包含 estimation.db", names)
+        ok(os.path.isfile(os.path.join(imported, ESTIMATION_DB)), "导入后历史库落盘")
+        hi = H.HistStore(os.path.join(imported, ESTIMATION_DB))
         ok(hi.migration_status()["missing_items"] == 0, "导入后无缺失稳定 ID")
         imported_a = [x["stable_id"] for x in hi.get("a" * 32)["items"]]
         source_a = [x["stable_id"] for x in h2.get("a" * 32)["items"]]
@@ -241,11 +251,11 @@ def main(out_path):
 
         # 备份还原：恢复迁移前 exact 状态
         restored = DK.restore_backup(data, pre_ver["id"])
-        ok(restored["ok"] and "estimation.db" in restored["restored"], "备份还原成功", restored)
-        ok(raw_hash(os.path.join(data, "estimation.db")) == before_raw, "还原后旧库逐字节哈希一致")
+        ok(restored["ok"] and ESTIMATION_DB in restored["restored"], "备份还原成功", restored)
+        ok(raw_hash(os.path.join(data, ESTIMATION_DB)) == before_raw, "还原后旧库逐字节哈希一致")
         log_rb = read_jsonl(os.path.join(data, "logs", "rollback.jsonl"))
         ok(any(x.get("action") == "rollback_done" and x.get("ok") for x in log_rb), "rollback.jsonl 含完成记录")
-        pc2 = sqlite3.connect(os.path.join(data, "pert.db"))
+        pc2 = sqlite3.connect(os.path.join(data, PERT_DB))
         cols2 = {r[1] for r in pc2.execute("PRAGMA table_info(projects)")}
         pc2.close()
         ok(not ({"doc_name", "gen_count"} & cols2), "备份还原回旧 pert schema", sorted(cols2))
@@ -253,14 +263,14 @@ def main(out_path):
         # 故障 1：备份文件哈希不符 → 拒绝还原并记日志
         fault = os.path.join(tmp, "fault")
         os.makedirs(os.path.join(fault, "backups", "pre"))
-        with open(os.path.join(fault, "estimation.db"), "wb") as f:
+        with open(os.path.join(fault, ESTIMATION_DB), "wb") as f:
             f.write(b"current")
-        with open(os.path.join(fault, "backups", "pre", "estimation.db"), "wb") as f:
+        with open(os.path.join(fault, "backups", "pre", ESTIMATION_DB), "wb") as f:
             f.write(b"corrupt-backup")
         good_hash = hashlib.sha256(b"expected").hexdigest()
         with open(os.path.join(fault, "backups", "pre", "backup.json"), "w", encoding="utf-8") as f:
-            json.dump({"created_at": "2026-11-01T00:00:00", "reason": "fault",
-                        "files": {"estimation.db": {"exists": True, "sha256": good_hash}}}, f)
+            json.dump({"created_at": BASE_TIME, "reason": "fault",
+                        "files": {ESTIMATION_DB: {"exists": True, "sha256": good_hash}}}, f)
         rf = DK.restore_backup(fault, "pre")
         ok(rf["ok"] is False and any("哈希不符" in x.get("reason", "") for x in rf["skipped"]),
            "坏备份被拒绝还原", rf)
@@ -268,7 +278,7 @@ def main(out_path):
         # 故障 2：导入包 schema 高于当前 → 拒绝
         bad_zip = os.path.join(tmp, "future.zip")
         with zipfile.ZipFile(bad_zip, "w") as z:
-            z.writestr("pert.db", b"x")
+            z.writestr(PERT_DB, b"x")
             z.writestr("schema_ver", "99")
         try:
             DK.import_zip(bad_zip, imported)
@@ -280,7 +290,7 @@ def main(out_path):
         ok(high_ok, "高版本数据包被拒绝", high_detail)
 
         # 故障 3：损坏 JSON 不阻塞其它行
-        ok(rows["d" * 32]["items_json"] == "{this-is-not-json" and rows["a" * 32]["schema_ver"] == 2,
+        ok(rows["d" * 32]["items_json"] == BAD_JSON and rows["a" * 32]["schema_ver"] == 2,
            "单行损坏不阻断迁移", "gBad 保留 / gA 已迁移")
 
         result = {"suite": "migration-drill", "pass": PASS, "total": PASS + FAIL,

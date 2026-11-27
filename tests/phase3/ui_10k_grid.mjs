@@ -71,7 +71,7 @@ try {
   check('无白屏采样', run.blank === 0, `blank=${run.blank}`);
   check('窗口行数始终受控（≤120）', run.minRows > 0 && run.maxRows <= 120, `min=${run.minRows} max=${run.maxRows}`);
   check('可滚动至数据末尾', run.lastY >= run.scrollHeight - run.clientHeight - 2, `lastY=${run.lastY}/${run.scrollHeight - run.clientHeight}`);
-  check('长帧（>20ms）占比 <10%', run.long / run.frames < 0.10, `${(run.long / run.frames * 100).toFixed(1)}% (${run.long})`);
+  check('长帧（>20ms）占比 <10%', run.long / run.frames < 0.1, `${(run.long / run.frames * 100).toFixed(1)}% (${run.long})`);
 
   const tail = JSON.parse(await page.ev(`(async () => {
     const sc = ctScrollParent(document.querySelector('#tbody'));

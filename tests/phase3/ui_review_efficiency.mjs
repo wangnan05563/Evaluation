@@ -113,7 +113,7 @@ try {
   check('优化路径只自动确认 80 条低风险', opt.low === 80 && opt.high === 20, JSON.stringify(opt));
   check('优化路径 100 条全部确认', opt.ok === 100, JSON.stringify(opt));
   reduction = base.ms > 0 ? (base.ms - opt.ms) / base.ms : 0;
-  check('复核总用时较基线下降≥30%', reduction >= 0.30,
+  check('复核总用时较基线下降≥30%', reduction >= 0.3,
     `baseline=${base.ms}ms optimized=${opt.ms}ms reduction=${(reduction*100).toFixed(1)}% (${((1-reduction)*100).toFixed(1)}% of baseline)`);
   check('ReviewPerf 记录操作与耗时', !!(opt.perf && opt.perf.duration_ms >= 0), JSON.stringify(opt.perf));
   perf = opt.perf;

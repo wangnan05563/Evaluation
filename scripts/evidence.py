@@ -79,29 +79,35 @@ def source_units(path):
     return units
 
 
-def _find_unit(units, key, prefer="paragraph"):
-    """在源文档中定位 key：优先整格精确匹配，再退化为包含匹配。"""
-    key_n = _norm(key)
-    if not key_n:
-        return None, ""
-    ordered = units if prefer == "table" else [u for u in units if u["kind"] != "table_row"] + \
-              [u for u in units if u["kind"] == "table_row"]
-    # 1) 表格单元格整格命中：功能点清单最可靠
+def _ordered_units(units, prefer):
+    if prefer == "table":
+        return units
+    return [u for u in units if u["kind"] != "table_row"] + [u for u in units if u["kind"] == "table_row"]
+
+
+def _exact_cell_match(ordered, key_n):
     for unit in ordered:
         if unit["kind"] != "table_row":
             continue
         for cell in unit["cells"]:
             if _norm(cell) == key_n:
                 return unit, cell
-    # 2) 原文包含命中
+    return None, ""
+
+
+def _contains_match(ordered, key_n, key):
     for unit in ordered:
-        if key_n in _norm(unit["text"]):
-            if unit["kind"] == "table_row":
-                for cell in unit["cells"]:
-                    if key_n in _norm(cell):
-                        return unit, _clip(key, MAX_QUOTE)
-            return unit, _clip(key, MAX_QUOTE)
-    # 3) 表格单元格包含命中
+        if key_n not in _norm(unit["text"]):
+            continue
+        if unit["kind"] == "table_row":
+            for cell in unit["cells"]:
+                if key_n in _norm(cell):
+                    return unit, _clip(key, MAX_QUOTE)
+        return unit, _clip(key, MAX_QUOTE)
+    return None, ""
+
+
+def _cell_contains_match(ordered, key_n):
     for unit in ordered:
         if unit["kind"] != "table_row":
             continue
@@ -109,6 +115,21 @@ def _find_unit(units, key, prefer="paragraph"):
             if key_n in _norm(cell):
                 return unit, cell
     return None, ""
+
+
+def _find_unit(units, key, prefer="paragraph"):
+    """在源文档中定位 key：优先整格精确匹配，再退化为包含匹配。"""
+    key_n = _norm(key)
+    if not key_n:
+        return None, ""
+    ordered = _ordered_units(units, prefer)
+    unit, quote = _exact_cell_match(ordered, key_n)
+    if unit:
+        return unit, quote
+    unit, quote = _contains_match(ordered, key_n, key)
+    if unit:
+        return unit, quote
+    return _cell_contains_match(ordered, key_n)
 
 
 def _evidence_object(unit, quote):
@@ -181,16 +202,73 @@ def _valid_existing_evidence(item, units):
     return out
 
 
+def _resolve_units(path):
+    try:
+        return source_units(path)
+    except Exception:
+        return []
+
+
+def _find_prefer(item):
+    if "功能点清单" in str(item.get("desc") or "") or item.get("kind") == "table_row":
+        return "table"
+    return "paragraph"
+
+
+def _match_evidence(item, units):
+    existing = _valid_existing_evidence(item, units)
+    if existing:
+        item["evidence"] = existing
+        return True
+    hint = item.get("evidence_quote") or item.get("quote")
+    prefer = _find_prefer(item)
+    unit, quote = _find_unit(units, hint, prefer=prefer) if hint else (None, "")
+    if not unit:
+        for key in _candidate_keys(item):
+            unit, quote = _find_unit(units, key, prefer=prefer)
+            if unit:
+                break
+    if unit:
+        item["evidence"] = [_evidence_object(unit, quote)]
+        return True
+    item["evidence"] = []
+    return False
+
+
+def _set_confidence(item, has_ev):
+    raw_conf = item.get("confidence")
+    if raw_conf not in (None, ""):
+        conf = normalize_confidence(raw_conf, default=0.0)
+    else:
+        conf = 0.0
+        if has_ev:
+            ev_kind = item["evidence"][0].get("kind")
+            conf = 0.86 if ev_kind == "table_row" else 0.64
+    if not has_ev:
+        conf = 0.0
+    item["confidence"] = round(conf, 4)
+
+
+def _set_ai(item, origin, meta, model, prompt_version, created):
+    ai = dict(item.get("ai") or {})
+    if origin == "llm":
+        ai.setdefault("model", meta.get("model") or model or "AI 模型")
+        ai.setdefault("prompt_version", meta.get("prompt_version") or prompt_version or PROMPT_VERSION)
+    else:
+        ai.setdefault("model", model or LOCAL_MODEL)
+        ai.setdefault("prompt_version", prompt_version or RULES_PROMPT_VERSION)
+    ai.setdefault("created_at", created)
+    ai.setdefault("confidence", item["confidence"])
+    item["ai"] = ai
+
+
 def attach(items, path, llm_meta=None, model=None, prompt_version=None):
     """为候选补齐 evidence / confidence / ai / can_confirm，原地修改并返回统计。
 
     llm_meta: _llm_refine 的 meta（含 model / prompt_version / created_at）；
     model/prompt_version 用于本地规则候选。
     """
-    try:
-        units = source_units(path)
-    except Exception:
-        units = []
+    units = _resolve_units(path)
     meta = llm_meta or {}
     created = meta.get("created_at") or now_iso()
     checked = matched = 0
@@ -202,51 +280,13 @@ def attach(items, path, llm_meta=None, model=None, prompt_version=None):
             item.setdefault("can_confirm", True)
             continue
         checked += 1
-        existing = _valid_existing_evidence(item, units)
-        if existing:
-            item["evidence"] = existing
+        has_ev = _match_evidence(item, units)
+        if has_ev:
             matched += 1
-        else:
-            hint = item.get("evidence_quote") or item.get("quote")
-            unit = None
-            quote = ""
-            prefer = "table" if ("功能点清单" in str(item.get("desc") or "") or item.get("kind") == "table_row") else "paragraph"
-            if hint:
-                unit, quote = _find_unit(units, hint, prefer=prefer)
-            if not unit:
-                for key in _candidate_keys(item):
-                    unit, quote = _find_unit(units, key, prefer=prefer)
-                    if unit:
-                        break
-            if unit:
-                item["evidence"] = [_evidence_object(unit, quote)]
-                matched += 1
-            else:
-                item["evidence"] = []
-        has_ev = bool(item.get("evidence"))
-        raw_conf = item.get("confidence")
-        if raw_conf not in (None, ""):
-            conf = normalize_confidence(raw_conf, default=0.0)
-        else:
-            conf = 0.0
-            if has_ev:
-                ev_kind = item["evidence"][0].get("kind")
-                conf = 0.86 if ev_kind == "table_row" else 0.64
-        if not has_ev:
-            conf = 0.0
-        item["confidence"] = round(conf, 4)
+        _set_confidence(item, has_ev)
         item["origin"] = origin
         item["can_confirm"] = has_ev
-        ai = dict(item.get("ai") or {})
-        if origin == "llm":
-            ai.setdefault("model", meta.get("model") or model or "AI 模型")
-            ai.setdefault("prompt_version", meta.get("prompt_version") or prompt_version or PROMPT_VERSION)
-        else:
-            ai.setdefault("model", model or LOCAL_MODEL)
-            ai.setdefault("prompt_version", prompt_version or RULES_PROMPT_VERSION)
-        ai.setdefault("created_at", created)
-        ai.setdefault("confidence", item["confidence"])
-        item["ai"] = ai
+        _set_ai(item, origin, meta, model, prompt_version, created)
         # LLM 返回的临时字段不进入前端/审计
         for key in ("evidence_quote", "evidence_locator", "quote"):
             item.pop(key, None)
@@ -295,29 +335,36 @@ def validate_confirmable(items):
     return bad
 
 
+def _audit_confidence(conf):
+    try:
+        return f"{round(float(conf) * 100)}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _audit_row(item, idx, fallback_model):
+    ai = item.get("ai") or {}
+    ev = item.get("evidence") if isinstance(item.get("evidence"), list) else []
+    decision = item.get("human_decision") or ("confirmed" if item.get("ok") else "pending")
+    return {
+        "seq": item.get("seq") or idx,
+        "stable_id": str(item.get("stable_id") or f"FP-{idx:03d}"),
+        "model": str(ai.get("model") or fallback_model),
+        "prompt_version": str(ai.get("prompt_version") or "—"),
+        "created_at": str(ai.get("created_at") or "—"),
+        "confidence": _audit_confidence(item.get("confidence")),
+        "decision": decision,
+        "decision_at": str(item.get("decision_at") or "—"),
+        "evidence": ev[0].get("locator") if ev else "无",
+    }
+
+
 def audit_rows(items, fallback_model=LOCAL_MODEL):
     """AC-22：把逐项 AI 审计字段规整成可进 PDF 的行。"""
     rows = []
     for idx, item in enumerate(items or [], 1):
         if not isinstance(item, dict):
             continue
-        ai = item.get("ai") or {}
-        ev = item.get("evidence") if isinstance(item.get("evidence"), list) else []
-        conf = item.get("confidence")
-        try:
-            conf_text = f"{round(float(conf) * 100)}%"
-        except (TypeError, ValueError):
-            conf_text = "—"
-        decision = item.get("human_decision") or ("confirmed" if item.get("ok") else "pending")
-        rows.append({
-            "seq": item.get("seq") or idx,
-            "stable_id": str(item.get("stable_id") or f"FP-{idx:03d}"),
-            "model": str(ai.get("model") or fallback_model),
-            "prompt_version": str(ai.get("prompt_version") or "—"),
-            "created_at": str(ai.get("created_at") or "—"),
-            "confidence": conf_text,
-            "decision": decision,
-            "decision_at": str(item.get("decision_at") or "—"),
-            "evidence": ev[0].get("locator") if ev else "无",
-        })
+        rows.append(_audit_row(item, idx, fallback_model))
     return rows
+

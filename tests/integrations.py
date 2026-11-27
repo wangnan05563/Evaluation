@@ -14,6 +14,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import integrations  # noqa: E402
 import secret_store  # noqa: E402
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+API_ISSUES_SUFFIX = '/issues'
+MSG_NO_EXCEPTION = '未抛出异常'
+REPO_SLUG = 'owner/repo'
+
 checks = []
 MOCK = {"requests": [], "fail_remaining": 0, "forbid_methods": []}
 
@@ -25,7 +31,7 @@ def check(name, ok, detail=""):
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
-        pass
+        """静默上游请求日志，避免测试输出噪声。"""
 
     def _send(self, status, payload):
         body = json.dumps(payload).encode()
@@ -52,13 +58,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(503, {"error": "mock upstream unavailable"})
             return
         p = self.path
-        if method == "POST" and (p.endswith("/issues") or p.endswith("/issue")):
+        if method == "POST" and (p.endswith(API_ISSUES_SUFFIX) or p.endswith("/issue")):
             self._send(201, {"number": 7, "iid": 9, "id": 1001, "key": "DEMO-7",
                              "html_url": "https://example/issue/7", "web_url": "https://example/issue/9",
                              "self": "https://example/rest/issue/1001"})
             return
         if method == "GET" and p.startswith("/repos/"):
-            self._send(200, {"full_name": "owner/repo"})
+            self._send(200, {"full_name": REPO_SLUG})
             return
         if method == "GET" and p == "/rest/api/2/myself":
             self._send(200, {"displayName": "评估机器人", "name": "bot"})
@@ -84,21 +90,15 @@ class Handler(BaseHTTPRequestHandler):
         self._request("DELETE")
 
 
-def main():
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    port = srv.server_address[1]
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    base = f"http://127.0.0.1:{port}"
-    tmp = Path(tempfile.mkdtemp(prefix="we_integration_unit_"))
-    store = integrations.IntegrationStore(tmp / "integrations.db",
-                                          protect=secret_store.protect, unprotect=secret_store.unprotect)
-
+def _seed_checks(store):
     kinds = [c["kind"] for c in store.list()]
     check("种子包含 3 个集成", sorted(kinds) == ["github", "gitlab", "jira"], kinds)
     check("默认全部未启用且未配置", all(not c["enabled"] and not c["available"]
                                      for c in (store.public(x) for x in store.list())))
 
-    gh = store.save("github", {"base_url": base, "repo": "owner/repo", "token": "ghp-super-secret"}, enabled=True)
+
+def _connector_checks(store, base, tmp):
+    gh = store.save("github", {"base_url": base, "repo": REPO_SLUG, "token": "ghp-super-secret"}, enabled=True)
     check("GitHub 配置可保存并启用", gh["enabled"] and store.public(gh)["available"])
     con = sqlite3.connect(tmp / "integrations.db")
     raw = con.execute("SELECT config_json FROM connectors WHERE kind='github'").fetchone()[0]
@@ -108,14 +108,12 @@ def main():
     pub = store.public(gh)
     check("公开视图只返回 token_set 不返回密文", pub["config"].get("token_set") is True
           and "token" not in pub["config"], list(pub["config"].keys()))
-
     mapped = store.save_mapping("github", {"title": "component", "body": "acceptance",
                                            "priority": "priority", "labels": "labels"})
     check("字段映射可保存并回读", mapped["mapping"]["title"] == "component"
           and mapped["mapping"]["body"] == "acceptance", mapped["mapping"])
-
     t = store.test("github")
-    check("GitHub 测试连接成功", t["ok"] and "owner/repo" in t["detail"], t.get("detail"))
+    check("GitHub 测试连接成功", t["ok"] and REPO_SLUG in t["detail"], t.get("detail"))
     check("连接测试写入最近状态", store.get("github")["last_test_ok"] is True)
 
     jira = store.save("jira", {"base_url": base, "project_key": "DEMO", "issue_type": "Task",
@@ -135,6 +133,8 @@ def main():
     check("GitLab 使用 PRIVATE-TOKEN",
           any(k.lower() == "private-token" and v for k, v in gl_req["headers"].items()))
 
+
+def _sync_checks(store):
     MOCK["requests"].clear()
     job = store.sync("github", [{"component": "票据到期提醒", "acceptance": "按到期日筛选",
                                 "priority": "P1", "labels": ["需求"]}])
@@ -144,7 +144,7 @@ def main():
     check("字段映射生效：component→标题、acceptance→描述",
           posted["body"]["title"] == "票据到期提醒" and posted["body"]["body"] == "按到期日筛选",
           posted["body"])
-    check("同步只调用创建接口", posted["method"] == "POST" and posted["path"].endswith("/issues"))
+    check("同步只调用创建接口", posted["method"] == "POST" and posted["path"].endswith(API_ISSUES_SUFFIX))
     check("未发生状态回读/更新请求", all(r["method"] in ("GET", "POST") for r in MOCK["requests"])
           and not any(r["method"] in ("PUT", "PATCH", "DELETE") for r in MOCK["requests"]))
 
@@ -159,9 +159,11 @@ def main():
 
     gl_job = store.sync("gitlab", [{"title": "GitLab 需求", "body": "描述", "labels": "a,b"}])
     check("GitLab 同步成功", gl_job["status"] == "success" and gl_job["failed"] == 0)
-    gl_post = [r for r in MOCK["requests"] if r["path"].endswith("/issues")][-1]
+    gl_post = [r for r in MOCK["requests"] if r["path"].endswith(API_ISSUES_SUFFIX)][-1]
     check("GitLab 标签按逗号写入", gl_post["body"]["labels"] == "a,b", gl_post["body"])
 
+
+def _retry_checks(store):
     store.save_mapping("github", integrations.DEFAULT_MAPPING)
     MOCK["fail_remaining"] = 2
     auto = store.sync("github", [{"title": "自动重试", "body": "x"}])
@@ -183,7 +185,7 @@ def main():
     except integrations.IntegrationError as e:
         check("成功任务拒绝重复重试", e.code == "CONFLICT" and e.status == 409, f"{e.code}/{e.status}")
     else:
-        check("成功任务拒绝重复重试", False, "未抛出异常")
+        check("成功任务拒绝重复重试", False, MSG_NO_EXCEPTION)
 
     MOCK["fail_remaining"] = 3
     partial = store.sync("github", [{"title": "部分失败-A", "body": "x"},
@@ -197,13 +199,15 @@ def main():
           and len([r for r in MOCK["requests"] if r["method"] == "POST"]) == 1,
           f"{retried_partial['status']} total={retried_partial['total']} posts={len(MOCK['requests'])}")
 
+
+def _negative_checks(store):
     store.save("jira", enabled=False)
     try:
         store.sync("jira", [{"title": "未启用", "body": "x"}])
     except integrations.IntegrationError as e:
         check("禁用连接器拒绝同步", e.code == "DISABLED" and not e.retryable, e.code)
     else:
-        check("禁用连接器拒绝同步", False, "未抛出异常")
+        check("禁用连接器拒绝同步", False, MSG_NO_EXCEPTION)
     for name, fn, code in [
         ("空条目拒绝", lambda: store.sync("github", []), "ITEM"),
         ("非对象条目拒绝", lambda: store.sync("github", ["x"]), "ITEM"),
@@ -214,13 +218,28 @@ def main():
         except integrations.IntegrationError as e:
             check(name, e.code == code, e.code)
         else:
-            check(name, False, "未抛出异常")
+            check(name, False, MSG_NO_EXCEPTION)
 
     bad_test = store.test("gitlab")
     check("未知/缺配置测试返回失败而非异常", bad_test["ok"] in (True, False))
     jobs = store.jobs("github", 10)
     check("任务列表按连接器过滤", len(jobs) >= 3 and all(j["connector_id"] == store.get("github")["id"]
                                                     for j in jobs), len(jobs))
+
+
+def main():
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{port}"
+    tmp = Path(tempfile.mkdtemp(prefix="we_integration_unit_"))
+    store = integrations.IntegrationStore(tmp / "integrations.db",
+                                          protect=secret_store.protect, unprotect=secret_store.unprotect)
+    _seed_checks(store)
+    _connector_checks(store, base, tmp)
+    _sync_checks(store)
+    _retry_checks(store)
+    _negative_checks(store)
 
     result = {
         "suite": "integrations",

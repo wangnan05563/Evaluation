@@ -8,7 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { openPage, checker, sleep, OUT, loadAxe, axeAudit } from './cdp.mjs';
 
 const ROOT = path.resolve('.');
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const { check, finish } = checker('integrations-ui');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'we_int_ui_'));
 const data = path.join(temp, 'data');
@@ -208,7 +208,7 @@ try {
     title: window.__intData?.jobs?.[0]?.total
   })`));
   check('UI 同步成功并展示任务日志', synced && syncState.ok >= 1, JSON.stringify(syncState));
-  const post = calls.filter(c => c.method === 'POST').slice(-1)[0];
+  const post = calls.findLast(c => c.method === 'POST');
   check('映射后同步载荷标题取 component', post.body.title === '票据到期提醒', JSON.stringify(post.body));
 
   failRemaining = 99;

@@ -1,0 +1,4 @@
+"rule","component","line","message"
+"python:S1172","27_Evaluation:scripts/server.py","2597","Remove the unused function parameter ""ip""."
+"python:S1172","27_Evaluation:scripts/server.py","2597","Remove the unused function parameter ""origin""."
+"javascript:S3776","27_Evaluation:frontend/src/js/01_core.js","428","Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed."

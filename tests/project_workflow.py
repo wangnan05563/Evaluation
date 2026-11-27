@@ -11,6 +11,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import history
 import project_workflow
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+METHOD_NAME = '估算功能点'
+SAMPLE_PROJECT = 'T06198 状态机样例'
+
 fails = []
 checks = []
 total = 0
@@ -40,15 +45,15 @@ def main():
     hist = history.HistStore(Path(tmp.name) / "estimation.db")
     store = project_workflow.WorkflowStore(Path(tmp.name) / "workflow.db")
     item = {"desc": "客户信息维护表", "type": "ILF", "reuse": "中", "modify": "新增"}
-    rec = hist.insert(title="T06198 状态机样例", method="估算功能点",
+    rec = hist.insert(title=SAMPLE_PROJECT, method=METHOD_NAME,
                       params={"cx_mode": "企业母版"}, items=[item],
                       summary={"count": 1, "us_total": 6.67}, sid="wf-unit")
-    h = store.hash_snapshot(title="T06198 状态机样例", version_no=1, method="估算功能点",
+    h = store.hash_snapshot(title=SAMPLE_PROJECT, version_no=1, method=METHOD_NAME,
                             params={"cx_mode": "企业母版"}, items=rec["items"],
                             summary={"count": 1, "us_total": 6.67})
     check("版本哈希为 SHA-256 64 位", len(h) == 64 and all(c in "0123456789abcdef" for c in h), h)
 
-    detail = store.ensure(project_id=rec["version_group"], title="T06198 状态机样例", version_no=1,
+    detail = store.ensure(project_id=rec["version_group"], title=SAMPLE_PROJECT, version_no=1,
                           history_id=rec["id"], version_hash=h)
     check("首版自动登记为 draft", detail["status"] == "draft" and detail["version_no"] == 1,
           detail["status"])
@@ -103,14 +108,14 @@ def main():
           and any("同意签收" == x for x in signoff["opinions"]),
           json.dumps(signoff["opinions"], ensure_ascii=False))
 
-    rec2 = hist.insert(title="T06198 状态机样例", method="估算功能点",
+    rec2 = hist.insert(title=SAMPLE_PROJECT, method=METHOD_NAME,
                        params={"cx_mode": "企业母版"}, items=[item],
                        summary={"count": 1, "us_total": 6.67}, sid="wf-unit",
                        reopen_group=rec["version_group"])
-    h2 = store.hash_snapshot(title="T06198 状态机样例", version_no=rec2["version_no"],
-                             method="估算功能点", params={"cx_mode": "企业母版"},
+    h2 = store.hash_snapshot(title=SAMPLE_PROJECT, version_no=rec2["version_no"],
+                             method=METHOD_NAME, params={"cx_mode": "企业母版"},
                              items=rec2["items"], summary={"count": 1, "us_total": 6.67})
-    nextv = store.ensure(project_id=rec["version_group"], title="T06198 状态机样例",
+    nextv = store.ensure(project_id=rec["version_group"], title=SAMPLE_PROJECT,
                          version_no=rec2["version_no"], history_id=rec2["id"], version_hash=h2)
     check("新版本自动回 draft 并清除当前签收字段",
           nextv["status"] == "draft" and nextv["signer"] is None and nextv["signed_at"] is None,

@@ -28,33 +28,26 @@ def render(html, pdf):
     return json.loads([l for l in p.stdout.splitlines() if l.startswith("{")][-1])
 
 
-def main():
-    import fitz
-    t0 = time.time()
-    pass1 = os.path.join(SPIKE, "pass1.pdf")
-    meta1 = render(TEMPLATE, pass1)
-    doc = fitz.open(pass1)
+def _map_sections(doc):
     pages = {}
     for i, title in enumerate(TITLES, 1):
         for pno in range(2, doc.page_count):
-            text = doc[pno].get_text("text")
-            if title in text:
+            if title in doc[pno].get_text("text"):
                 pages[i] = pno + 1
                 break
     missing = [i for i in range(1, 18) if i not in pages]
     if missing:
         raise RuntimeError(f"section pages not found: {missing}; pages={doc.page_count}")
+    return pages
 
-    html = open(TEMPLATE, encoding="utf-8").read()
+
+def _fill_pages(html, pages):
     for i, p in pages.items():
         html = html.replace(f"{{{{PAGE_{i}}}}}", str(p))
-    final_html = os.path.join(SPIKE, "sample-audit-final.html")
-    open(final_html, "w", encoding="utf-8").write(html)
-    final_pdf = os.path.join(SPIKE, "sample-audit-chromium.pdf")
-    meta2 = render(final_html, final_pdf)
-    doc2 = fitz.open(final_pdf)
+    return html
 
-    # 目录页码：按标题+页码联合校验
+
+def _toc_check(doc2, pages):
     toc_text = doc2[1].get_text("text")
     toc_ok, toc_rows = True, []
     for i, title in enumerate(TITLES, 1):
@@ -63,20 +56,62 @@ def main():
         ok = got == pages[i]
         toc_ok = toc_ok and ok
         toc_rows.append({"section": i, "expected": pages[i], "in_toc": got, "ok": ok})
+    return toc_ok, toc_rows
 
-    # 字体
+
+def _fonts(doc2):
     fonts = []
     for pno in range(min(3, doc2.page_count)):
         for f in doc2.get_page_fonts(pno):
             base = f[3]
             if base not in fonts:
                 fonts.append(base)
+    return fonts
 
-    # 书签
+
+def _determinism(final_pdf, pass3, doc2, doc3):
+    import hashlib
+
+    def text_hash(d):
+        h = hashlib.sha256()
+        for p in d:
+            h.update(p.get_text("text").encode("utf-8"))
+        return h.hexdigest()
+
+    th2, th3 = text_hash(doc2), text_hash(doc3)
+    bytes_equal = open(final_pdf, "rb").read() == open(pass3, "rb").read()
+    meta_diff = {k: (doc2.metadata.get(k), doc3.metadata.get(k))
+                 for k in ("creationDate", "modDate", "producer", "creator")}
+    return {"bytes_equal": bytes_equal, "text_hash_equal": th2 == th3, "text_hash": th2, "meta_diff": meta_diff}
+
+
+def _weasy_info():
+    try:
+        import weasyprint  # noqa: F401
+        return {"available": True, "version": getattr(weasyprint, "__version__", "unknown")}
+    except Exception as e:
+        return {"available": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def main():
+    import fitz
+    t0 = time.time()
+    pass1 = os.path.join(SPIKE, "pass1.pdf")
+    meta1 = render(TEMPLATE, pass1)
+    doc = fitz.open(pass1)
+    pages = _map_sections(doc)
+
+    html = _fill_pages(open(TEMPLATE, encoding="utf-8").read(), pages)
+    final_html = os.path.join(SPIKE, "sample-audit-final.html")
+    open(final_html, "w", encoding="utf-8").write(html)
+    final_pdf = os.path.join(SPIKE, "sample-audit-chromium.pdf")
+    meta2 = render(final_html, final_pdf)
+    doc2 = fitz.open(final_pdf)
+
+    toc_ok, toc_rows = _toc_check(doc2, pages)
+    fonts = _fonts(doc2)
     outline = doc2.get_toc(simple=True)
     outline_ok = len(outline) >= 17 and sum(1 for x in outline if any(t in x[1] for t in TITLES)) >= 17
-
-    # 水印 / 页码
     wm_pages = sum(1 for p in doc2 if "内部演示" in p.get_text("text"))
     footer_pages = sum(1 for p in doc2 if re.search(r"\d+\s*/\s*\d+", p.get_text("text")))
 
@@ -84,21 +119,8 @@ def main():
     pass3 = os.path.join(SPIKE, "pass3.pdf")
     meta3 = render(final_html, pass3)
     doc3 = fitz.open(pass3)
-    import hashlib
-    def text_hash(d):
-        h = hashlib.sha256()
-        for p in d:
-            h.update(p.get_text("text").encode("utf-8"))
-        return h.hexdigest()
-    th2, th3 = text_hash(doc2), text_hash(doc3)
-    bytes_equal = open(final_pdf, "rb").read() == open(pass3, "rb").read()
-    meta2_diff = {k: (doc2.metadata.get(k), doc3.metadata.get(k)) for k in ("creationDate", "modDate", "producer", "creator")}
-
-    try:
-        import weasyprint  # noqa: F401
-        weasy = {"available": True, "version": getattr(weasyprint, "__version__", "unknown")}
-    except Exception as e:
-        weasy = {"available": False, "error": f"{type(e).__name__}: {e}"}
+    determinism = _determinism(final_pdf, pass3, doc2, doc3)
+    weasy = _weasy_info()
 
     result = {
         "ok": toc_ok and outline_ok and len(fonts) > 0 and wm_pages >= 10 and footer_pages >= doc2.page_count - 1,
@@ -120,7 +142,7 @@ def main():
         "outline_ok": outline_ok,
         "watermark_pages": wm_pages,
         "footer_page_number_pages": footer_pages,
-        "determinism": {"bytes_equal": bytes_equal, "text_hash_equal": th2 == th3, "text_hash": th2, "meta_diff": meta2_diff},
+        "determinism": determinism,
         "weasyprint": weasy,
     }
     out = os.path.join(SPIKE, "pdf-spike-result.json")

@@ -20,7 +20,7 @@ const post = async (pathname, body) => {
 };
 const waitFor = async (fn, timeout = 60000, label = '') => {
   const t0 = Date.now();
-  while (Date.now() - t0 < timeout) { if (await fn()) return true; await sleep(120); }
+  while (Date.now() - t0 < timeout) { if (await fn()) { return true; } await sleep(120); }
   console.log('  !! timeout ' + label);
   return false;
 };

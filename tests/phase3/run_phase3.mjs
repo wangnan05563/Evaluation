@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const API_PORT = 8033, CDP_PORT = 9335, API = `http://127.0.0.1:${API_PORT}`, CDP = `http://127.0.0.1:${CDP_PORT}`;
 const OUT = path.join(ROOT, 'docs', 'test-reports', 'phase3-20261122');
@@ -98,8 +98,8 @@ function runSuite(s, dataDir) {
   return new Promise(res => {
     const p = spawn(process.execPath, [s.script], { cwd: ROOT, env: { ...process.env, PHASE3_APP: `${API}/`, PHASE3_CDP: CDP, PHASE3_DATA: dataDir } });
     let tail = '';
-    p.stdout.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) tail = tail.slice(-20000); process.stdout.write(t); });
-    p.stderr.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) tail = tail.slice(-20000); process.stderr.write(t); });
+    p.stdout.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) { tail = tail.slice(-20000); } process.stdout.write(t); });
+    p.stderr.on('data', d => { const t = d.toString(); tail += t; if (tail.length > 20000) { tail = tail.slice(-20000); } process.stderr.write(t); });
     const killer = setTimeout(() => { killTree(p.pid); }, s.timeout);
     p.on('exit', code => { clearTimeout(killer); res({ code, tail }); });
   });

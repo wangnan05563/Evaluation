@@ -2,7 +2,7 @@
    只写 projects.actual_days/actual_note；pert_items 的历史三点估算只读，
    校准建议也不自动回写任何估算值。 */
 function calibrationEsc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replaceAll(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 function calibrationEnsureUI() {
@@ -43,7 +43,7 @@ async function calibrationRender() {
 }
 
 async function calibrationSaveActual() {
-  if (!pertPid) { if (typeof toast === "function") toast("请先选择 PERT 项目"); return; }
+  if (!pertPid) { if (typeof toast === "function") { toast("请先选择 PERT 项目"); } return; }
   const card = calibrationEnsureUI();
   const val = card.querySelector("#calibActual").value;
   const r = await pertPost("/api/pert/actual", {
@@ -51,7 +51,7 @@ async function calibrationSaveActual() {
     actual_days: val === "" ? null : Number(val),
     actual_note: card.querySelector("#calibNote").value,
   });
-  if (!r.ok) { if (typeof toast === "function") toast(r.msg || "保存失败"); return; }
+  if (!r.ok) { if (typeof toast === "function") { toast(r.msg || "保存失败"); } return; }
   card.querySelector("#calibMsg").textContent = "已保存：实际 " + (r.actual_days == null ? "未填" : r.actual_days) + " 人天（历史估算未改动）";
   if (typeof toast === "function") toast("实际值已保存");
 }

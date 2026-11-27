@@ -14,7 +14,7 @@ function themeTokenResolve(theme) {
   const comp = theme.resolved.component || {};
   const vars = {};
   Object.keys(sem).forEach(k => { vars["--" + k.replace(/^--/, "")] = String(sem[k]); });
-  Object.keys(comp).forEach(k => { vars["--c-" + k.replace(/\./g, "-")] = String(comp[k]); });
+  Object.keys(comp).forEach(k => { vars["--c-" + k.replaceAll(".", "-")] = String(comp[k]); });
   const brand = comp["button.primary.background"] || sem.brand;
   if (brand) vars["--brand"] = String(brand);
   const brandFg = comp["button.primary.foreground"];
@@ -42,8 +42,7 @@ function applyThemeTokens(theme) {
 function themeTokensClear() {
   const root = document.documentElement;
   const names = [];
-  for (let i = 0; i < root.style.length; i++) {
-    const n = root.style[i];
+  for (const n of root.style) {
     if (n.startsWith("--c-") || ["--brand", "--brand-ink", "--brand-soft", "--on-brand", "--bg", "--card", "--ink", "--ink-2", "--muted", "--line", "--ff", "--fs-xs", "--fs-sm", "--fs-md", "--r-md", "--r-lg", "--shadow", "--motion-fast", "--motion-ease"].includes(n)) names.push(n);
   }
   names.forEach(n => root.style.removeProperty(n));
@@ -111,15 +110,16 @@ function themeTokenPanel() {
   div.className = "glass pad";
   div.id = "themeTokenCard";
   div.style.marginTop = "16px";
-  div.innerHTML = '<div class="card-title"><span>主题 Token（raw / semantic / component）</span></div>' +
-    '<div class="cfg-row"><span>内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-    '<select id="themeTokenSel" aria-label="选择主题 Token"></select>' +
+  div.innerHTML = '<div class="card-title"><span data-i18n="theme.token.title">主题 Token（raw / semantic / component）</span></div>' +
+    '<div class="cfg-row"><span data-i18n="theme.token.builtin">内置品牌主题</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<select id="themeTokenSel" aria-label="选择主题 Token" data-i18n="aria-label=theme.token.select"></select>' +
     '<button class="btn btn-ghost" id="themeTokenOpenStudio" onclick="themeStudioOpen()" data-i18n="theme.studio.open" title="打开主题工作室">主题工作室</button>' +
-    '<button class="btn btn-ghost" id="themeTokenApply">应用</button>' +
-    '<button class="btn btn-ghost" id="themeTokenExport">导出 JSON</button>' +
-    '<label class="btn btn-ghost" style="margin:0">导入 JSON<input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +
-    '</span></div><p class="cfg-note" style="margin-top:10px">主题由三层 Token 描述：raw 原始值 → semantic 语义变量 → component 组件绑定；新增主题只改 JSON，组件代码不动。</p>';
-  card.insertAdjacentElement("afterend", div);
+    '<button class="btn btn-ghost" id="themeTokenApply" data-i18n="theme.token.apply">应用</button>' +
+    '<button class="btn btn-ghost" id="themeTokenExport" data-i18n="theme.token.export">导出 JSON</button>' +
+    '<label class="btn btn-ghost" style="margin:0"><span data-i18n="theme.token.import">导入 JSON</span><input type="file" id="themeTokenImport" accept="application/json,.json" hidden></label>' +
+    '</span></div><p class="cfg-note" style="margin-top:10px" data-i18n="theme.token.note">主题由三层 Token 描述：raw 原始值 → semantic 语义变量 → component 组件绑定；新增主题只改 JSON，组件代码不动。</p>';
+  card.after(div);
+  if (typeof applyI18n === "function") applyI18n(div);
   const sel = div.querySelector("#themeTokenSel");
   if (sel) sel.innerHTML = themeTokenOptionsHtml();
   div.querySelector("#themeTokenApply").onclick = async () => {

@@ -27,6 +27,21 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+LOG_CODE_OUT = 'code=%s out=%s'
+STEP_VERSION_LABEL = '1/6 读取版本号'
+MSG_MISSING_FILE = 'Missing required file'
+MSG_NO_CREDENTIAL = '缺少 GitHub 凭据'
+MARK_PROD_SMOKE = 'prod_smoke.exit'
+FAIL_TAG = '[FAIL]'
+ENV_GH_TOKEN_LINE = 'GH_TOKEN="%s"'
+ARGS_PREFLIGHT_DRY = '-PreflightOnly -DryRun'
+CRED_SOURCE_ENV = 'GH_TOKEN（环境变量 / .env'
+MSG_NO_TOKEN_ECHO = '控制台未回显 token 明文'
+TAG_DRY_RUN = '[INFO] DRY-RUN'
+
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 BAT = SCRIPTS / "一键发布.bat"
@@ -55,13 +70,10 @@ def _decode(b):
 
 
 # ---------------------------------------------------------------- 静态断言
-def static_checks():
-    print("== 静态：编码 / 检查项 / 凭据不回显 ==", flush=True)
-    b = BAT.read_bytes()
+def _check_bat(t, b):
     check("bat 纯 ASCII + 无 BOM + CRLF",
           all(x < 128 for x in b) and not b.startswith(b"\xef\xbb\xbf")
           and sum(1 for i, x in enumerate(b) if x == 10 and (i == 0 or b[i - 1] != 13)) == 0)
-    t = b.decode("ascii")
     for token, label in [
         ('findstr /i "^GH_TOKEN="', "bat 从 .env 载入 GH_TOKEN"),
         ('findstr /i "^GITHUB_TOKEN="', "bat 从 .env 载入 GITHUB_TOKEN"),
@@ -71,7 +83,7 @@ def static_checks():
         ("where git", "bat 检查 git"),
         ("where powershell", "bat 检查 PowerShell"),
         ("where gh", "bat 提示 gh CLI 可选"),
-        ("Missing required file", "bat 检查发布链必需文件"),
+        (MSG_MISSING_FILE, "bat 检查发布链必需文件"),
         ("NO_PAUSE", "bat 支持无人值守跳过 pause"),
         ("set \"CODE=%ERRORLEVEL%\"", "bat 捕获流水线退出码"),
         ("!EXTRA!", "bat 原样透传 -DryRun / -SkipBuild 参数"),
@@ -86,14 +98,14 @@ def static_checks():
               if ("GH_TOKEN" in l or "GITHUB_TOKEN" in l) and ("!" in l or "%" in l)]
     check("bat 所有 echo 均不展开 token 变量", not leaked, repr(leaked[:2]))
 
-    p = PS1.read_bytes()
+
+def _check_ps1(s, p):
     check("ps1 UTF-8 BOM + CRLF", p.startswith(b"\xef\xbb\xbf")
           and sum(1 for i, x in enumerate(p) if x == 10 and (i == 0 or p[i - 1] != 13)) == 0)
-    s = p.decode("utf-8-sig")
     for token, label in [
         ("publish.config.json 缺少必需字段", "ps1 校验配置必需字段"),
         ("缺少发布链必需文件", "ps1 前置统一检查必需文件"),
-        ("缺少 GitHub 凭据", "ps1 前置阻断缺凭据"),
+        (MSG_NO_CREDENTIAL, "ps1 前置阻断缺凭据"),
         ("--get-regexp", "ps1 支持 git 凭据库兜底"),
         ("Invoke-Git", "ps1 用容错包装执行 git（PS 5.1 Stop 模式不误杀）"),
         ("值不回显", "ps1 明确不回显凭据"),
@@ -103,7 +115,7 @@ def static_checks():
         ("DryRun", "ps1 说明演练语义"),
         ("$PreflightOnly", "ps1 支持自检开关"),
         ("幂等规则复用已有 Release", "ps1 tag 已存在时不误杀幂等重发"),
-        ("prod_smoke.exit", "ps1 读取构建期冒烟退出码标记"),
+        (MARK_PROD_SMOKE, "ps1 读取构建期冒烟退出码标记"),
         ("WE_PROD_SMOKE", "ps1 注入构建期冒烟开关"),
         ("WE_PUBLISH", "ps1 注入发布模式开关"),
         ("构建未执行免安装产物冒烟", "ps1 缺失冒烟时明确阻断"),
@@ -115,10 +127,11 @@ def static_checks():
                      if l.strip().lower().startswith("write-host") and "$env:GH_TOKEN" in l]
     check("ps1 不打印 GH_TOKEN 值", not ps_token_echo, repr(ps_token_echo[:2]))
 
-    builder = (SCRIPTS / "构建打包.bat").read_bytes().decode("gbk")
+
+def _check_builder(builder):
     for token, label in [
         ("WE_PROD_SMOKE", "构建脚本支持发布期冒烟钩子"),
-        ("prod_smoke.exit", "构建脚本写出冒烟退出码标记"),
+        (MARK_PROD_SMOKE, "构建脚本写出冒烟退出码标记"),
         ("BUILD_FAILED", "构建脚本把 electron-builder 失败升级为阻断"),
         ("exit /b 1", "构建脚本发布模式失败返回非 0"),
         ("tests\\prod_smoke.mjs", "构建脚本在临时目录就地跑冒烟"),
@@ -133,6 +146,94 @@ def static_checks():
                     if l.strip().lower().startswith("echo") and ("(" in l or ")" in l)]
     check("冒烟子过程 echo 文本无裸括号", not paren_echoes, repr(paren_echoes[:1]))
     check("WARN 文案已改为无括号形式", "prod smoke failed, exit=!SMOKE_RC! - see" in builder)
+
+
+def _check_bat(t, b):
+    check("bat 纯 ASCII + 无 BOM + CRLF",
+          all(x < 128 for x in b) and not b.startswith(b"\xef\xbb\xbf")
+          and sum(1 for i, x in enumerate(b) if x == 10 and (i == 0 or b[i - 1] != 13)) == 0)
+    for token, label in [
+        ('findstr /i "^GH_TOKEN="', "bat 从 .env 载入 GH_TOKEN"),
+        ('findstr /i "^GITHUB_TOKEN="', "bat 从 .env 载入 GITHUB_TOKEN"),
+        ('!GH_TOKEN:"=!', "bat 去掉 token 外层双引号"),
+        ("!GH_TOKEN:'=!", "bat 去掉 token 外层单引号"),
+        ("!GITHUB_TOKEN!", "bat 把 GITHUB_TOKEN 映射给 GH_TOKEN"),
+        ("where git", "bat 检查 git"),
+        ("where powershell", "bat 检查 PowerShell"),
+        ("where gh", "bat 提示 gh CLI 可选"),
+        (MSG_MISSING_FILE, "bat 检查发布链必需文件"),
+        ("NO_PAUSE", "bat 支持无人值守跳过 pause"),
+        ("set \"CODE=%ERRORLEVEL%\"", "bat 捕获流水线退出码"),
+        ("!EXTRA!", "bat 原样透传 -DryRun / -SkipBuild 参数"),
+        ("GH_DRY_RUN", "bat 识别演练环境变量"),
+        ("-PreflightOnly", "bat 说明自检用法"),
+        ("[DONE]", "bat 成功横幅"),
+        (":fail", "bat 统一失败出口"),
+    ]:
+        check(label, token in t)
+    echo_lines = [l.strip() for l in t.splitlines() if l.strip().lower().startswith("echo")]
+    leaked = [l for l in echo_lines
+              if ("GH_TOKEN" in l or "GITHUB_TOKEN" in l) and ("!" in l or "%" in l)]
+    check("bat 所有 echo 均不展开 token 变量", not leaked, repr(leaked[:2]))
+
+
+def _check_ps1(s, p):
+    check("ps1 UTF-8 BOM + CRLF", p.startswith(b"\xef\xbb\xbf")
+          and sum(1 for i, x in enumerate(p) if x == 10 and (i == 0 or p[i - 1] != 13)) == 0)
+    for token, label in [
+        ("publish.config.json 缺少必需字段", "ps1 校验配置必需字段"),
+        ("缺少发布链必需文件", "ps1 前置统一检查必需文件"),
+        (MSG_NO_CREDENTIAL, "ps1 前置阻断缺凭据"),
+        ("--get-regexp", "ps1 支持 git 凭据库兜底"),
+        ("Invoke-Git", "ps1 用容错包装执行 git（PS 5.1 Stop 模式不误杀）"),
+        ("值不回显", "ps1 明确不回显凭据"),
+        ("origin 与配置一致", "ps1 校验 origin 与 publish.repo"),
+        ("工作树有", "ps1 脏工作树告警"),
+        ("不是 main/master", "ps1 非主分支告警"),
+        ("DryRun", "ps1 说明演练语义"),
+        ("$PreflightOnly", "ps1 支持自检开关"),
+        ("幂等规则复用已有 Release", "ps1 tag 已存在时不误杀幂等重发"),
+        (MARK_PROD_SMOKE, "ps1 读取构建期冒烟退出码标记"),
+        ("WE_PROD_SMOKE", "ps1 注入构建期冒烟开关"),
+        ("WE_PUBLISH", "ps1 注入发布模式开关"),
+        ("构建未执行免安装产物冒烟", "ps1 缺失冒烟时明确阻断"),
+        ("python_required_modules", "ps1 构建前校验 Python 依赖"),
+    ]:
+        check(label, token in s)
+    check("ps1 不再把错误指向不存在的 build_installer.log", "build_installer.log" not in s)
+    ps_token_echo = [l for l in s.splitlines()
+                     if l.strip().lower().startswith("write-host") and "$env:GH_TOKEN" in l]
+    check("ps1 不打印 GH_TOKEN 值", not ps_token_echo, repr(ps_token_echo[:2]))
+
+
+def _check_builder(builder):
+    for token, label in [
+        ("WE_PROD_SMOKE", "构建脚本支持发布期冒烟钩子"),
+        (MARK_PROD_SMOKE, "构建脚本写出冒烟退出码标记"),
+        ("BUILD_FAILED", "构建脚本把 electron-builder 失败升级为阻断"),
+        ("exit /b 1", "构建脚本发布模式失败返回非 0"),
+        ("tests\\prod_smoke.mjs", "构建脚本在临时目录就地跑冒烟"),
+        ("WE_PROD_WATCHDOG_MS=180000", "构建脚本限制发布门冒烟 watchdog"),
+    ]:
+        check(label, token in builder)
+    # T05688 后续：cmd 按括号配块，块内 echo 文本含裸括号会把下一行 set 挤出块
+    # 无条件执行（曾致冒烟通过后仍误判 BUILD_FAILED）。子过程内必须保持无括号。
+    sub_start = builder.index(":run_smoke")
+    sub = builder[sub_start:builder.index("goto :eof", sub_start)]
+    paren_echoes = [l for l in sub.splitlines()
+                    if l.strip().lower().startswith("echo") and ("(" in l or ")" in l)]
+    check("冒烟子过程 echo 文本无裸括号", not paren_echoes, repr(paren_echoes[:1]))
+    check("WARN 文案已改为无括号形式", "prod smoke failed, exit=!SMOKE_RC! - see" in builder)
+
+
+def static_checks():
+    print("== 静态：编码 / 检查项 / 凭据不回显 ==", flush=True)
+    b = BAT.read_bytes()
+    _check_bat(b.decode("ascii"), b)
+    p = PS1.read_bytes()
+    _check_ps1(p.decode("utf-8-sig"), p)
+    builder = (SCRIPTS / "构建打包.bat").read_bytes().decode("gbk")
+    _check_builder(builder)
     try:
         cfg = json.loads(CFG.read_text(encoding="utf-8"))
         ok = all(k in cfg for k in ("runtime", "env", "version", "build", "publish"))
@@ -258,82 +359,166 @@ def scenario(name, fn):
 
 
 # ---------------------------------------------------------------- 动态场景
+def _s1(tmp, cfg):
+    s = make_sandbox(tmp, cfg)
+    code, out = run_bat(s, "-PreflightOnly")
+    check("无 token + 无 helper：自检即阻断",
+          code != 0 and FAIL_TAG in out and MSG_NO_CREDENTIAL in out,
+          LOG_CODE_OUT % (code, out[-500:]))
+    check("阻断发生在构建之前", STEP_VERSION_LABEL not in out)
+    check("发布器未被调用", marker(tmp) is None)
+
+
+def _s2(tmp, cfg):
+    tok = "fake_token_0123456789abcdef"
+    s = make_sandbox(tmp, cfg, env_lines=[ENV_GH_TOKEN_LINE % tok])
+    code, out = run_bat(s, ARGS_PREFLIGHT_DRY)
+    check(".env GH_TOKEN + 自检通过", code == 0 and "[完成] 前置检查通过" in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+    check("凭据来源识别为 env/.env", CRED_SOURCE_ENV in out)
+    check(MSG_NO_TOKEN_ECHO, tok not in out)
+    check("自检未进入构建步骤", STEP_VERSION_LABEL not in out)
+    check("bat 识别 -DryRun 参数", TAG_DRY_RUN in out)
+    check("ps1 说明 DryRun 仍会构建", "DryRun" in out)
+
+
+def _s3(tmp, cfg):
+    tok = "another_fake_token_0123456789"
+    s = make_sandbox(tmp, cfg, env_lines=["GITHUB_TOKEN='%s'" % tok])
+    code, out = run_bat(s, ARGS_PREFLIGHT_DRY)
+    check("GITHUB_TOKEN 映射为 GH_TOKEN 且自检通过",
+          code == 0 and CRED_SOURCE_ENV in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+    check("未回显 token 明文", tok not in out)
+
+
+def _s4(tmp, cfg):
+    s = make_sandbox(tmp, cfg, helper_config="[credential]\n\thelper = store\n")
+    code, out = run_bat(s, "-PreflightOnly")
+    check("git credential.helper 兜底不误杀（非演练）",
+          code == 0 and "credential.helper 已配置" in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+
+
+def _s5(tmp, cfg):
+    tok = "full_chain_token_0123456789"
+    s = make_sandbox(tmp, cfg, env_lines=[ENV_GH_TOKEN_LINE % tok])
+    args, extra = "-SkipBuild", {"GH_DRY_RUN": "1"}
+    code, out = run_bat(s, args, extra_env=extra, timeout=240)
+    if code == -99:
+        # 本环境新建 .ps1/.bat 偶发被安全软件扫描拖慢；只重试这一次，成功与否照实判
+        print("   [RETRY] 首次超时，重跑完整链路场景", flush=True)
+        code, out = run_bat(s, args, extra_env=extra, timeout=240)
+    m = marker(tmp)
+    check("GH_DRY_RUN=1 完整链路通过", code == 0 and m is not None,
+          LOG_CODE_OUT % (code, out[-700:]))
+    if m:
+        check("双引号剥离：发布器收到干净 token",
+              m["token_len"] == len(tok) and not m["token_quoted"],
+              json.dumps(m, ensure_ascii=False))
+        check("发布器收到 GH_DRY_RUN=1", m["dry_run"] == "1")
+        check("发布器收到配置仓库坐标与版本 tag",
+              m["repo"] == cfg["publish"]["repo"] and m["tag"] == "0.1.20260101-001")
+    check(MSG_NO_TOKEN_ECHO, tok not in out)
+    check("bat 识别环境变量演练", TAG_DRY_RUN in out)
+    check("完整链路确实跑到发布步骤", STEP_VERSION_LABEL in out and "[完成] 一键发布结束" in out)
+
+
+def _s6(tmp, cfg):
+    s = make_sandbox(tmp, cfg, env_lines=["GH_TOKEN=env_token_0123456789abcdef"],
+                     with_config=False)
+    code, out = run_bat(s, "-PreflightOnly")
+    check("缺少 publish.config.json 被 bat 直接挡住",
+          code != 0 and MSG_MISSING_FILE in out and FAIL_TAG in out,
+          LOG_CODE_OUT % (code, out[-400:]))
+    check("未进入 PowerShell 流水线", "Delegating to publish.ps1" not in out)
+
+
+def _s1(tmp, cfg):
+    s = make_sandbox(tmp, cfg)
+    code, out = run_bat(s, "-PreflightOnly")
+    check("无 token + 无 helper：自检即阻断",
+          code != 0 and FAIL_TAG in out and MSG_NO_CREDENTIAL in out,
+          LOG_CODE_OUT % (code, out[-500:]))
+    check("阻断发生在构建之前", STEP_VERSION_LABEL not in out)
+    check("发布器未被调用", marker(tmp) is None)
+
+
+def _s2(tmp, cfg):
+    tok = "fake_token_0123456789abcdef"
+    s = make_sandbox(tmp, cfg, env_lines=[ENV_GH_TOKEN_LINE % tok])
+    code, out = run_bat(s, ARGS_PREFLIGHT_DRY)
+    check(".env GH_TOKEN + 自检通过", code == 0 and "[完成] 前置检查通过" in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+    check("凭据来源识别为 env/.env", CRED_SOURCE_ENV in out)
+    check(MSG_NO_TOKEN_ECHO, tok not in out)
+    check("自检未进入构建步骤", STEP_VERSION_LABEL not in out)
+    check("bat 识别 -DryRun 参数", TAG_DRY_RUN in out)
+    check("ps1 说明 DryRun 仍会构建", "DryRun" in out)
+
+
+def _s3(tmp, cfg):
+    tok = "another_fake_token_0123456789"
+    s = make_sandbox(tmp, cfg, env_lines=["GITHUB_TOKEN='%s'" % tok])
+    code, out = run_bat(s, ARGS_PREFLIGHT_DRY)
+    check("GITHUB_TOKEN 映射为 GH_TOKEN 且自检通过",
+          code == 0 and CRED_SOURCE_ENV in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+    check("未回显 token 明文", tok not in out)
+
+
+def _s4(tmp, cfg):
+    s = make_sandbox(tmp, cfg, helper_config="[credential]\n\thelper = store\n")
+    code, out = run_bat(s, "-PreflightOnly")
+    check("git credential.helper 兜底不误杀（非演练）",
+          code == 0 and "credential.helper 已配置" in out,
+          LOG_CODE_OUT % (code, out[-600:]))
+
+
+def _s5(tmp, cfg):
+    tok = "full_chain_token_0123456789"
+    s = make_sandbox(tmp, cfg, env_lines=[ENV_GH_TOKEN_LINE % tok])
+    args, extra = "-SkipBuild", {"GH_DRY_RUN": "1"}
+    code, out = run_bat(s, args, extra_env=extra, timeout=240)
+    if code == -99:
+        # 本环境新建 .ps1/.bat 偶发被安全软件扫描拖慢；只重试这一次，成功与否照实判
+        print("   [RETRY] 首次超时，重跑完整链路场景", flush=True)
+        code, out = run_bat(s, args, extra_env=extra, timeout=240)
+    m = marker(tmp)
+    check("GH_DRY_RUN=1 完整链路通过", code == 0 and m is not None,
+          LOG_CODE_OUT % (code, out[-700:]))
+    if m:
+        check("双引号剥离：发布器收到干净 token",
+              m["token_len"] == len(tok) and not m["token_quoted"],
+              json.dumps(m, ensure_ascii=False))
+        check("发布器收到 GH_DRY_RUN=1", m["dry_run"] == "1")
+        check("发布器收到配置仓库坐标与版本 tag",
+              m["repo"] == cfg["publish"]["repo"] and m["tag"] == "0.1.20260101-001")
+    check(MSG_NO_TOKEN_ECHO, tok not in out)
+    check("bat 识别环境变量演练", TAG_DRY_RUN in out)
+    check("完整链路确实跑到发布步骤", STEP_VERSION_LABEL in out and "[完成] 一键发布结束" in out)
+
+
+def _s6(tmp, cfg):
+    s = make_sandbox(tmp, cfg, env_lines=["GH_TOKEN=env_token_0123456789abcdef"],
+                     with_config=False)
+    code, out = run_bat(s, "-PreflightOnly")
+    check("缺少 publish.config.json 被 bat 直接挡住",
+          code != 0 and MSG_MISSING_FILE in out and FAIL_TAG in out,
+          LOG_CODE_OUT % (code, out[-400:]))
+    check("未进入 PowerShell 流水线", "Delegating to publish.ps1" not in out)
+
+
 def dynamic_checks(cfg):
     # 前置检查分支全部用 -PreflightOnly 验证：不构建、不跑 stub，一条 PowerShell 只做体检。
-    def s1(tmp):
-        s = make_sandbox(tmp, cfg)
-        code, out = run_bat(s, "-PreflightOnly")
-        check("无 token + 无 helper：自检即阻断",
-              code != 0 and "[FAIL]" in out and "缺少 GitHub 凭据" in out,
-              "code=%s out=%s" % (code, out[-500:]))
-        check("阻断发生在构建之前", "1/6 读取版本号" not in out)
-        check("发布器未被调用", marker(tmp) is None)
-    jobs = [("缺凭据提前阻断（不再等构建跑完才失败）", s1)]
-
-    def s2(tmp):
-        tok = "fake_token_0123456789abcdef"
-        s = make_sandbox(tmp, cfg, env_lines=['GH_TOKEN="%s"' % tok])
-        code, out = run_bat(s, "-PreflightOnly -DryRun")
-        check(".env GH_TOKEN + 自检通过", code == 0 and "[完成] 前置检查通过" in out,
-              "code=%s out=%s" % (code, out[-600:]))
-        check("凭据来源识别为 env/.env", "GH_TOKEN（环境变量 / .env" in out)
-        check("控制台未回显 token 明文", tok not in out)
-        check("自检未进入构建步骤", "1/6 读取版本号" not in out)
-        check("bat 识别 -DryRun 参数", "[INFO] DRY-RUN" in out)
-        check("ps1 说明 DryRun 仍会构建", "DryRun" in out)
-    jobs.append((".env 载入 GH_TOKEN（不回显/参数透传/自检）", s2))
-
-    def s3(tmp):
-        tok = "another_fake_token_0123456789"
-        s = make_sandbox(tmp, cfg, env_lines=["GITHUB_TOKEN='%s'" % tok])
-        code, out = run_bat(s, "-PreflightOnly -DryRun")
-        check("GITHUB_TOKEN 映射为 GH_TOKEN 且自检通过",
-              code == 0 and "GH_TOKEN（环境变量 / .env" in out,
-              "code=%s out=%s" % (code, out[-600:]))
-        check("未回显 token 明文", tok not in out)
-    jobs.append(("GITHUB_TOKEN 兼容映射（单引号）", s3))
-
-    def s4(tmp):
-        s = make_sandbox(tmp, cfg, helper_config="[credential]\n\thelper = store\n")
-        code, out = run_bat(s, "-PreflightOnly")
-        check("git credential.helper 兜底不误杀（非演练）",
-              code == 0 and "credential.helper 已配置" in out,
-              "code=%s out=%s" % (code, out[-600:]))
-    jobs.append(("git 凭据库兜底", s4))
-
-    def s5(tmp):
-        tok = "full_chain_token_0123456789"
-        s = make_sandbox(tmp, cfg, env_lines=['GH_TOKEN="%s"' % tok])
-        args, extra = "-SkipBuild", {"GH_DRY_RUN": "1"}
-        code, out = run_bat(s, args, extra_env=extra, timeout=240)
-        if code == -99:
-            # 本环境新建 .ps1/.bat 偶发被安全软件扫描拖慢；只重试这一次，成功与否照实判
-            print("   [RETRY] 首次超时，重跑完整链路场景", flush=True)
-            code, out = run_bat(s, args, extra_env=extra, timeout=240)
-        m = marker(tmp)
-        check("GH_DRY_RUN=1 完整链路通过", code == 0 and m is not None,
-              "code=%s out=%s" % (code, out[-700:]))
-        if m:
-            check("双引号剥离：发布器收到干净 token",
-                  m["token_len"] == len(tok) and not m["token_quoted"],
-                  json.dumps(m, ensure_ascii=False))
-            check("发布器收到 GH_DRY_RUN=1", m["dry_run"] == "1")
-            check("发布器收到配置仓库坐标与版本 tag",
-                  m["repo"] == cfg["publish"]["repo"] and m["tag"] == "0.1.20260101-001")
-        check("控制台未回显 token 明文", tok not in out)
-        check("bat 识别环境变量演练", "[INFO] DRY-RUN" in out)
-        check("完整链路确实跑到发布步骤", "1/6 读取版本号" in out and "[完成] 一键发布结束" in out)
-    jobs.append(("完整 DryRun 链路（token/演练/发布器调用）", s5))
-
-    def s6(tmp):
-        s = make_sandbox(tmp, cfg, env_lines=["GH_TOKEN=env_token_0123456789abcdef"],
-                         with_config=False)
-        code, out = run_bat(s, "-PreflightOnly")
-        check("缺少 publish.config.json 被 bat 直接挡住",
-              code != 0 and "Missing required file" in out and "[FAIL]" in out,
-              "code=%s out=%s" % (code, out[-400:]))
-        check("未进入 PowerShell 流水线", "Delegating to publish.ps1" not in out)
-    jobs.append(("关键文件缺失前置阻断", s6))
+    jobs = [
+        ("缺凭据提前阻断（不再等构建跑完才失败）", lambda tmp: _s1(tmp, cfg)),
+        (".env 载入 GH_TOKEN（不回显/参数透传/自检）", lambda tmp: _s2(tmp, cfg)),
+        ("GITHUB_TOKEN 兼容映射（单引号）", lambda tmp: _s3(tmp, cfg)),
+        ("git 凭据库兜底", lambda tmp: _s4(tmp, cfg)),
+        ("完整 DryRun 链路（token/演练/发布器调用）", lambda tmp: _s5(tmp, cfg)),
+        ("关键文件缺失前置阻断", lambda tmp: _s6(tmp, cfg)),
+    ]
     with ThreadPoolExecutor(max_workers=3) as ex:
         results = list(ex.map(lambda pair: scenario(pair[0], pair[1]), jobs))
     for name, buf, elapsed in results:

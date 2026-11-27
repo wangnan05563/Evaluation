@@ -12,11 +12,16 @@ async function migrationApi(pathname, method = 'GET') {
   return j;
 }
 
+function migrationText(key, fallback, vars) {
+  const s = (typeof tl === 'function' && typeof __I18N !== 'undefined' && __I18N && __I18N[key]) ? __I18N[key] : fallback;
+  return String(s).replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
+}
+
 function migrationBadgeHTML(s) {
-  if (!s) return '读取中…';
-  if (s.missing_items > 0) return `待迁移 ${s.missing_items} 项`;
-  if (s.migration_state === 'rolled_back') return '已回滚';
-  return '已完成';
+  if (!s) return migrationText('history.migration.badge.loading', '读取中…');
+  if (s.missing_items > 0) return migrationText('history.migration.badge.pending', '待迁移 {n} 项', { n: s.missing_items });
+  if (s.migration_state === 'rolled_back') return migrationText('history.migration.badge.rolled_back', '已回滚');
+  return migrationText('history.migration.badge.done', '已完成');
 }
 
 async function migrationRender() {
@@ -30,18 +35,18 @@ async function migrationRender() {
     migrationLast = s;
     badge.textContent = migrationBadgeHTML(s);
     badge.style.color = s.missing_items > 0 ? 'var(--danger-ink)' : 'var(--brand)';
-    const versions = Object.entries(s.schema_versions || {}).map(([v, n]) => `v${v} ${n}`).join(' / ') || '无';
+    const versions = Object.entries(s.schema_versions || {}).map(([v, n]) => `v${v} ${n}`).join(' / ') || migrationText('history.migration.none', '无');
     info.innerHTML =
-      `Schema 目标 <b>v${s.schema_ver}</b> · 当前版本分布 <b>${migrationEsc(versions)}</b> · 迁移状态 <b>${migrationEsc(s.migration_state)}</b><br>` +
-      `历史 <b>${s.rows}</b> 条 / 明细 <b>${s.items}</b> 项 · 稳定ID映射 <b>${s.mapped}</b> 条 · 缺稳定ID <b>${s.missing_items}</b> 项（${s.missing_rows} 条）<br>` +
-      `备份 <b>${s.backups}</b> 份 · 双读兼容 <b>${s.dual_read ? '开启' : '关闭'}</b>` +
-      (s.migrated_at ? ` · 最近迁移 ${migrationEsc(s.migrated_at.replace('T', ' '))}` : '');
+      `${migrationText('history.migration.schema_target', 'Schema 目标')} <b>v${s.schema_ver}</b> · ${migrationText('history.migration.current_versions', '当前版本分布')} <b>${migrationEsc(versions)}</b> · ${migrationText('history.migration.state', '迁移状态')} <b>${migrationEsc(s.migration_state)}</b><br>` +
+      `${migrationText('history.migration.history', '历史')} <b>${s.rows}</b> ${migrationText('history.migration.records', '条')} / ${migrationText('history.migration.details', '明细')} <b>${s.items}</b> ${migrationText('history.migration.items', '项')} · ${migrationText('history.migration.mapped', '稳定ID映射')} <b>${s.mapped}</b> ${migrationText('history.migration.records', '条')} · ${migrationText('history.migration.missing', '缺稳定ID')} <b>${s.missing_items}</b> ${migrationText('history.migration.items', '项')}（${s.missing_rows} ${migrationText('history.migration.records', '条')}）<br>` +
+      `${migrationText('history.migration.backups', '备份')} <b>${s.backups}</b> ${migrationText('history.migration.copies', '份')} · ${migrationText('history.migration.dual_read', '双读兼容')} <b>${s.dual_read ? migrationText('history.migration.on', '开启') : migrationText('history.migration.off', '关闭')}</b>` +
+      (s.migrated_at ? ` · ${migrationText('history.migration.last', '最近迁移')} ${migrationEsc(s.migrated_at.replace('T', ' '))}` : '');
     if (run) run.disabled = s.missing_items === 0;
     if (rb) rb.disabled = !s.can_rollback;
     return s;
   } catch (e) {
-    badge.textContent = '读取失败';
-    info.textContent = '迁移状态读取失败：' + e.message;
+    badge.textContent = migrationText('history.migration.badge.read_failed', '读取失败');
+    info.textContent = migrationText('history.migration.read_failed', '迁移状态读取失败：') + e.message;
     return null;
   }
 }
@@ -58,27 +63,31 @@ async function migrationRun() {
   if (btn) btn.disabled = true;
   try {
     const r = await migrationApi('/api/history/ids/migrate', 'POST');
-    migrationMsg(`迁移完成：本次处理 ${r.migrated || 0} 条历史；旧数据已补稳定 ID。`, true);
+    migrationMsg(migrationText('history.migration.migrate_ok',
+      '迁移完成：本次处理 {n} 条历史；旧数据已补稳定 ID。', { n: r.migrated || 0 }), true);
     await migrationRender();
     if (typeof histOpen === 'function') histOpen();
   } catch (e) {
-    migrationMsg('迁移失败：' + e.message + '；未迁移数据保持原样，可回滚后重试。', false);
+    migrationMsg(migrationText('history.migration.migrate_fail',
+      '迁移失败：{err}；未迁移数据保持原样，可回滚后重试。', { err: e.message }), false);
   } finally {
     if (btn && migrationLast) btn.disabled = migrationLast.missing_items === 0;
   }
 }
 
 async function migrationRollback() {
-  if (!confirm('回滚会恢复迁移前的旧明细（不再自动迁移），确定继续？')) return;
+  if (!confirm(migrationText('history.migration.rollback_confirm',
+      '回滚会恢复迁移前的旧明细（不再自动迁移），确定继续？'))) return;
   const btn = document.getElementById('migrationRollbackBtn');
   if (btn) btn.disabled = true;
   try {
     const r = await migrationApi('/api/history/ids/rollback', 'POST');
-    migrationMsg(`已回滚 ${r.restored || 0} 条历史的明细；旧项目数据未丢失。`, true);
+    migrationMsg(migrationText('history.migration.rollback_ok',
+      '已回滚 {n} 条历史的明细；旧项目数据未丢失。', { n: r.restored || 0 }), true);
     await migrationRender();
     if (typeof histOpen === 'function') histOpen();
   } catch (e) {
-    migrationMsg('回滚失败：' + e.message, false);
+    migrationMsg(migrationText('history.migration.rollback_fail', '回滚失败：{err}', { err: e.message }), false);
   } finally {
     if (btn && migrationLast) btn.disabled = !migrationLast.can_rollback;
   }

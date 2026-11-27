@@ -49,7 +49,7 @@ document.addEventListener("keydown",e=>{
   if(document.body.dataset.page!=="work"||document.body.dataset.step!=="review")return;
   const k=String(e.key||"").toLowerCase();
   if(k!=="z"&&k!=="y")return;
-  if(k==="z"&&!e.shiftKey){if(undoEdit())e.preventDefault();return;}
+  if(k==="z"&&!e.shiftKey){if(undoEdit()){e.preventDefault();}return;}
   if(k==="y"||(k==="z"&&e.shiftKey)){if(redoEdit())e.preventDefault();}
 });
 function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
@@ -58,11 +58,11 @@ function batchApply(){  // FR-1.4：对筛选出的可见行批量设置
   const arr=visibleItems();pushUndo("批量应用");let n=0;
   arr.forEach(it=>{ops.forEach(([id,k])=>{const v=$("#"+id).value;recordRej(it,k,it[k],v);it[k]=v;});n++;});
   render();saveFormState();toast(tf("batch.updated",{n}));}
-function markDecision(it,ok){if(!it)return;if((window.isAiOrigin?window.isAiOrigin(it):(it.origin==="ai"||it.origin==="llm"||it.origin==="rule"))||it.origin==="manual"){it.human_decision=ok?"confirmed":"unconfirmed";it.decision_at=new Date().toISOString();}}
-function batchConfirm(){const arr=visibleItems().filter(it=>window.canConfirmItem?window.canConfirmItem(it):true);const skipped=visibleItems().length-arr.length;pushUndo("批量确认");arr.forEach(it=>{it.ok=true;markDecision(it,true);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_confirm",{n:arr.length});toast(skipped?tf("review.evidence.blocked_n",{n:skipped}):tf("batch.confirmed",{n:arr.length}));}
+function markDecision(it,ok){if(!it){return;}if((window.isAiOrigin?window.isAiOrigin(it):(it.origin==="ai"||it.origin==="llm"||it.origin==="rule"))||it.origin==="manual"){it.human_decision=ok?"confirmed":"unconfirmed";it.decision_at=new Date().toISOString();}}
+function batchConfirm(){const arr=visibleItems().filter(it=>window.canConfirmItem?window.canConfirmItem(it):true);const skipped=visibleItems().length-arr.length;pushUndo("批量确认");arr.forEach(it=>{it.ok=true;markDecision(it,true);});render();saveFormState();if(window.ReviewPerf){ReviewPerf.action("batch_confirm",{n:arr.length});}toast(skipped?tf("review.evidence.blocked_n",{n:skipped}):tf("batch.confirmed",{n:arr.length}));}
 function batchUnconfirm(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.unconfirm_confirm",{n:arr.length})))return;
-  pushUndo("批量取消确认");arr.forEach(it=>{it.ok=false;markDecision(it,false);});render();saveFormState();if(window.ReviewPerf)ReviewPerf.action("batch_unconfirm",{n:arr.length});toast(tf("batch.unconfirmed",{n:arr.length}));}
+  pushUndo("批量取消确认");arr.forEach(it=>{it.ok=false;markDecision(it,false);});render();saveFormState();if(window.ReviewPerf){ReviewPerf.action("batch_unconfirm",{n:arr.length});}toast(tf("batch.unconfirmed",{n:arr.length}));}
 function batchDelete(){const arr=visibleItems();if(!arr.length)return;
   if(!confirm(tf("batch.del_confirm",{n:arr.length})))return;
   pushUndo("批量删除");
@@ -121,7 +121,7 @@ function pasteParse(){
 function pasteApply(){
   pushUndo("粘贴导入");
   let seq=items.length?Math.max(...items.map(x=>x.seq)):0;
-  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,origin:"manual",can_confirm:true,confidence:0.90,evidence:[{kind:"manual",locator:"粘贴导入",quote:r.desc||r.count_item||"人工录入",context:r.desc||r.count_item||"人工录入",verified:true}],_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
+  pasteRows.forEach(r=>{seq+=1;items.push({...r,seq,cx:"中",ok:false,origin:"manual",can_confirm:true,confidence:0.9,evidence:[{kind:"manual",locator:"粘贴导入",quote:r.desc||r.count_item||"人工录入",context:r.desc||r.count_item||"人工录入",verified:true}],_ai:{type:r.type,reuse:r.reuse,modify:r.modify}});});
   const n=pasteRows.length;pasteClose();render();saveFormState();
   dynClear("#pastePreview");
   toast(tf("batch.paste_applied",{n}));}
@@ -344,7 +344,7 @@ function saveFormState(){
 function assignIfpugState(s){
   items=s.items;gSummary=s.gSummary||null;gSid=s.gSid||null;curFile=s.curFile||null;
   window.lastRecogMeta=s.recogMeta||null;
-  if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel)sel.value=s.cxMode;if(typeof refreshCxHint==='function')refreshCxHint();}
+  if(s.cxMode){cxMode=s.cxMode;const sel=$("#cxModeSel");if(sel){sel.value=s.cxMode;}if(typeof refreshCxHint==='function'){refreshCxHint();}}
 }
 function renderIfpugState(s){
   render();

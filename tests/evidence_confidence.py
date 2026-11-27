@@ -75,7 +75,7 @@ def main():
     src.write_bytes(server._onboarding_sample_docx())
 
     print("\n# 1. 规则候选证据")
-    items, meta = server.recognize_doc(src)
+    items, _ = server.recognize_doc(src)
     check("样例识别出 6 个功能点", len(items) == 6, str(len(items)))
     check("6/6 规则候选都有原文证据",
           all(len(i.get("evidence") or []) == 1 for i in items),

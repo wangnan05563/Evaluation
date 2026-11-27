@@ -57,7 +57,8 @@ try {
       m.error ? p.no(new Error(JSON.stringify(m.error))) : p.ok(m.result);
     }
   };
-  const send = (method, params = {}, sessionId, timeout = 30000) => {
+  const send = (method, params, sessionId, timeout = 30000) => {
+    params = params || {};
     const i = ++id;
     ws.send(JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) }));
     return new Promise((ok, no) => {
@@ -69,7 +70,7 @@ try {
   await send('Page.enable', {}, S);
   await send('Runtime.enable', {}, S);
   await send('Emulation.setDeviceMetricsOverride', { width: 794, height: 1123, deviceScaleFactor: 1, mobile: false }, S);
-  const url = 'file:///' + input.replace(/\\/g, '/').replace(/^\//, '');
+  const url = 'file:///' + input.replaceAll('\\', '/').replace(/^\//, '');
   await send('Page.navigate', { url }, S);
   for (let i = 0; i < 80; i++) {
     const r = await send('Runtime.evaluate', { expression: `document.readyState === 'complete'`, returnByValue: true }, S);

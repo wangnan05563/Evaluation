@@ -5,12 +5,17 @@
 import base64, json, os, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.request
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+API_RECOGNIZE_JOB = '/api/recognize/job?job=rdeep001'
+SAMPLE_DOCX = 't00928_req.docx'
+
 ROOT = Path(__file__).resolve().parent.parent
 PY = os.environ.get("PYTHON") or sys.executable
 PORT = 8041
 API = f"http://127.0.0.1:{PORT}"
 DATA = Path(tempfile.gettempdir()) / "we_long_task_drill"
-DOC = ROOT / "data" / "testdocs" / "t00928_req.docx"
+DOC = ROOT / "data" / "testdocs" / SAMPLE_DOCX
 b64 = base64.b64encode(DOC.read_bytes()).decode()
 checks = []
 
@@ -48,7 +53,7 @@ shutil.rmtree(DATA, ignore_errors=True)
 DATA.mkdir(parents=True, exist_ok=True)
 p = start()
 try:
-    j = call("/api/recognize/jobs", {"job": "rdrill001", "name": "t00928_req.docx",
+    j = call("/api/recognize/jobs", {"job": "rdrill001", "name": SAMPLE_DOCX,
                                      "b64": b64, "params": {}, "stage_delay_ms": 1000})["job"]
     check("创建识别任务并显示进度/剩余时间", j["status"] == "running" and j.get("eta_s", 0) > 0, f"{j['pct']}% eta={j['eta_s']}s")
     time.sleep(0.4)
@@ -87,12 +92,12 @@ finally:
 time.sleep(1)
 p = start()
 try:
-    j = call("/api/recognize/jobs", {"job": "rdeep001", "name": "t00928_req.docx",
+    j = call("/api/recognize/jobs", {"job": "rdeep001", "name": SAMPLE_DOCX,
                                      "b64": b64, "params": {}, "stage_delay_ms": 700})["job"]
     cur = j
     for _ in range(30):
         time.sleep(0.5)
-        cur = call("/api/recognize/job?job=rdeep001")["job"]
+        cur = call(API_RECOGNIZE_JOB)["job"]
         if cur["pct"] >= 54:
             break
     call("/api/recognize/cancel", {"job": "rdeep001"})
@@ -103,14 +108,14 @@ finally:
 time.sleep(1)
 p = start()
 try:
-    recovered = call("/api/recognize/job?job=rdeep001")["job"]
+    recovered = call(API_RECOGNIZE_JOB)["job"]
     check("重启后恢复解析断点（不退回 0%）", recovered["pct"] >= 54,
           f"{recovered['status']} {recovered['pct']}%")
     call("/api/recognize/resume", {"job": "rdeep001"})
     done = None
     for _ in range(80):
         time.sleep(0.4)
-        cur = call("/api/recognize/job?job=rdeep001")["job"]
+        cur = call(API_RECOGNIZE_JOB)["job"]
         if cur["status"] in ("done", "failed"):
             done = cur; break
     items = (done or {}).get("result", {}).get("items") or []

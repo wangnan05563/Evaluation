@@ -53,7 +53,7 @@
   }
   function s(k) { return TEXT[lang()][k] || TEXT['zh-CN'][k] || k; }
   function esc(v) {
-    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return String(v ?? '').replaceAll(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
   function readArr(key) {
     try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
@@ -147,19 +147,17 @@
     if (builtFor !== key) { entries = buildEntries(); builtFor = key; }
   }
 
-  function fetchProjects() {
+  async function fetchProjects() {
     if (projectFetching || projects.length) return;
     projectFetching = true;
     try {
-      fetch((typeof API !== 'undefined' ? API : '') + '/api/pert/projects', {
+      const r = await fetch((typeof API !== 'undefined' ? API : '') + '/api/pert/projects', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store'
-      })
-        .then(r => r.json()).then(j => {
-          projects = (j && j.projects || []).map(p => ({ id: p.id, name: p.name || ('#' + p.id) }));
-          builtFor = null;   // 索引失效：下次打开/输入重建
-        }).catch(() => { /* 项目列表不可用不阻塞页面/功能项搜索 */ })
-        .finally(() => { projectFetching = false; });
-    } catch { projectFetching = false; }
+      });
+      const j = await r.json();
+      projects = (j && j.projects || []).map(p => ({ id: p.id, name: p.name || ('#' + p.id) }));
+      builtFor = null;   // 索引失效：下次打开/输入重建
+    } catch { /* 项目列表不可用不阻塞页面/功能项搜索 */ } finally { projectFetching = false; }
   }
 
   function entryMap() {
@@ -207,33 +205,39 @@
     return out;
   }
 
+  function _clampActive(active, visible) {
+    if (active >= visible.length) return Math.max(0, visible.length - 1);
+    if (visible.length && active < 0) return 0;
+    return active;
+  }
+  function _renderRows(visible) {
+    let html = '', lastGroup = '', opened = false;
+    visible.forEach((e, i) => {
+      if (e.group && e.group !== lastGroup) {
+        if (opened) html += '</div>';
+        html += '<div class="cmdk-group" role="group" aria-label="' + esc(e.group) + '"><div class="cmdk-group-label" aria-hidden="true">' + esc(e.group) + '</div>';
+        lastGroup = e.group; opened = true;
+      }
+      const fav = isFav(e.id);
+      html += '<div class="cmdk-item">' +
+        '<div id="cmdk-opt-' + i + '" class="cmdk-row" role="option" tabindex="-1" aria-selected="' + (i === active) + '" data-id="' + esc(e.id) + '">' +
+        '<i aria-hidden="true" data-lucide="' + esc(e.icon || ICONS.page) + '" class="lic cmdk-ico"></i>' +
+        '<span class="cmdk-main"><span class="cmdk-label">' + esc(e.label) + '</span><span class="cmdk-sub">' + esc(e.sub) + '</span></span>' +
+        '</div>' +
+        '<span class="cmdk-star" aria-hidden="true">' + (fav ? '★' : '☆') + '</span>' +
+        '</div>';
+    });
+    if (opened) html += '</div>';
+    return html;
+  }
   function render() {
     if (!list) return;
     const t0 = performance.now();
     visible = computeVisible();
-    if (active >= visible.length) active = Math.max(0, visible.length - 1);
-    if (visible.length && active < 0) active = 0;
-    let html = '', lastGroup = '', opened = false;
-    if (!visible.length) {
-      html = '<div class="cmdk-empty" role="presentation"><div>' + esc(s('empty')) + '</div><div>' + esc(s('emptyHint')) + '</div></div>';
-    } else {
-      visible.forEach((e, i) => {
-        if (e.group && e.group !== lastGroup) {
-          if (opened) html += '</div>';
-          html += '<div class="cmdk-group" role="group" aria-label="' + esc(e.group) + '"><div class="cmdk-group-label" aria-hidden="true">' + esc(e.group) + '</div>';
-          lastGroup = e.group; opened = true;
-        }
-        const fav = isFav(e.id);
-        html += '<div class="cmdk-item">' +
-          '<div id="cmdk-opt-' + i + '" class="cmdk-row" role="option" tabindex="-1" aria-selected="' + (i === active) + '" data-id="' + esc(e.id) + '">' +
-          '<i aria-hidden="true" data-lucide="' + esc(e.icon || ICONS.page) + '" class="lic cmdk-ico"></i>' +
-          '<span class="cmdk-main"><span class="cmdk-label">' + esc(e.label) + '</span><span class="cmdk-sub">' + esc(e.sub) + '</span></span>' +
-          '</div>' +
-          '<span class="cmdk-star" aria-hidden="true">' + (fav ? '★' : '☆') + '</span>' +
-          '</div>';
-      });
-      if (opened) html += '</div>';
-    }
+    active = _clampActive(active, visible);
+    const html = visible.length
+      ? _renderRows(visible)
+      : '<div class="cmdk-empty" role="presentation"><div>' + esc(s('empty')) + '</div><div>' + esc(s('emptyHint')) + '</div></div>';
     list.innerHTML = html;
     if (window.lucide && lucide.createIcons) lucide.createIcons();
     if (visible.length) {

@@ -24,6 +24,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+SQL_DELETE_SESSION = 'DELETE FROM sessions WHERE token_hash=?'
+SQL_USER_BY_ID = 'SELECT * FROM users WHERE id=?'
+
 COOKIE_NAME = "we_rbac"
 SESSION_HOURS = 12
 MAX_AUDIT_ROWS = 2000
@@ -261,7 +266,7 @@ class RbacStore:
     def bootstrap_required(self):
         return self.user_count() == 0
 
-    def bootstrap(self, username, password, display_name="", ip="", actor_name="本机初始化"):
+    def bootstrap(self, username, password, display_name="", ip=""):
         """首次启用工作组时创建唯一管理员；只允许空库执行一次。"""
         username = str(username or "").strip()
         if not USERNAME_RE.fullmatch(username):
@@ -329,7 +334,7 @@ class RbacStore:
         if own:
             con = self._connect()
         try:
-            row = con.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+            row = con.execute(SQL_USER_BY_ID, (uid,)).fetchone()
             if not row:
                 return None
             perms = permissions_for(row["role"])
@@ -362,12 +367,12 @@ class RbacStore:
                 return None
             expires = _parse_iso(row["expires_at"])
             if not expires or expires <= _now():
-                con.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+                con.execute(SQL_DELETE_SESSION, (token_hash,))
                 con.commit()
                 return None
             user = self._user_by_id(row["uid"], con=con)
             if not user or user.get("status") != "active":
-                con.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+                con.execute(SQL_DELETE_SESSION, (token_hash,))
                 con.commit()
                 return None
             if touch and self._due_touch(token_hash):
@@ -384,7 +389,7 @@ class RbacStore:
             user = self.session(token, ip=ip, touch=False)
             if user is None:
                 return False
-            con.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
+            con.execute(SQL_DELETE_SESSION, (token_hash,))
             con.commit()
         with self._touch_lock:
             self._touch_at.pop(token_hash, None)
@@ -453,32 +458,44 @@ class RbacStore:
                     f"username={username} role={role}")
         return self._user_by_id(uid)
 
+    @staticmethod
+    def _assert_last_admin(con, row, role, status):
+        if row["role"] != "admin":
+            return
+        if not ((role and role != "admin") or (status and status != "active")):
+            return
+        admin_count = con.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE role='admin' AND status='active'").fetchone()["c"]
+        if int(admin_count) <= 1:
+            raise RbacError("LAST_ADMIN", "不能停用或降级唯一启用中的管理员", 409)
+
+    @staticmethod
+    def _user_update_fields(row, role, status, display_name):
+        sets, args = [], []
+        if role is not None:
+            if role not in ROLE_DEFS:
+                raise RbacError("INVALID_ROLE", "角色不存在")
+            sets.append("role=?")
+            args.append(role)
+        if status is not None:
+            if status not in ("active", "disabled"):
+                raise RbacError("INVALID_STATUS", "状态非法")
+            sets.append("status=?")
+            args.append(status)
+        if display_name is not None:
+            sets.append("display_name=?")
+            args.append(_display_name(display_name, row["username"]))
+        if not sets:
+            raise RbacError("NO_CHANGE", "没有可更新的字段")
+        return sets, args
+
     def update_user(self, actor, user_id, role=None, status=None, display_name=None, ip=""):
         with self._lock, self._connect() as con:
-            row = con.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+            row = con.execute(SQL_USER_BY_ID, (user_id,)).fetchone()
             if not row:
                 raise RbacError("USER_NOT_FOUND", "用户不存在", 404)
-            if row["role"] == "admin" and ((role and role != "admin") or (status and status != "active")):
-                admin_count = con.execute(
-                    "SELECT COUNT(*) AS c FROM users WHERE role='admin' AND status='active'").fetchone()["c"]
-                if int(admin_count) <= 1:
-                    raise RbacError("LAST_ADMIN", "不能停用或降级唯一启用中的管理员", 409)
-            sets, args = [], []
-            if role is not None:
-                if role not in ROLE_DEFS:
-                    raise RbacError("INVALID_ROLE", "角色不存在")
-                sets.append("role=?")
-                args.append(role)
-            if status is not None:
-                if status not in ("active", "disabled"):
-                    raise RbacError("INVALID_STATUS", "状态非法")
-                sets.append("status=?")
-                args.append(status)
-            if display_name is not None:
-                sets.append("display_name=?")
-                args.append(_display_name(display_name, row["username"]))
-            if not sets:
-                raise RbacError("NO_CHANGE", "没有可更新的字段")
+            self._assert_last_admin(con, row, role, status)
+            sets, args = self._user_update_fields(row, role, status, display_name)
             sets.append("updated_at=?")
             args.append(_iso(_now()))
             con.execute("UPDATE users SET " + ",".join(sets) + " WHERE id=?", (*args, user_id))
@@ -565,43 +582,52 @@ class RbacStore:
                 raise SsoError("SSO_STATE_EXPIRED", "SSO 登录超时，请重试")
             return row["redirect_after"]
 
-    def sso_login(self, userinfo, provider, auto_provision=True, default_role="viewer", ip=""):
+    @staticmethod
+    def _sso_subject(userinfo):
         subject = str(userinfo.get("sub") or userinfo.get("id") or userinfo.get("email")
                       or userinfo.get("preferred_username") or "").strip()
         if not subject:
             raise SsoError("SSO_NO_SUBJECT", "SSO 未返回用户标识")
+        return subject
+
+    def _provision_sso_user(self, con, userinfo, subject, display, email, default_role, provider, ip):
+        if default_role not in ROLE_DEFS or default_role == "admin":
+            raise SsoError("SSO_ROLE_INVALID", "SSO 默认角色配置非法", 500)
+        base = _sanitize_username(userinfo.get("preferred_username") or email.split("@")[0] or subject)
+        if not base:
+            base = "sso_" + hashlib.sha256(subject.encode("utf-8")).hexdigest()[:10]
+        username, n = base, 1
+        while con.execute("SELECT 1 FROM users WHERE username=? COLLATE NOCASE", (username,)).fetchone():
+            n += 1
+            username = f"{base[:32]}_{n}"
+        uid = uuid.uuid4().hex
+        now = _iso(_now())
+        con.execute(
+            "INSERT INTO users(id,username,display_name,role,password_hash,status,sso_subject,email,created_at,updated_at,created_by) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (uid, username, display, default_role, "", "active", subject, email, now, now, "sso"),
+        )
+        con.commit()
+        row = con.execute(SQL_USER_BY_ID, (uid,)).fetchone()
+        self.record(uid, display, "sso_provision", "success", P_USER, "user", uid, ip,
+                    f"provider={provider} role={default_role}")
+        return row
+
+    def sso_login(self, userinfo, provider, auto_provision=True, default_role="viewer", ip=""):
+        subject = self._sso_subject(userinfo)
         display = _display_name(userinfo.get("name") or userinfo.get("display_name"),
                                 userinfo.get("preferred_username") or subject)
         email = str(userinfo.get("email") or "")[:120]
+        created = False
         with self._lock, self._connect() as con:
             row = con.execute("SELECT * FROM users WHERE sso_subject=?", (subject,)).fetchone()
-            created = False
             if row and row["status"] != "active":
                 raise SsoError("SSO_USER_DISABLED", "SSO 用户已停用，请联系管理员", 403)
             if not row:
                 if not auto_provision:
                     raise SsoError("SSO_USER_UNKNOWN", "SSO 用户未开通，请联系管理员", 403)
-                if default_role not in ROLE_DEFS or default_role == "admin":
-                    raise SsoError("SSO_ROLE_INVALID", "SSO 默认角色配置非法", 500)
-                base = _sanitize_username(userinfo.get("preferred_username") or email.split("@")[0] or subject)
-                if not base:
-                    base = "sso_" + hashlib.sha256(subject.encode("utf-8")).hexdigest()[:10]
-                username, n = base, 1
-                while con.execute("SELECT 1 FROM users WHERE username=? COLLATE NOCASE", (username,)).fetchone():
-                    n += 1
-                    username = f"{base[:32]}_{n}"
-                uid = uuid.uuid4().hex
-                now = _iso(_now())
-                con.execute(
-                    "INSERT INTO users(id,username,display_name,role,password_hash,status,sso_subject,email,created_at,updated_at,created_by) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                    (uid, username, display, default_role, "", "active", subject, email, now, now, "sso"),
-                )
-                con.commit()
-                row = con.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+                row = self._provision_sso_user(con, userinfo, subject, display, email, default_role, provider, ip)
                 created = True
-                self.record(uid, display, "sso_provision", "success", P_USER, "user", uid, ip,
-                            f"provider={provider} role={default_role}")
             token = secrets.token_urlsafe(32)
             now = _now()
             con.execute(
@@ -698,7 +724,7 @@ def exchange_sso_code(cfg, code, redirect_uri):
         )
         with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
             token_data = json.loads(resp.read().decode("utf-8", "replace"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError) as e:
+    except (OSError, ValueError) as e:
         raise SsoError("SSO_TOKEN_FAILED", f"SSO 令牌交换失败：{type(e).__name__}", 502)
     access = str((token_data or {}).get("access_token") or "")
     if not access:
@@ -714,7 +740,7 @@ def exchange_sso_code(cfg, code, redirect_uri):
         )
         with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError) as e:
+    except (OSError, ValueError) as e:
         raise SsoError("SSO_USERINFO_FAILED", f"SSO 用户信息读取失败：{type(e).__name__}", 502)
     if not isinstance(data, dict):
         raise SsoError("SSO_BAD_USERINFO", "SSO 用户信息格式非法", 502)

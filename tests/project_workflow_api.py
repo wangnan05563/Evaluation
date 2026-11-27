@@ -7,6 +7,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+API_CONFIG = '/api/config'
+API_WORKFLOW_PROJECTS = '/api/workflow/projects'
+
 API = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8033").rstrip("/")
 ROOT = Path(__file__).resolve().parent.parent
 fails = []
@@ -37,20 +42,22 @@ def check(name, ok, detail=""):
         fails.append(name)
 
 
-def main():
+def _check_config():
     print(f"API={API}")
-    st, cfg = call("/api/config")
+    st, cfg = call(API_CONFIG)
     check("GET /api/config 返回部署模式", st == 200 and cfg.get("config", {}).get("deployment", {}).get("mode") in ("standalone", "workgroup"),
           json.dumps(cfg.get("config", {}).get("deployment"), ensure_ascii=False))
 
     # 单机版默认隐藏 / 工作组版启用；切换只改入口
-    st, off = call("/api/config", {"deployment": {"mode": "standalone"}})
+    st, off = call(API_CONFIG, {"deployment": {"mode": "standalone"}})
     check("切到单机版成功", st == 200 and off["config"]["deployment"]["mode"] == "standalone",
           off.get("config", {}).get("deployment", {}).get("mode"))
-    st, on = call("/api/config", {"deployment": {"mode": "workgroup"}})
+    st, on = call(API_CONFIG, {"deployment": {"mode": "workgroup"}})
     check("切到工作组版成功", st == 200 and on["config"]["deployment"]["mode"] == "workgroup",
           on.get("config", {}).get("deployment", {}).get("mode"))
 
+
+def _create_project():
     # 生成一条真实估算历史，自动创建草稿项目
     st, sample = call("/api/onboarding/sample")
     check("样例数据可用", st == 200 and sample.get("name") and sample.get("b64"), sample.get("name"))
@@ -64,7 +71,7 @@ def main():
     pid = gen.get("version_group")
     check("生成成功并返回 version_group", st == 200 and gen.get("ok") and pid, str(pid))
 
-    st, lst = call("/api/workflow/projects")
+    st, lst = call(API_WORKFLOW_PROJECTS)
     row = next((p for p in lst.get("projects", []) if p.get("project_id") == pid), None)
     check("新版本自动登记为 draft 项目", st == 200 and row and row.get("status") == "draft",
           json.dumps(row, ensure_ascii=False) if row else "missing")
@@ -79,7 +86,10 @@ def main():
     check("创建事件版本哈希与项目冻结哈希一致",
           bool(row) and ev0 and ev0[0].get("version_hash") == row.get("version_hash"),
           f"{(ev0[0].get('version_hash') or '')[:16]} / {(row or {}).get('version_hash', '')[:16]}")
+    return pid, title, row
 
+
+def _transition_checks(pid):
     def transition(action, actor, role, opinion=""):
         return call("/api/workflow/transition",
                     {"project_id": pid, "action": action, "actor": actor, "role": role, "opinion": opinion})
@@ -113,8 +123,11 @@ def main():
     st, after = transition("revise", "张评估", "评估师")
     check("已签收后再次流转返回 409", st == 409 and after.get("code") == "invalid_transition",
           f"{st} / {after.get('code')}")
+    return signed_p
 
-    st, detail2 = call("/api/workflow/project?project_id=" + pid)
+
+def _detail_checks(pid, signed_p):
+    _, detail2 = call("/api/workflow/project?project_id=" + pid)
     p = detail2.get("project", {})
     events = p.get("events", [])
     check("审计轨迹 6 条且每条四要素完整",
@@ -126,17 +139,23 @@ def main():
           p.get("signer") == "王签收" and p.get("signed_at") and p.get("sign_opinion") == "同意签收"
           and p.get("version_hash") == signed_p.get("version_hash"), p.get("short_hash"))
     check("签收后项目计数包含 signed",
-          (call("/api/workflow/projects")[1].get("counts") or {}).get("signed", 0) >= 1,
-          json.dumps(call("/api/workflow/projects")[1].get("counts"), ensure_ascii=False))
+          (call(API_WORKFLOW_PROJECTS)[1].get("counts") or {}).get("signed", 0) >= 1,
+          json.dumps(call(API_WORKFLOW_PROJECTS)[1].get("counts"), ensure_ascii=False))
+    return p, events
 
+
+def _report_checks(pid, p):
     st, rep = call("/api/workflow/signoff-package", {"project_id": pid}, timeout=180)
     check("签收报告生成成功", st == 200 and rep.get("ok") and rep.get("pages", 0) >= 8,
           f"{st} pages={rep.get('pages')} {rep.get('version_hash')}")
     check("报告版本哈希与签收冻结哈希一致", rep.get("version_hash") == p.get("short_hash"),
           f"{rep.get('version_hash')} / {p.get('short_hash')}")
+    return rep
 
+
+def _pdf_check(rep, p):
     # 下载 PDF 并逐字确认签收页四要素（人/时间/意见/哈希）
-    st, pdf_bytes = call(rep.get("download", ""), None, raw=True, timeout=120)
+    _, pdf_bytes = call(rep.get("download", ""), None, raw=True, timeout=120)
     pdf_path = Path(ROOT / "docs" / "test-reports" / "phase3-20261122" / "results" / "project-workflow-signoff.pdf")
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_path.write_bytes(pdf_bytes)
@@ -151,6 +170,16 @@ def main():
           "王签收" in text and "同意签收" in text and p.get("signed_at", "").replace("T", " ")[:16] in text.replace("T", " ")
           and p.get("short_hash", "") in text,
           f"bytes={len(pdf_bytes)} text={len(text)}")
+    return pdf_path
+
+
+def main():
+    _check_config()
+    pid, title, _ = _create_project()
+    signed_p = _transition_checks(pid)
+    p, events = _detail_checks(pid, signed_p)
+    rep = _report_checks(pid, p)
+    pdf_path = _pdf_check(rep, p)
 
     results = ROOT / "docs" / "test-reports" / "phase3-20261122" / "results"
     out = {"suite": "project-workflow-api", "api": API, "at": time.strftime("%Y-%m-%dT%H:%M:%S"),

@@ -38,22 +38,22 @@ try {
   })()`));
   check('估算历史无数据：空态标题 + 说明', histEmpty.body && histEmpty.exists && !!histEmpty.title && !!histEmpty.desc, JSON.stringify(histEmpty));
 
-  const err = JSON.parse(await page.ev(`(() => {
+  const err = JSON.parse(await page.ev(String.raw`(() => {
     const host=document.createElement('div'); host.id='__err_probe';
     host.innerHTML=errorBox('模拟网络失败','void 0');
     document.body.appendChild(host);
     const e=host.querySelector('.empty-state');
     return JSON.stringify({role:e&&e.getAttribute('role'), title:e&&e.querySelector('.empty-t')?.textContent.trim(),
       retry:!!host.querySelector('button[onclick*="void 0"]'), diag:!!host.querySelector('a[onclick*="goPage"]'),
-      text:host.textContent.replace(/\\s+/g,' ').trim()});
+      text:host.textContent.replace(/\s+/g,' ').trim()});
   })()`));
   check('错误态 role=alert + 原因 + 重试 + 诊断指引', err.role === 'alert' && err.retry && err.diag && err.text.includes('模拟网络失败'), JSON.stringify(err));
   await page.shot(path.join(OUT, 'screenshots', 'error_state_1440.png'));
 
-  const degraded = JSON.parse(await page.ev(`(async () => {
+  const degraded = JSON.parse(await page.ev(String.raw`(async () => {
     goPage('config'); await new Promise(r=>setTimeout(r,300));
     const e=document.querySelector('#rulesRows .empty-state, #ratesRows .empty-state, .cfg-note');
-    return JSON.stringify({exists:!!e, text:e&&e.textContent.replace(/\\s+/g,' ').trim().slice(0,80)});
+    return JSON.stringify({exists:!!e, text:e&&e.textContent.replace(/\s+/g,' ').trim().slice(0,80)});
   })()`));
   check('配置中心异步加载失败/降级有可读反馈', degraded.exists, JSON.stringify(degraded));
 

@@ -1,13 +1,12 @@
 /** T06190 / REQ-012：Schema 迁移向导、双读兼容与失败回滚。 */
 import path from 'node:path';
-import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { openPage, checker, sleep, OUT } from './cdp.mjs';
 
 const { check, finish } = checker('data-migration');
 const BASE = (process.env.PHASE3_APP || 'http://127.0.0.1:8033/').replace(/\/$/, '');
 const DATA = process.env.PHASE3_DATA || '';
-const PY = process.env.PYTHON || 'F:\\Program Files\\Python3.14\\python.exe';
+const PY = process.env.PYTHON || String.raw`F:\Program Files\Python3.14\python.exe`;
 const LEGACY_A = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const LEGACY_B = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const page = await openPage({ width: 1440, height: 900 });
@@ -62,7 +61,7 @@ print('seeded')
     JSON.stringify({ missing: st1.body.missing_items, backups: st1.body.backups, mapped: st1.body.mapped }));
   const a1 = await get('/api/history/' + LEGACY_A);
   const b1 = await get('/api/history/' + LEGACY_B);
-  check('迁移后跨版本稳定ID一致', sidList(a1.body).join(',') === sidList(b1.body).join(',') && sidList(a1.body).every(s => /^F-/.test(s)), sidList(a1.body).join(','));
+  check('迁移后跨版本稳定ID一致', sidList(a1.body).join(',') === sidList(b1.body).join(',') && sidList(a1.body).every(s => s.startsWith('F-')), sidList(a1.body).join(','));
   check('迁移后旧明细数量不变', a1.body.row.items.length === 2 && b1.body.row.items.length === 2, '2/2');
 
   const rb = await post('/api/history/ids/rollback');

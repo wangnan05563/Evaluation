@@ -1,6 +1,6 @@
 /** T06187 / REQ-009 / AC-11：稳定功能ID 跨版本、类型变更与映射表校验。 */
 import path from 'node:path';
-import { openPage, checker, sleep, OUT, APP } from './cdp.mjs';
+import { openPage, checker, OUT, APP } from './cdp.mjs';
 
 const { check, finish } = checker('stable-ids');
 const BASE = APP.replace(/\/$/, '');
@@ -69,7 +69,7 @@ try {
   check('另存后映射表仍通过', (await get('/api/history/ids/validate')).body.ok === true, 'validate after save-as');
 
   const exp = await get('/api/data/export');
-  check('数据导出成功（含估算库）', exp.body.ok === true && /\.zip$/.test(exp.body.file || ''), exp.body.file);
+  check('数据导出成功（含估算库）', exp.body.ok === true && (exp.body.file || '').endsWith('.zip'), exp.body.file);
   const imported = await get('/api/history/' + g1.body.history_id);
   check('导出后历史与稳定ID仍可读', imported.body.ok === true && imported.body.row.items[0].stable_id === sids(g1.body)[0], imported.body.row.items[0].stable_id);
 

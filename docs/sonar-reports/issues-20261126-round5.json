@@ -1,0 +1,3886 @@
+[
+  {
+    "key": "5d2beb0e-1e3e-41aa-b65c-e601d1e06009",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 1055,
+    "hash": "f75fa9ad00fefcb446893c88e79d3d80",
+    "textRange": {
+      "startLine": 1055,
+      "endLine": 1055,
+      "startOffset": 4,
+      "endOffset": 23
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1056; endLine=1056; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1057; endLine=1057; startOffset=76; endOffset=78}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1057; endLine=1057; startOffset=61; endOffset=63}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1058; endLine=1058; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1059; endLine=1059; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1060; endLine=1060; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1060; endLine=1060; startOffset=30; endOffset=33}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1060; endLine=1060; startOffset=63; endOffset=65}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1062; endLine=1062; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1063; endLine=1063; startOffset=47; endOffset=49}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1064; endLine=1064; startOffset=50; endOffset=52}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1065; endLine=1065; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1066; endLine=1066; startOffset=60; endOffset=62}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1066; endLine=1066; startOffset=45; endOffset=47}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1067; endLine=1067; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1068; endLine=1068; startOffset=43; endOffset=45}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1069; endLine=1069; startOffset=35; endOffset=37}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=1069; endLine=1069; startOffset=61; endOffset=64}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.",
+    "effort": "10min",
+    "debt": "10min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "b4a89860-4bcb-4165-b3a2-ce6198ea8efd",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 2515,
+    "hash": "fed8e3690425675dd2b96c44e89c388c",
+    "textRange": {
+      "startLine": 2515,
+      "endLine": 2515,
+      "startOffset": 8,
+      "endOffset": 25
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2518; endLine=2518; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2520; endLine=2520; startOffset=60; endOffset=62}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2522; endLine=2522; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2524; endLine=2524; startOffset=67; endOffset=69}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2525; endLine=2525; startOffset=66; endOffset=68}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2526; endLine=2526; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2528; endLine=2528; startOffset=56; endOffset=58}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2529; endLine=2529; startOffset=45; endOffset=47}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2530; endLine=2530; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2532; endLine=2532; startOffset=55; endOffset=57}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2534; endLine=2534; startOffset=57; endOffset=59}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2535; endLine=2535; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2537; endLine=2537; startOffset=73; endOffset=75}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2539; endLine=2539; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2539; endLine=2539; startOffset=35; endOffset=37}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2541; endLine=2541; startOffset=57; endOffset=59}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.",
+    "effort": "6min",
+    "debt": "6min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "5922ac78-cdca-423e-8a9c-5dfa23fa33c5",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 2544,
+    "hash": "ebdd8ae45d437951217f20eb9a56388a",
+    "textRange": {
+      "startLine": 2544,
+      "endLine": 2544,
+      "startOffset": 8,
+      "endOffset": 31
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2554; endLine=2554; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2557; endLine=2557; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2559; endLine=2559; startOffset=71; endOffset=73}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2559; endLine=2559; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2560; endLine=2560; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2564; endLine=2564; startOffset=12; endOffset=14}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2567; endLine=2567; startOffset=16; endOffset=22}",
+            "msg": "+3 (incl 2 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2571; endLine=2571; startOffset=74; endOffset=76}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2574; endLine=2574; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2574; endLine=2574; startOffset=35; endOffset=37}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2580; endLine=2580; startOffset=91; endOffset=93}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2581; endLine=2581; startOffset=12; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2583; endLine=2583; startOffset=79; endOffset=81}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2586; endLine=2586; startOffset=70; endOffset=72}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "ee1befb5-9f3e-41ee-8e42-423dcd536c93",
+    "rule": "python:S3516",
+    "severity": "BLOCKER",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 2791,
+    "hash": "75a91e5019dea4cc9266f734a90d9a2f",
+    "textRange": {
+      "startLine": 2791,
+      "endLine": 2791,
+      "startOffset": 8,
+      "endOffset": 26
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2802; endLine=2802; startOffset=8; endOffset=19}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2797; endLine=2797; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this method to not always return the same value.",
+    "effort": "2min",
+    "debt": "2min",
+    "author": "",
+    "tags": [
+      "design",
+      "confusing"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "LOGICAL",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "BLOCKER"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "f481db04-7cac-4574-9678-71f37d44ecb8",
+    "rule": "python:S3516",
+    "severity": "BLOCKER",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 2986,
+    "hash": "59d6283f3bb2b50a53def01a7dc36e64",
+    "textRange": {
+      "startLine": 2986,
+      "endLine": 2986,
+      "startOffset": 8,
+      "endOffset": 26
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3000; endLine=3000; startOffset=8; endOffset=19}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=2989; endLine=2989; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this method to not always return the same value.",
+    "effort": "2min",
+    "debt": "2min",
+    "author": "",
+    "tags": [
+      "design",
+      "confusing"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "LOGICAL",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "BLOCKER"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "41d04e76-75fd-43e2-a025-14788c25f507",
+    "rule": "python:S3516",
+    "severity": "BLOCKER",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 3091,
+    "hash": "feb77d6abdc50c6e75efb77f92b4551e",
+    "textRange": {
+      "startLine": 3091,
+      "endLine": 3091,
+      "startOffset": 8,
+      "endOffset": 23
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3102; endLine=3102; startOffset=8; endOffset=19}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3100; endLine=3100; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3096; endLine=3096; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this method to not always return the same value.",
+    "effort": "2min",
+    "debt": "2min",
+    "author": "",
+    "tags": [
+      "design",
+      "confusing"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "LOGICAL",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "BLOCKER"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "c2c0f6c9-6521-4cef-91db-e48d2c01212d",
+    "rule": "python:S3516",
+    "severity": "BLOCKER",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 3104,
+    "hash": "1f534d5d0775842aaad5d398179aabbd",
+    "textRange": {
+      "startLine": 3104,
+      "endLine": 3104,
+      "startOffset": 8,
+      "endOffset": 23
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3115; endLine=3115; startOffset=8; endOffset=19}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3113; endLine=3113; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3109; endLine=3109; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this method to not always return the same value.",
+    "effort": "2min",
+    "debt": "2min",
+    "author": "",
+    "tags": [
+      "design",
+      "confusing"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "LOGICAL",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "BLOCKER"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "5b59bd4d-dde7-40fc-bbfc-cb92621ce6e2",
+    "rule": "python:S3516",
+    "severity": "BLOCKER",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 3117,
+    "hash": "3316ec4666db14cac7d2ad4f1750238c",
+    "textRange": {
+      "startLine": 3117,
+      "endLine": 3117,
+      "startOffset": 8,
+      "endOffset": 24
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3126; endLine=3126; startOffset=8; endOffset=19}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3123; endLine=3123; startOffset=12; endOffset=23}",
+            "msg": "returned value",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this method to not always return the same value.",
+    "effort": "2min",
+    "debt": "2min",
+    "author": "",
+    "tags": [
+      "design",
+      "confusing"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "LOGICAL",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "BLOCKER"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "83aea616-9ea8-4f6a-b79a-8f35ae49099c",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 3819,
+    "hash": "0696bd2ec0ebcd5db78f80569dc33409",
+    "textRange": {
+      "startLine": 3819,
+      "endLine": 3819,
+      "startOffset": 8,
+      "endOffset": 22
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3822; endLine=3822; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3839; endLine=3839; startOffset=12; endOffset=18}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3842; endLine=3842; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3843; endLine=3843; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3846; endLine=3846; startOffset=48; endOffset=50}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3847; endLine=3847; startOffset=49; endOffset=51}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3848; endLine=3848; startOffset=28; endOffset=30}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3860; endLine=3860; startOffset=8; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3865; endLine=3865; startOffset=54; endOffset=56}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3868; endLine=3868; startOffset=91; endOffset=93}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3868; endLine=3868; startOffset=71; endOffset=73}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3870; endLine=3870; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3871; endLine=3871; startOffset=55; endOffset=57}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3872; endLine=3872; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3878; endLine=3878; startOffset=74; endOffset=76}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3879; endLine=3879; startOffset=80; endOffset=82}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3880; endLine=3880; startOffset=74; endOffset=76}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3881; endLine=3881; startOffset=80; endOffset=82}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3882; endLine=3882; startOffset=92; endOffset=94}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=3883; endLine=3883; startOffset=98; endOffset=100}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 22 to the 15 allowed.",
+    "effort": "12min",
+    "debt": "12min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "68f10b79-0ce6-4caf-865f-9366f9ecb9d2",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/server.py",
+    "project": "27_Evaluation",
+    "line": 4029,
+    "hash": "3cf5b00b367b7c0ef219a6701acfa821",
+    "textRange": {
+      "startLine": 4029,
+      "endLine": 4029,
+      "startOffset": 8,
+      "endOffset": 31
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4032; endLine=4032; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4035; endLine=4035; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4037; endLine=4037; startOffset=36; endOffset=38}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4038; endLine=4038; startOffset=34; endOffset=36}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4040; endLine=4040; startOffset=40; endOffset=42}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4043; endLine=4043; startOffset=65; endOffset=67}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4047; endLine=4047; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4048; endLine=4048; startOffset=75; endOffset=77}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4049; endLine=4049; startOffset=75; endOffset=77}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4052; endLine=4052; startOffset=41; endOffset=43}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4054; endLine=4054; startOffset=45; endOffset=47}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4059; endLine=4059; startOffset=32; endOffset=34}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4061; endLine=4061; startOffset=53; endOffset=55}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4062; endLine=4062; startOffset=61; endOffset=63}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4076; endLine=4076; startOffset=72; endOffset=74}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4077; endLine=4077; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/server.py",
+            "textRange": "@{startLine=4079; endLine=4079; startOffset=8; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.",
+    "effort": "7min",
+    "debt": "7min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "913123b0-ba05-4295-b861-a76d71c50210",
+    "rule": "python:S1172",
+    "severity": "MAJOR",
+    "component": "27_Evaluation:tests/deployment_api.py",
+    "project": "27_Evaluation",
+    "line": 99,
+    "hash": "3bf85a1623203f490882d78df44fb5a8",
+    "textRange": {
+      "startLine": 99,
+      "endLine": 99,
+      "startOffset": 33,
+      "endOffset": 36
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Remove the unused function parameter \"api\".",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "unused"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "MEDIUM"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "c9e85cbb-3768-48ba-8160-d34e623f961d",
+    "rule": "python:S1172",
+    "severity": "MAJOR",
+    "component": "27_Evaluation:tests/integrations_api.py",
+    "project": "27_Evaluation",
+    "line": 122,
+    "hash": "6e4a1d0e2509117efaf3cb71fe28689b",
+    "textRange": {
+      "startLine": 122,
+      "endLine": 122,
+      "startOffset": 41,
+      "endOffset": 44
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Remove the unused function parameter \"api\".",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "unused"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "MEDIUM"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "b022b366-9678-4b7b-a01c-c1af9aa33e49",
+    "rule": "python:S1481",
+    "severity": "MINOR",
+    "component": "27_Evaluation:tests/project_workflow_api.py",
+    "project": "27_Evaluation",
+    "line": 158,
+    "hash": "eb63152f93ad12fe86852e55e36a2297",
+    "textRange": {
+      "startLine": 158,
+      "endLine": 158,
+      "startOffset": 4,
+      "endOffset": 6
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Replace the unused local variable \"st\" with \"_\".",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "unused"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "2f925586-0f5d-417f-a571-bbce9dc72545",
+    "rule": "python:S1481",
+    "severity": "MINOR",
+    "component": "27_Evaluation:tests/project_workflow_api.py",
+    "project": "27_Evaluation",
+    "line": 178,
+    "hash": "0de1a4e01c6c56bc0dc3957fa0d5d6db",
+    "textRange": {
+      "startLine": 178,
+      "endLine": 178,
+      "startOffset": 16,
+      "endOffset": 19
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Replace the unused local variable \"row\" with \"_\".",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "unused"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "7729d12a-75de-4305-8907-192c930d788a",
+    "rule": "python:S1481",
+    "severity": "MINOR",
+    "component": "27_Evaluation:tests/rbac_api.py",
+    "project": "27_Evaluation",
+    "line": 282,
+    "hash": "cbb068e3f9ba4a62d951179bcca7d706",
+    "textRange": {
+      "startLine": 282,
+      "endLine": 282,
+      "startOffset": 8,
+      "endOffset": 11
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Replace the unused local variable \"out\" with \"_\".",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "unused"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "7cc22854-a141-4bc5-b375-618e30417384",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/theme_studio.py",
+    "project": "27_Evaluation",
+    "line": 57,
+    "hash": "4cca3b1c37e16a219e3df7994fe6585d",
+    "textRange": {
+      "startLine": 57,
+      "endLine": 57,
+      "startOffset": 14,
+      "endOffset": 21
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=82; endLine=82; startOffset=41; endOffset=48}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=115; endLine=115; startOffset=14; endOffset=21}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=140; endLine=140; startOffset=41; endOffset=48}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"对比度不足\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "b42c787f-58cc-42c9-bbcf-8966bac0d849",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/theme_studio.py",
+    "project": "27_Evaluation",
+    "line": 80,
+    "hash": "57a769f5574c1b8d4e980a43b1c47a48",
+    "textRange": {
+      "startLine": 80,
+      "endLine": 80,
+      "startOffset": 18,
+      "endOffset": 39
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=82; endLine=82; startOffset=18; endOffset=39}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=138; endLine=138; startOffset=18; endOffset=39}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/theme_studio.py",
+            "textRange": "@{startLine=140; endLine=140; startOffset=18; endOffset=39}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"save_active 拒绝低对比主题\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "e7ee717a-1bbe-4c80-9e0d-87efdab6f4af",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 76,
+    "hash": "e31a118cca939f5d5f82f0d081d510cd",
+    "textRange": {
+      "startLine": 76,
+      "endLine": 76,
+      "startOffset": 9,
+      "endOffset": 32
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=154; endLine=154; startOffset=9; endOffset=32}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=422; endLine=422; startOffset=24; endOffset=47}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=497; endLine=497; startOffset=24; endOffset=47}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"Missing required file\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "67bcc92e-7592-4ad1-bd95-84051d34420f",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 98,
+    "hash": "eecb849b16a03bfaf8f38075a77935e5",
+    "textRange": {
+      "startLine": 98,
+      "endLine": 98,
+      "startOffset": 9,
+      "endOffset": 23
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=176; endLine=176; startOffset=9; endOffset=23}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=356; endLine=356; startOffset=44; endOffset=58}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=431; endLine=431; startOffset=44; endOffset=58}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"缺少 GitHub 凭据\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "5d3da955-e944-401e-b5d1-adc23849199c",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 108,
+    "hash": "0d3e2614af098bd539f55d2d05b8eb9d",
+    "textRange": {
+      "startLine": 108,
+      "endLine": 108,
+      "startOffset": 9,
+      "endOffset": 26
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=124; endLine=124; startOffset=9; endOffset=26}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=186; endLine=186; startOffset=9; endOffset=26}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=202; endLine=202; startOffset=9; endOffset=26}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"prod_smoke.exit\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "c8712747-34f3-45f9-b3ff-24929ff93c95",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 356,
+    "hash": "d1caa251efb062b80d56e34ff5196aab",
+    "textRange": {
+      "startLine": 356,
+      "endLine": 356,
+      "startOffset": 24,
+      "endOffset": 32
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=422; endLine=422; startOffset=59; endOffset=67}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=431; endLine=431; startOffset=24; endOffset=32}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=497; endLine=497; startOffset=59; endOffset=67}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"[FAIL]\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "dd0f7c75-e8fd-4734-8b68-59f3cad027e1",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 364,
+    "hash": "1f69a2eb73330821a30ec9534ad90664",
+    "textRange": {
+      "startLine": 364,
+      "endLine": 364,
+      "startOffset": 42,
+      "endOffset": 57
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=395; endLine=395; startOffset=42; endOffset=57}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=439; endLine=439; startOffset=42; endOffset=57}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=470; endLine=470; startOffset=42; endOffset=57}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal 'GH_TOKEN=\"%s\"' 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "70345a80-32e8-4f85-a59f-87b5dfceb257",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 365,
+    "hash": "ca6bfb0c2c0ccc5b64231d4a2b836079",
+    "textRange": {
+      "startLine": 365,
+      "endLine": 365,
+      "startOffset": 27,
+      "endOffset": 51
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=378; endLine=378; startOffset=27; endOffset=51}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=440; endLine=440; startOffset=27; endOffset=51}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=453; endLine=453; startOffset=27; endOffset=51}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"-PreflightOnly -DryRun\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "85f41576-f42b-4199-8738-b91e4075efdd",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 368,
+    "hash": "d1ea8a55426189c623a607309f6d633e",
+    "textRange": {
+      "startLine": 368,
+      "endLine": 368,
+      "startOffset": 30,
+      "endOffset": 52
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=380; endLine=380; startOffset=24; endOffset=46}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=443; endLine=443; startOffset=30; endOffset=52}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=455; endLine=455; startOffset=24; endOffset=46}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"GH_TOKEN（环境变量 / .env\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "93b8320d-1368-42ff-b012-10c072648bf6",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 369,
+    "hash": "ccf7e79e4f7f4ec65ca86a52044c88fc",
+    "textRange": {
+      "startLine": 369,
+      "endLine": 369,
+      "startOffset": 10,
+      "endOffset": 27
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=412; endLine=412; startOffset=10; endOffset=27}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=444; endLine=444; startOffset=10; endOffset=27}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=487; endLine=487; startOffset=10; endOffset=27}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"控制台未回显 token 明文\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "35d48a37-96ec-4cf5-98ca-1cbea02c97dc",
+    "rule": "python:S1192",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/unit_publish_precheck.py",
+    "project": "27_Evaluation",
+    "line": 371,
+    "hash": "5f90542684af7f34d03307aad5b06c10",
+    "textRange": {
+      "startLine": 371,
+      "endLine": 371,
+      "startOffset": 31,
+      "endOffset": 47
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=413; endLine=413; startOffset=26; endOffset=42}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=446; endLine=446; startOffset=31; endOffset=47}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/unit_publish_precheck.py",
+            "textRange": "@{startLine=488; endLine=488; startOffset=26; endOffset=42}",
+            "msg": "Duplication",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Define a constant instead of duplicating this literal \"[INFO] DRY-RUN\" 4 times.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "design"
+    ],
+    "creationDate": "2026-11-26T21:41:05+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "DISTINCT",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "e01d026f-9ee5-47f1-bff0-820913e7830b",
+    "rule": "javascript:S7781",
+    "severity": "MINOR",
+    "component": "27_Evaluation:frontend/src/js/24_theme_tokens.js",
+    "project": "27_Evaluation",
+    "line": 17,
+    "hash": "2141390a94500b072a6946d528492804",
+    "textRange": {
+      "startLine": 17,
+      "endLine": 17,
+      "startOffset": 62,
+      "endOffset": 67
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "This pattern can be replaced with '.'.",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "readability",
+      "es2021"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": true,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      },
+      {
+        "softwareQuality": "RELIABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "cf64d957-3559-4cdf-a5cc-15c209a000f5",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/audit_package.py",
+    "project": "27_Evaluation",
+    "line": 392,
+    "hash": "5e66a280a9bf1e325e314b6b0f93b749",
+    "textRange": {
+      "startLine": 392,
+      "endLine": 392,
+      "startOffset": 4,
+      "endOffset": 15
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=393; endLine=393; startOffset=30; endOffset=32}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=394; endLine=394; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=396; endLine=396; startOffset=4; endOffset=7}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=397; endLine=397; startOffset=29; endOffset=31}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=399; endLine=399; startOffset=8; endOffset=10}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=403; endLine=403; startOffset=8; endOffset=14}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=405; endLine=405; startOffset=46; endOffset=48}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=405; endLine=405; startOffset=62; endOffset=64}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=406; endLine=406; startOffset=105; endOffset=107}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=407; endLine=407; startOffset=96; endOffset=98}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=408; endLine=408; startOffset=84; endOffset=86}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/audit_package.py",
+            "textRange": "@{startLine=410; endLine=410; startOffset=63; endOffset=65}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.",
+    "effort": "6min",
+    "debt": "6min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "cdc9720e-08cd-4388-8458-f8c04d4b114d",
+    "rule": "javascript:S7781",
+    "severity": "MINOR",
+    "component": "27_Evaluation:scripts/pdf_render.mjs",
+    "project": "27_Evaluation",
+    "line": 73,
+    "hash": "ff6e3aedeec08c25d0bea7f082fb2e72",
+    "textRange": {
+      "startLine": 73,
+      "endLine": 73,
+      "startOffset": 44,
+      "endOffset": 49
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "This pattern can be replaced with '\\\\'.",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "readability",
+      "es2021"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": true,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      },
+      {
+        "softwareQuality": "RELIABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "dde4ec7f-0625-46e9-a268-89f9c031676a",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:tests/ai_eval_api.py",
+    "project": "27_Evaluation",
+    "line": 39,
+    "hash": "36999f0b7d2b4dd75cc52066ae8a601f",
+    "textRange": {
+      "startLine": 39,
+      "endLine": 39,
+      "startOffset": 4,
+      "endOffset": 8
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=44; endLine=44; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=51; endLine=51; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=56; endLine=56; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=54; endLine=54; startOffset=42; endOffset=44}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=54; endLine=54; startOffset=86; endOffset=88}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=55; endLine=55; startOffset=39; endOffset=41}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=60; endLine=60; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=66; endLine=66; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=66; endLine=66; startOffset=79; endOffset=81}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=75; endLine=75; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=86; endLine=86; startOffset=10; endOffset=13}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=86; endLine=86; startOffset=38; endOffset=40}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=96; endLine=96; startOffset=45; endOffset=48}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=99; endLine=99; startOffset=27; endOffset=30}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=99; endLine=99; startOffset=90; endOffset=92}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=100; endLine=100; startOffset=73; endOffset=75}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=111; endLine=111; startOffset=4; endOffset=7}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:tests/ai_eval_api.py",
+            "textRange": "@{startLine=113; endLine=113; startOffset=13; endOffset=15}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed.",
+    "effort": "8min",
+    "debt": "8min",
+    "author": "",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "eb3498ed-5a44-4ea0-aa5f-2393d0f6b856",
+    "rule": "javascript:S7781",
+    "severity": "MINOR",
+    "component": "27_Evaluation:tests/phase3/pdf_render.mjs",
+    "project": "27_Evaluation",
+    "line": 23,
+    "hash": "ff6e3aedeec08c25d0bea7f082fb2e72",
+    "textRange": {
+      "startLine": 23,
+      "endLine": 23,
+      "startOffset": 44,
+      "endOffset": 49
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "This pattern can be replaced with '\\\\'.",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "readability",
+      "es2021"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": true,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "LOW"
+      },
+      {
+        "softwareQuality": "RELIABILITY",
+        "severity": "LOW"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "a6d4eb41-880c-4200-bff2-cc94373efbbe",
+    "rule": "javascript:S7750",
+    "severity": "MINOR",
+    "component": "27_Evaluation:tests/phase3/ui_integrations.mjs",
+    "project": "27_Evaluation",
+    "line": 211,
+    "hash": "7c72906bffae7c852818cd54475ea492",
+    "textRange": {
+      "startLine": 211,
+      "endLine": 211,
+      "startOffset": 21,
+      "endOffset": 27
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Prefer `.findLast(…)` over `.filter(…).at(-1)`.",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [
+      "readability",
+      "performance"
+    ],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "EFFICIENT",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "MEDIUM"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "6a15468d-1915-4ac7-94a8-f7e5174b30c9",
+    "rule": "javascript:S6535",
+    "severity": "MAJOR",
+    "component": "27_Evaluation:tests/phase3/ui_ui_kit.mjs",
+    "project": "27_Evaluation",
+    "line": 9,
+    "hash": "c81ce8cba01998e023e92c43c5d4274c",
+    "textRange": {
+      "startLine": 9,
+      "endLine": 9,
+      "startOffset": 23,
+      "endOffset": 24
+    },
+    "flows": [],
+    "status": "OPEN",
+    "message": "Unnecessary escape character: \\).",
+    "effort": "5min",
+    "debt": "5min",
+    "author": "",
+    "tags": [],
+    "creationDate": "2026-11-26T20:42:45+08:00",
+    "updateDate": "2026-11-26T20:42:45+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": true,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "CLEAR",
+    "cleanCodeAttributeCategory": "INTENTIONAL",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "MEDIUM"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "798341b6-9444-460b-9c08-19936be24551",
+    "rule": "javascript:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:frontend/src/js/01_core.js",
+    "project": "27_Evaluation",
+    "line": 428,
+    "hash": "a41a7adf3e038d8a9ba42aafd13d5afe",
+    "textRange": {
+      "startLine": 428,
+      "endLine": 428,
+      "startOffset": 9,
+      "endOffset": 15
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=430; endLine=430; startOffset=2; endOffset=4}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=430; endLine=430; startOffset=52; endOffset=54}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=431; endLine=431; startOffset=4; endOffset=6}",
+            "msg": "+2 (incl. 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=431; endLine=431; startOffset=58; endOffset=60}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=434; endLine=434; startOffset=2; endOffset=4}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=435; endLine=435; startOffset=4; endOffset=6}",
+            "msg": "+2 (incl. 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=436; endLine=436; startOffset=4; endOffset=6}",
+            "msg": "+2 (incl. 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=436; endLine=436; startOffset=58; endOffset=60}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=438; endLine=438; startOffset=2; endOffset=4}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=438; endLine=438; startOffset=17; endOffset=19}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=441; endLine=441; startOffset=2; endOffset=4}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=441; endLine=441; startOffset=15; endOffset=17}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=444; endLine=444; startOffset=2; endOffset=4}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:frontend/src/js/01_core.js",
+            "textRange": "@{startLine=444; endLine=444; startOffset=15; endOffset=17}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.",
+    "effort": "7min",
+    "debt": "7min",
+    "author": "workbuddy@local",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-26T20:08:22+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "c9c43bca-b73b-43b8-af98-e76a8b101040",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/rbac.py",
+    "project": "27_Evaluation",
+    "line": 461,
+    "hash": "38e082ea8da8571522d19845569a86a1",
+    "textRange": {
+      "startLine": 461,
+      "endLine": 461,
+      "startOffset": 8,
+      "endOffset": 19
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=464; endLine=464; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=466; endLine=466; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=466; endLine=466; startOffset=38; endOffset=41}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=466; endLine=466; startOffset=70; endOffset=72}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=466; endLine=466; startOffset=49; endOffset=52}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=466; endLine=466; startOffset=81; endOffset=84}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=469; endLine=469; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=472; endLine=472; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=473; endLine=473; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=477; endLine=477; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=478; endLine=478; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=482; endLine=482; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=485; endLine=485; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=490; endLine=490; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=496; endLine=496; startOffset=27; endOffset=29}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=496; endLine=496; startOffset=56; endOffset=58}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.",
+    "effort": "9min",
+    "debt": "9min",
+    "author": "workbuddy@local",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-24T23:03:50+08:00",
+    "updateDate": "2026-11-26T20:08:22+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "1500b2cf-a90e-4a91-96cc-1041622d0cde",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/rbac.py",
+    "project": "27_Evaluation",
+    "line": 573,
+    "hash": "428fec5d9d6b1b4db2f3e65f27a31f0d",
+    "textRange": {
+      "startLine": 573,
+      "endLine": 573,
+      "startOffset": 8,
+      "endOffset": 17
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=575; endLine=575; startOffset=60; endOffset=62}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=576; endLine=576; startOffset=8; endOffset=10}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=578; endLine=578; startOffset=53; endOffset=55}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=579; endLine=579; startOffset=67; endOffset=69}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=580; endLine=580; startOffset=42; endOffset=44}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=584; endLine=584; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=584; endLine=584; startOffset=19; endOffset=22}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=586; endLine=586; startOffset=12; endOffset=14}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=587; endLine=587; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=589; endLine=589; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=589; endLine=589; startOffset=49; endOffset=51}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=591; endLine=591; startOffset=100; endOffset=102}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=592; endLine=592; startOffset=16; endOffset=18}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=595; endLine=595; startOffset=16; endOffset=21}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=616; endLine=616; startOffset=35; endOffset=37}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/rbac.py",
+            "textRange": "@{startLine=621; endLine=621; startOffset=51; endOffset=53}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.",
+    "effort": "10min",
+    "debt": "10min",
+    "author": "workbuddy@local",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-24T23:03:50+08:00",
+    "updateDate": "2026-11-26T20:08:22+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  },
+  {
+    "key": "68dd78e3-38a3-423f-9af4-c8b395346ce7",
+    "rule": "python:S3776",
+    "severity": "CRITICAL",
+    "component": "27_Evaluation:scripts/ai_eval.py",
+    "project": "27_Evaluation",
+    "line": 87,
+    "hash": "cac14558f18da5508b67ea44612c8ade",
+    "textRange": {
+      "startLine": 87,
+      "endLine": 87,
+      "startOffset": 4,
+      "endOffset": 17
+    },
+    "flows": [
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=93; endLine=93; startOffset=51; endOffset=53}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=95; endLine=95; startOffset=4; endOffset=7}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=96; endLine=96; startOffset=8; endOffset=10}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=99; endLine=99; startOffset=30; endOffset=32}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=100; endLine=100; startOffset=35; endOffset=37}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=101; endLine=101; startOffset=33; endOffset=35}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=102; endLine=102; startOffset=33; endOffset=35}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=108; endLine=108; startOffset=4; endOffset=7}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=110; endLine=110; startOffset=8; endOffset=11}",
+            "msg": "+2 (incl 1 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=111; endLine=111; startOffset=12; endOffset=14}",
+            "msg": "+3 (incl 2 for nesting)",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=114; endLine=114; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=116; endLine=116; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=116; endLine=116; startOffset=19; endOffset=22}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=118; endLine=118; startOffset=4; endOffset=6}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      },
+      {
+        "locations": [
+          {
+            "component": "27_Evaluation:scripts/ai_eval.py",
+            "textRange": "@{startLine=118; endLine=118; startOffset=17; endOffset=20}",
+            "msg": "+1",
+            "msgFormattings": ""
+          }
+        ]
+      }
+    ],
+    "status": "OPEN",
+    "message": "Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.",
+    "effort": "9min",
+    "debt": "9min",
+    "author": "wangnan@hundsun.com",
+    "tags": [
+      "brain-overload"
+    ],
+    "creationDate": "2026-11-24T15:18:02+08:00",
+    "updateDate": "2026-11-26T21:41:05+08:00",
+    "type": "CODE_SMELL",
+    "scope": "MAIN",
+    "quickFixAvailable": false,
+    "messageFormattings": [],
+    "codeVariants": [],
+    "cleanCodeAttribute": "FOCUSED",
+    "cleanCodeAttributeCategory": "ADAPTABLE",
+    "impacts": [
+      {
+        "softwareQuality": "MAINTAINABILITY",
+        "severity": "HIGH"
+      }
+    ],
+    "issueStatus": "OPEN",
+    "prioritizedRule": false,
+    "fromSonarQubeUpdate": false,
+    "internalTags": [],
+    "linkedTicketStatus": "NOT_LINKED"
+  }
+]

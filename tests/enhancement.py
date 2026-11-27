@@ -48,10 +48,7 @@ def fixture():
     return base, cur
 
 
-def main():
-    base, cur = fixture()
-    res = E.classify(base, cur, method="估算功能点", cx_mode="企业母版")
-    labels = {r["stable_id"]: r["auto"] for r in res["rows"]}
+def _check_labels(labels):
     expected = {
         "F1": "UNCHANGED", "F2": "CHG", "F3": "CHG", "F4": "DEL",
         "F5": "CFP", "F7": "UNCHANGED", "F91": "CHG", "F10": "UNCHANGED",
@@ -59,12 +56,22 @@ def main():
     }
     check("自动标签 12/12 与金标准一致", all(labels.get(k) == v for k, v in expected.items()),
           str({k: labels.get(k) for k in expected}))
-    check("自动分类准确率 100%", sum(labels.get(k) == v for k, v in expected.items()) / len(expected) == 1.0)
+    check("自动分类准确率 100%", sum(labels.get(k) == v for k, v in expected.items()) == len(expected))
+    check("type 变更凭 replaces_id 归为 CHG", labels.get("F91") == "CHG")
+    check("未匹配基线项归为 DEL", labels.get("F6") == "DEL" and labels.get("F8") == "DEL")
+    check("转换标记归为 CFP", labels.get("F5") == "CFP")
+    return expected
+
+
+def _check_counts(res):
     check("ADD=2", res["suggested_counts"]["add"] == 2, str(res["suggested_counts"]))
     check("CHG=3", res["suggested_counts"]["chg"] == 3, str(res["suggested_counts"]))
     check("DEL=3", res["suggested_counts"]["del"] == 3, str(res["suggested_counts"]))
     check("CFP=1", res["suggested_counts"]["cfp"] == 1, str(res["suggested_counts"]))
     check("UNCHANGED=3", res["suggested_counts"]["unchanged"] == 3, str(res["suggested_counts"]))
+
+
+def _check_totals(res):
     check("EFP = ADD+CHG+CFP+DEL = 55", res["totals"]["efp"] == 55, str(res["totals"]))
     check("更新后 UFP = 58", res["totals"]["updated_ufp"] == 58, str(res["totals"]))
     check("基线 UFP=62 / 当前 UFP=62", res["totals"]["baseline_ufp"] == 62 and res["totals"]["current_ufp"] == 62,
@@ -74,11 +81,9 @@ def main():
           str(res["totals"]))
     check("自动分类不自动复核", res["totals"]["all_reviewed"] is False, str(res["totals"]))
     check("每行带稳定 ID 与建议理由", all(r["stable_id"] and r["reason_codes"] for r in res["rows"]))
-    check("type 变更凭 replaces_id 归为 CHG", labels.get("F91") == "CHG")
-    check("未匹配基线项归为 DEL", labels.get("F6") == "DEL" and labels.get("F8") == "DEL")
-    check("转换标记归为 CFP", labels.get("F5") == "CFP")
 
-    # 人工复核：改一行最终分类后重算合计（模拟前端复核）
+
+def _check_review(res):
     rows = res["rows"]
     for r in rows:
         r["reviewed"] = True
@@ -88,7 +93,8 @@ def main():
           str(totals))
     check("全部复核标记可被识别", totals["all_reviewed"] is True)
 
-    # 非法输入
+
+def _check_invalid(base):
     for bad, label in [
         ([{"desc": "x", "type": "ZZ"}], "非法类型"),
         ({"not": "array"}, "非数组"),
@@ -98,6 +104,17 @@ def main():
             check(label + "被拒绝", False)
         except E.EFPError:
             check(label + "被拒绝", True)
+
+
+def main():
+    base, cur = fixture()
+    res = E.classify(base, cur, method="估算功能点", cx_mode="企业母版")
+    labels = {r["stable_id"]: r["auto"] for r in res["rows"]}
+    _check_labels(labels)
+    _check_counts(res)
+    _check_totals(res)
+    _check_review(res)
+    _check_invalid(base)
 
     failed = [c for c in CASES if not c[1]]
     for name, ok, detail in CASES:
@@ -110,7 +127,6 @@ def main():
         "checks": [{"title": n, "ok": ok, "detail": d} for n, ok, d in CASES],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     return 1 if failed else 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

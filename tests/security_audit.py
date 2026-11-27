@@ -16,6 +16,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import secret_store  # noqa: E402
 
 
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+UNREACHABLE_BASE_URL = 'http://127.0.0.1:1/v1'
+
+
 def scan_plaintext_secrets():
     """扫描受版本控制的源码（排除 tests/docs 的假密钥样本），返回命中列表。"""
     try:
@@ -24,7 +28,7 @@ def scan_plaintext_secrets():
         files = [str(p.relative_to(ROOT)) for p in ROOT.rglob("*") if p.is_file()]
     patterns = [re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
                 re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
-                re.compile(r"(?i)(api[_-]?key|secret|token)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}['\"]")]
+                re.compile(r"(?i)(api[_-]?key|secret|token)\s*[:=]\s*['\"][a-z0-9_-]{16,}['\"]")]
     hits = []
     for rel in files:
         if rel.startswith(("tests/", "docs/", "data/")) or not rel.endswith((".py", ".js", ".json", ".nsh", ".yml", ".yaml", ".txt", ".md")):
@@ -48,7 +52,7 @@ def test_key_at_rest(tmp, report):
     os.environ["WE_DATA"] = str(tmp)
     import server  # noqa: E402
     server.CONF_FILE = Path(tmp) / "config.json"
-    cfg = server.save_config({"llm": {"enabled": True, "api": "http://127.0.0.1:1/v1",
+    cfg = server.save_config({"llm": {"enabled": True, "api": UNREACHABLE_BASE_URL,
                                      "model": "m", "key": "sk-live-abcdefghijklmnopqrstuvwxyz"}})
     raw = json.loads(server.CONF_FILE.read_text(encoding="utf-8"))
     assert "sk-live-abcdefghijklmnopqrstuvwxyz" not in server.CONF_FILE.read_text(encoding="utf-8")
@@ -93,11 +97,11 @@ def test_prompt_guard(server, report):
     try:
         server.urlopen = fake_urlopen
         server._doc_text_excerpt = lambda _p: malicious
-        server._llm_refine("fake.docx", [], {"api": "http://127.0.0.1:1/v1", "model": "m", "key": "k"})
+        server._llm_refine("fake.docx", [], {"api": UNREACHABLE_BASE_URL, "model": "m", "key": "k"})
         refine = captured["body"]["messages"]
         assert guard in refine[0]["content"]
         assert malicious in refine[1]["content"] and malicious not in refine[0]["content"]
-        server._llm_pert_split("http://127.0.0.1:1/v1", "m", "k", malicious)
+        server._llm_pert_split(UNREACHABLE_BASE_URL, "m", "k", malicious)
         pert = captured["body"]["messages"]
         assert guard in pert[0]["content"]
         assert malicious in pert[1]["content"] and malicious not in pert[0]["content"]

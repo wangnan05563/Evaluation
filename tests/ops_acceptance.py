@@ -14,6 +14,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import datakeeper  # noqa: E402
 
 
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+CONFIG_FILE = 'config.json'
+
+
 def sha(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
@@ -24,7 +28,7 @@ def seed(data: Path):
     con.execute("INSERT INTO projects VALUES('p1','客户原始需求文档片段')")
     con.commit(); con.close()
     (data / "estimation.db").write_bytes(b"sqlite-estimation")
-    (data / "config.json").write_text(json.dumps({"llm": {"api": "http://x", "key": "sk-secret-123"}}, ensure_ascii=False), encoding="utf-8")
+    (data / CONFIG_FILE).write_text(json.dumps({"llm": {"api": "http://x", "key": "sk-secret-123"}}, ensure_ascii=False), encoding="utf-8")
     (data / "recognition_rules.json").write_text('{"r":1}', encoding="utf-8")
     (data / "rates_versions.json").write_text('{"v":1}', encoding="utf-8")
     (data / "template.xlsx").write_bytes(b"xlsx-template")
@@ -39,7 +43,7 @@ def test_rollback(tmp):
     assert bk and Path(bk).is_dir()
     assert datakeeper.list_backups(str(data))[0]["id"] == Path(bk).name
     # 模拟升级失败：配置被改、母版丢失、schema 前进、数据损坏
-    (data / "config.json").write_text('{"bad":true}', encoding="utf-8")
+    (data / CONFIG_FILE).write_text('{"bad":true}', encoding="utf-8")
     (data / "template.xlsx").unlink()
     (data / "schema_ver").write_text("2", encoding="utf-8")
     (data / "pert.db").write_bytes(b"broken-db")
@@ -59,9 +63,9 @@ def test_hash_refusal(tmp):
     data = Path(tmp) / "hashcase"; data.mkdir()
     seed(data)
     bk = Path(datakeeper.backup_on_start(str(data), reason="tamper"))
-    (bk / "config.json").write_text("tampered", encoding="utf-8")
+    (bk / CONFIG_FILE).write_text("tampered", encoding="utf-8")
     result = datakeeper.restore_backup(str(data), bk.name)
-    assert result["ok"] is False and any(x["file"] == "config.json" for x in result["skipped"]), result
+    assert result["ok"] is False and any(x["file"] == CONFIG_FILE for x in result["skipped"]), result
     print("AC-39 tamper-refusal PASS")
 
 

@@ -17,6 +17,10 @@ import sqlite3
 import threading
 from datetime import datetime
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+SQL_SELECT_BY_PROJECT = 'SELECT * FROM project_workflow WHERE project_id=?'
+
 STATUS_DRAFT = "draft"
 STATUS_REVIEW = "review"
 STATUS_REJECTED = "rejected"
@@ -145,6 +149,30 @@ class WorkflowStore:
              int(version_no or 1), str(version_hash or "")),
         )
 
+    def _ensure_new(self, con, project_id, title, vno, history_id, version_hash, ts):
+        con.execute(
+            "INSERT INTO project_workflow(project_id,title,status,version_no,history_id,version_hash,"
+            "created_at,updated_at,revision) VALUES(?,?,?,?,?,?,?,?,0)",
+            (project_id, title, STATUS_DRAFT, vno, str(history_id or ""), str(version_hash or ""), ts, ts),
+        )
+        self._event(con, project_id=project_id, action="create", from_status="", to_status=STATUS_DRAFT,
+                    actor="系统", role="系统", opinion="首版估算生成，进入草稿",
+                    object_ref=f"v{vno} / {history_id or '—'}", version_no=vno,
+                    version_hash=version_hash, at=ts)
+
+    def _ensure_version(self, con, row, project_id, title, vno, history_id, version_hash, ts):
+        old_status = str(row["status"] or STATUS_DRAFT)
+        con.execute(
+            "UPDATE project_workflow SET title=?,status=?,version_no=?,history_id=?,version_hash=?,"
+            "updated_at=?,submitted_by=NULL,submitted_at=NULL,reviewer=NULL,reviewed_at=NULL,"
+            "signer=NULL,signed_at=NULL,sign_opinion=NULL WHERE project_id=?",
+            (title, STATUS_DRAFT, vno, str(history_id or ""), str(version_hash or ""), ts, project_id),
+        )
+        self._event(con, project_id=project_id, action="new_version", from_status=old_status,
+                    to_status=STATUS_DRAFT, actor="系统", role="系统",
+                    opinion=f"新增版本 v{vno}，状态回到草稿", object_ref=f"v{vno} / {history_id or '—'}",
+                    version_no=vno, version_hash=version_hash, at=ts)
+
     def ensure(self, *, project_id, title, version_no, history_id, version_hash):
         """登记/更新项目状态。新版本自动回 draft，并保留旧签收事件供追溯。"""
         project_id = str(project_id or "").strip()
@@ -155,30 +183,12 @@ class WorkflowStore:
         with self._lock:
             con = self._conn()
             try:
-                row = con.execute("SELECT * FROM project_workflow WHERE project_id=?", (project_id,)).fetchone()
+                row = con.execute(SQL_SELECT_BY_PROJECT, (project_id,)).fetchone()
                 ts = now_iso()
                 if row is None:
-                    con.execute(
-                        "INSERT INTO project_workflow(project_id,title,status,version_no,history_id,version_hash,"
-                        "created_at,updated_at,revision) VALUES(?,?,?,?,?,?,?,?,0)",
-                        (project_id, title, STATUS_DRAFT, vno, str(history_id or ""), str(version_hash or ""), ts, ts),
-                    )
-                    self._event(con, project_id=project_id, action="create", from_status="", to_status=STATUS_DRAFT,
-                                actor="系统", role="系统", opinion="首版估算生成，进入草稿",
-                                object_ref=f"v{vno} / {history_id or '—'}", version_no=vno,
-                                version_hash=version_hash, at=ts)
+                    self._ensure_new(con, project_id, title, vno, history_id, version_hash, ts)
                 elif int(row["version_no"] or 0) < vno or str(row["history_id"] or "") != str(history_id or ""):
-                    old_status = str(row["status"] or STATUS_DRAFT)
-                    con.execute(
-                        "UPDATE project_workflow SET title=?,status=?,version_no=?,history_id=?,version_hash=?,"
-                        "updated_at=?,submitted_by=NULL,submitted_at=NULL,reviewer=NULL,reviewed_at=NULL,"
-                        "signer=NULL,signed_at=NULL,sign_opinion=NULL WHERE project_id=?",
-                        (title, STATUS_DRAFT, vno, str(history_id or ""), str(version_hash or ""), ts, project_id),
-                    )
-                    self._event(con, project_id=project_id, action="new_version", from_status=old_status,
-                                to_status=STATUS_DRAFT, actor="系统", role="系统",
-                                opinion=f"新增版本 v{vno}，状态回到草稿", object_ref=f"v{vno} / {history_id or '—'}",
-                                version_no=vno, version_hash=version_hash, at=ts)
+                    self._ensure_version(con, row, project_id, title, vno, history_id, version_hash, ts)
                 else:
                     con.execute("UPDATE project_workflow SET title=?,version_hash=?,updated_at=? WHERE project_id=?",
                                 (title, str(version_hash or ""), ts, project_id))
@@ -226,7 +236,7 @@ class WorkflowStore:
         with self._lock:
             con = self._conn()
             try:
-                row = con.execute("SELECT * FROM project_workflow WHERE project_id=?", (str(project_id),)).fetchone()
+                row = con.execute(SQL_SELECT_BY_PROJECT, (str(project_id),)).fetchone()
                 if row is None:
                     return None
                 out = dict(row)
@@ -237,21 +247,38 @@ class WorkflowStore:
             finally:
                 con.close()
 
-    def transition(self, project_id, action, *, actor, role="", opinion="", at=None):
-        action = str(action or "").strip()
-        actor = str(actor or "").strip()
-        role = str(role or "").strip() or "评估师"
-        opinion = str(opinion or "").strip()
+    @staticmethod
+    def _validate_transition(action, actor, opinion):
         if not action:
             raise WorkflowError("action_required", "缺少状态动作")
         if not actor:
             raise WorkflowError("actor_required", "操作人不能为空")
         if action in OPINION_REQUIRED and not opinion:
             raise WorkflowError("opinion_required", "驳回/签收必须填写意见")
+
+    @staticmethod
+    def _transition_fields(action, actor, ts, opinion):
+        fields = {"updated_at": ts}
+        if action == ACTION_SUBMIT:
+            fields.update(submitted_by=actor, submitted_at=ts)
+        elif action == ACTION_REJECT:
+            fields.update(reviewer=actor, reviewed_at=ts)
+        elif action == ACTION_REVISE:
+            fields.update(reviewer=None, reviewed_at=None)
+        elif action == ACTION_SIGN:
+            fields.update(signer=actor, signed_at=ts, sign_opinion=opinion)
+        return fields
+
+    def transition(self, project_id, action, *, actor, role="", opinion="", at=None):
+        action = str(action or "").strip()
+        actor = str(actor or "").strip()
+        role = str(role or "").strip() or "评估师"
+        opinion = str(opinion or "").strip()
+        self._validate_transition(action, actor, opinion)
         with self._lock:
             con = self._conn()
             try:
-                row = con.execute("SELECT * FROM project_workflow WHERE project_id=?", (str(project_id),)).fetchone()
+                row = con.execute(SQL_SELECT_BY_PROJECT, (str(project_id),)).fetchone()
                 if row is None:
                     raise WorkflowError("not_found", "项目不存在", 404)
                 cur = str(row["status"] or STATUS_DRAFT)
@@ -261,15 +288,8 @@ class WorkflowStore:
                 if action == ACTION_SIGN and not str(row["version_hash"] or "").strip():
                     raise WorkflowError("hash_missing", "版本哈希缺失，不能签收")
                 ts = str(at or now_iso())
-                fields = {"status": to, "updated_at": ts}
-                if action == ACTION_SUBMIT:
-                    fields.update(submitted_by=actor, submitted_at=ts)
-                elif action == ACTION_REJECT:
-                    fields.update(reviewer=actor, reviewed_at=ts)
-                elif action == ACTION_REVISE:
-                    fields.update(reviewer=None, reviewed_at=None)
-                elif action == ACTION_SIGN:
-                    fields.update(signer=actor, signed_at=ts, sign_opinion=opinion)
+                fields = self._transition_fields(action, actor, ts, opinion)
+                fields["status"] = to
                 sets = ",".join(f"{k}=?" for k in fields)
                 con.execute(f"UPDATE project_workflow SET {sets} WHERE project_id=?",
                             (*fields.values(), str(project_id)))
@@ -282,16 +302,9 @@ class WorkflowStore:
             finally:
                 con.close()
 
-    def signoff(self, project_id):
-        """返回可直接并入 audit_package payload 的签收段。"""
-        detail = self.get(project_id)
-        if detail is None:
-            raise WorkflowError("not_found", "项目不存在", 404)
-        events = detail.get("events") or []
-        opinions = [e.get("opinion") for e in events
-                    if e.get("action") in (ACTION_REJECT, ACTION_SIGN) and e.get("opinion")]
-        status = str(detail.get("status") or STATUS_DRAFT)
-        roles = [
+    @staticmethod
+    def _signoff_roles(detail, status):
+        return [
             {"role": "评估师", "name": detail.get("submitted_by") or "—",
              "status": "已提交评审" if detail.get("submitted_at") else "待提交", "time": detail.get("submitted_at") or "—"},
             {"role": "审核人", "name": detail.get("reviewer") or "—",
@@ -301,13 +314,28 @@ class WorkflowStore:
              "status": "已签收" if status == STATUS_SIGNED else "待签收",
              "time": detail.get("signed_at") or "—"},
         ]
+
+    @staticmethod
+    def _signoff_opinions(events):
+        opinions = [e.get("opinion") for e in events
+                    if e.get("action") in (ACTION_REJECT, ACTION_SIGN) and e.get("opinion")]
+        return opinions or ["请核对估算明细与追溯矩阵后签收。"]
+
+    def signoff(self, project_id):
+        """返回可直接并入 audit_package payload 的签收段。"""
+        detail = self.get(project_id)
+        if detail is None:
+            raise WorkflowError("not_found", "项目不存在", 404)
+        events = detail.get("events") or []
+        status = str(detail.get("status") or STATUS_DRAFT)
         return {
             "status": status,
-            "roles": roles,
-            "opinions": opinions or ["请核对估算明细与追溯矩阵后签收。"],
+            "roles": self._signoff_roles(detail, status),
+            "opinions": self._signoff_opinions(events),
             "signer": detail.get("signer") or "",
             "signed_at": detail.get("signed_at") or "",
             "opinion": detail.get("sign_opinion") or "",
             "version_hash": detail.get("version_hash") or "",
             "short_hash": self.short_hash(detail.get("version_hash")),
         }
+

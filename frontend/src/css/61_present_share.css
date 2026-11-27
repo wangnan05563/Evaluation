@@ -25,14 +25,14 @@ body.pz-open { overflow: hidden; }
 .pz-counter { margin-left: auto; font-variant-numeric: tabular-nums; color: #b9c7e6; font-size: 16px; }
 .pz-exit {
   border: 1px solid rgba(255,255,255,.28);
-  background: rgba(255,255,255,.08);
+  background: #24344d;
   color: #fff;
   border-radius: 10px;
   padding: 8px 14px;
   cursor: pointer;
   font-size: 14px;
 }
-.pz-exit:hover { background: rgba(255,255,255,.16); }
+.pz-exit:hover { background: #33496b; }
 .pz-stage {
   flex: 1;
   min-height: 0;
@@ -111,7 +111,7 @@ body.pz-open { overflow: hidden; }
 }
 .pz-nav button {
   border: 1px solid rgba(143,182,255,.38);
-  background: rgba(255,255,255,.06);
+  background: #1f2c42;
   color: #dce7ff;
   padding: 9px 18px;
   border-radius: 10px;

@@ -23,7 +23,8 @@ export async function openPage({ width = 1440, height = 900, cdp = CDP } = {}) {
       exceptions.push(m.params?.exceptionDetails?.exception?.description || 'exception');
     }
   };
-  const send = (method, params = {}, sessionId, timeout = 30000) => {
+  const send = (method, params, sessionId, timeout = 30000) => {
+    params = params || {};
     const i = ++id;
     ws.send(JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) }));
     return new Promise((ok, no) => {
@@ -74,7 +75,7 @@ export function checker(name) {
   const checks = [];
   const check = (title, ok, detail = '') => {
     checks.push({ title, ok: !!ok, detail });
-    console.log(`${ok ? 'PASS' : 'FAIL'}  ${title}${detail ? `  — ${detail}` : ''}`);
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${title}${detail ? '  — ' + detail : ''}`);
   };
   const finish = (extra = {}) => {
     fs.mkdirSync(path.join(OUT, 'results'), { recursive: true });

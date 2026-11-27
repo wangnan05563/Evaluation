@@ -17,6 +17,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import history as H  # noqa: E402
 import datakeeper as DK  # noqa: E402
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+PROJECT_NAME = '稳定ID三版本'
+
 PASS = FAIL = 0
 CASES = []
 
@@ -56,19 +60,19 @@ def main():
 
         h = H.HistStore(os.path.join(data, "estimation.db"))
         base = [item("内部文件"), item("外部接口", "EIF"), item("录入", "EI", count="录入")]
-        r1 = h.insert(title="稳定ID三版本", method="IFPUG", items=[dict(x) for x in base],
+        r1 = h.insert(title=PROJECT_NAME, method="IFPUG", items=[dict(x) for x in base],
                       summary={"count": 3})
         v1 = h.get(r1["id"])
         sid1 = sids(v1["items"])
         check("第1版生成3个稳定ID", len(sid1) == 3 and all(s.startswith("F-") for s in sid1), sid1)
 
-        r2 = h.insert(title="稳定ID三版本", method="IFPUG", items=[dict(x) for x in v1["items"]],
+        r2 = h.insert(title=PROJECT_NAME, method="IFPUG", items=[dict(x) for x in v1["items"]],
                       summary={"count": 3}, reopen_group=r1["version_group"])
         v2 = h.get(r2["id"])
         check("第2版稳定ID不变", sids(v2["items"]) == sid1, sids(v2["items"]))
 
         changed_desc = [dict(v2["items"][0], desc="内部文件（v3改名）"), dict(v2["items"][1]), dict(v2["items"][2])]
-        r3 = h.insert(title="稳定ID三版本", method="IFPUG", items=changed_desc,
+        r3 = h.insert(title=PROJECT_NAME, method="IFPUG", items=changed_desc,
                       summary={"count": 3}, reopen_group=r1["version_group"])
         v3 = h.get(r3["id"])
         check("第3版改名但稳定ID不变", sids(v3["items"]) == sid1, sids(v3["items"]))
@@ -99,7 +103,7 @@ def main():
         check("导入后映射表校验通过", val2["ok"] and val2["rows"] == 3 and val2["items"] == 9 and val2["mapped"] == 3, val2)
 
         v4_items = [dict(r3b["items"][0], desc="内部文件（导入后重开）"), dict(r3b["items"][1]), dict(r3b["items"][2])]
-        r4 = h2.insert(title="稳定ID三版本", method="IFPUG", items=v4_items,
+        r4 = h2.insert(title=PROJECT_NAME, method="IFPUG", items=v4_items,
                        summary={"count": 3}, reopen_group=r3b["version_group"])
         v4 = h2.get(r4["id"])
         check("导入后重开第4版稳定ID不变", sids(v4["items"]) == sid1, sids(v4["items"]))
@@ -108,7 +112,7 @@ def main():
         check("导入后重开 diff 只含1条改名", d["summary"] == {"added": 0, "removed": 0, "changed": 1}, d["summary"])
 
         v5_items = [dict(v4["items"][0], type="EI", count_item="录入"), dict(v4["items"][1]), dict(v4["items"][2])]
-        r5 = h2.insert(title="稳定ID三版本", method="IFPUG", items=v5_items,
+        r5 = h2.insert(title=PROJECT_NAME, method="IFPUG", items=v5_items,
                        summary={"count": 3}, reopen_group=r3b["version_group"])
         v5 = h2.get(r5["id"])
         new_sid = sids(v5["items"])[0]

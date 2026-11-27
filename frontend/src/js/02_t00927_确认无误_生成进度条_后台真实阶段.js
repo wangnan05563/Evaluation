@@ -193,16 +193,34 @@ function genErrorMessage(err){
     return tf("gen.timeout",{s:Math.round(genTimeoutMs()/1000)});
   return err.message;
 }
+async function _precheckBeforeGenerate(){
+  if(typeof qualityPrecheck!=="function")return;
+  try{
+    const q=await qualityPrecheck(items,{stage:"generate"});
+    if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
+  }catch(e){/* 自检不可用时不阻断生成 */}
+}
+async function _applyGenerateResult(res,prog){
+  gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
+  // T06187：把服务端落库分配的稳定功能ID回填到当前明细，后续重开/另存可原样回传
+  if(Array.isArray(res.items)&&res.items.length===items.length){
+    res.items.forEach((it,i)=>{if(it&&it.stable_id)items[i].stable_id=it.stable_id;});
+  }
+  if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
+  if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
+  if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
+  window.lastWorkflowProject=res.version_group||"";
+  if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
+  const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
+  await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
+  goStep("result");
+  showRecalcState(res.recalc,prog.job);   // T00963：结果页展示补算状态
+}
 $("#goRes").addEventListener("click",async ()=>{
   const pending=items.filter(x=>!x.ok).length;
   if(pending>0){toast(tf("gen.pending_confirm",{n:pending}));return;}  // 未全确认给反馈，避免静默无反应
   // T06196：提交前自检留痕（重复/漏项/非法类型/无证据）；不阻断既有合法生成。
-  if(typeof qualityPrecheck==="function"){
-    try{
-      const q=await qualityPrecheck(items,{stage:"generate"});
-      if(q&&q.precheck&&!q.precheck.ok)toast(t("config.eval.precheck_warn"));
-    }catch(e){/* 自检不可用时不阻断生成 */}
-  }
+  await _precheckBeforeGenerate();
   const btn=$("#goRes");btn.disabled=true;
   const prog=beginGenProgress();
   const ctl=new AbortController();
@@ -213,20 +231,7 @@ $("#goRes").addEventListener("click",async ()=>{
     const res=await resp.json();
     // 服务端 msg 经 lm() 映射；缺 msg 时用字典兜底（不直写中文，防英文态漏中文）
     if(!res.ok)throw new Error(res.msg?lm(res):t("gen.fail"));
-    gSummary=res.summary;gSid=res.sid;$("#dlName").textContent=gSid;
-    // T06187：把服务端落库分配的稳定功能ID回填到当前明细，后续重开/另存可原样回传
-    if(Array.isArray(res.items)&&res.items.length===items.length){
-      res.items.forEach((it,i)=>{if(it&&it.stable_id)items[i].stable_id=it.stable_id;});
-    }
-    if(typeof storyReset==="function")storyReset();   // T05693：新结果不继承上一份用户故事
-    if(res.history_id)localStorage.setItem("wl_last_history",res.history_id);   // FR-1.8 会话恢复锚点
-    if(res.version_group)localStorage.setItem("wl_last_project",res.version_group);   // T06198：项目状态/签收关联
-    window.lastWorkflowProject=res.version_group||"";
-    if(res.quality_precheck)window.lastEvalPrecheck={run_id:res.quality_precheck.run_id,created_at:res.quality_precheck.created_at,precheck:res.quality_precheck};
-    const asyncCalc=res.recalc==="async";   // T00931：公式缓存改为后台补算，结果已可下载
-    await prog.finish(asyncCalc?"生成完成（公式缓存后台补算中），正在跳转结果…":"生成完成，正在跳转结果…");
-    goStep("result");
-    showRecalcState(res.recalc,prog.job);   // T00963：结果页展示补算状态
+    await _applyGenerateResult(res,prog);
   }catch(err){
     const msg=genErrorMessage(err);
     prog.fail(msg);toast(msg);

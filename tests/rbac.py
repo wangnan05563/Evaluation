@@ -10,6 +10,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 import rbac  # noqa: E402
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+SSO_USER = 'sso.user'
+WORK_TAB_URL = '/work?tab=1'
+
 checks = []
 
 
@@ -31,9 +36,7 @@ def expect_error(name, fn, code, status=400):
     return None
 
 
-def main():
-    tmp = Path(tempfile.mkdtemp(prefix="we_rbac_unit_"))
-    store = rbac.RbacStore(tmp / "rbac.db")
+def _bootstrap_checks(store, tmp):
     check("空库要求初始化管理员", store.bootstrap_required() and store.user_count() == 0)
     expect_error("初始化拒绝弱密码", lambda: store.bootstrap("root", "short"), "WEAK_PASSWORD")
     expect_error("初始化拒绝非法用户名", lambda: store.bootstrap("root space", "LongEnough123"), "INVALID_USERNAME")
@@ -50,7 +53,10 @@ def main():
     expect_error("错误密码统一 401", lambda: store.login("root", "bad", ip="127.0.0.1"),
                  "LOGIN_FAILED", 401)
     check("admin 拥有全部权限", set(admin["user"]["permissions"]) == set(rbac.ALL_PERMISSIONS))
+    return admin
 
+
+def _matrix_checks():
     matrix = rbac.RbacStore.matrix()
     check("矩阵含 5 个角色 / 13 项权限", len(matrix["roles"]) == 5 and len(matrix["permissions"]) == 13,
           f"{len(matrix['roles'])}/{len(matrix['permissions'])}")
@@ -60,6 +66,8 @@ def main():
           and rbac.has_permission("reviewer", rbac.P_PROJ_SIGN)
           and not rbac.has_permission("viewer", rbac.P_PROJ_READ))
 
+
+def _user_checks(store, admin):
     evaluator = store.create_user(admin["user"], "eval1", "EvalPass123", "评估师甲", "evaluator", "127.0.0.1")
     viewer = store.create_user(admin["user"], "viewer1", "ViewPass123", "只读乙", "viewer", "127.0.0.1")
     expect_error("用户名重复返回 409",
@@ -70,7 +78,11 @@ def main():
     check("评估师登录且可查看项目",
           eval_login["user"]["role"] == "evaluator"
           and store.authorize(eval_login["token"], rbac.P_PROJ_READ, ip="127.0.0.1")["username"] == "eval1")
-    denied = expect_error(
+    return evaluator, viewer, eval_login, view_login
+
+
+def _audit_checks(store, view_login):
+    expect_error(
         "只读成员访问项目被 403 拒绝",
         lambda: store.authorize(view_login["token"], rbac.P_PROJ_READ, object_type="project",
                                 object_id="p-403", ip="127.0.0.1", method="GET",
@@ -82,13 +94,15 @@ def main():
           denied_audit and denied_audit["permission"] == rbac.P_PROJ_READ
           and denied_audit["actor_name"] == "只读乙"
           and denied_audit["object_type"] == "project", denied_audit)
-    unauth = expect_error("无会话访问返回 401",
+    expect_error("无会话访问返回 401",
                           lambda: store.authorize("", rbac.P_PROJ_READ, object_type="project",
                                                   object_id="p-401", ip="127.0.0.1"),
                           "UNAUTHORIZED", 401)
     check("匿名拒绝同样落审计", any(a["actor_name"] == "匿名" and a["object_id"] == "p-401"
                                 for a in store.list_audit(limit=50, result="deny")))
 
+
+def _role_checks(store, admin, evaluator, viewer, view_login, eval_login):
     updated = store.update_user(admin["user"], viewer["id"], role="evaluator", ip="127.0.0.1")
     check("管理员可改角色且立即生效",
           updated["role"] == "evaluator"
@@ -102,26 +116,31 @@ def main():
 
     check("登出后会话失效", store.logout(admin["token"], ip="127.0.0.1")
           and store.session(admin["token"]) is None)
-    admin2 = store.login("root", "AdminPass123", ip="127.0.0.1")
+    store.login("root", "AdminPass123", ip="127.0.0.1")
 
-    sso_state, redirect = store.create_sso_state("/work?tab=1")
-    check("SSO state 生成并限制回跳", len(sso_state) >= 32 and redirect == "/work?tab=1")
-    check("SSO state 一次性消费", store.consume_sso_state(sso_state) == "/work?tab=1")
+
+def _sso_checks(store):
+    sso_state, redirect = store.create_sso_state(WORK_TAB_URL)
+    check("SSO state 生成并限制回跳", len(sso_state) >= 32 and redirect == WORK_TAB_URL)
+    check("SSO state 一次性消费", store.consume_sso_state(sso_state) == WORK_TAB_URL)
     expect_error("SSO state 重放失败", lambda: store.consume_sso_state(sso_state), "SSO_BAD_STATE")
 
-    sso_user = store.sso_login({"sub": "idp-001", "preferred_username": "sso.user",
+    sso_user = store.sso_login({"sub": "idp-001", "preferred_username": SSO_USER,
                                 "name": "单点用户", "email": "sso@example.com"},
                                "MockIDP", auto_provision=True, default_role="viewer", ip="127.0.0.1")
     check("SSO 自动开通默认只读成员", sso_user["created"] and sso_user["user"]["role"] == "viewer")
     check("SSO 账号无本地密码不可密码登录",
-          expect_error("SSO-only 账号密码登录被拒", lambda: store.login("sso.user", "anything"), "LOGIN_FAILED", 401))
-    again = store.sso_login({"sub": "idp-001", "preferred_username": "sso.user"},
+          expect_error("SSO-only 账号密码登录被拒", lambda: store.login(SSO_USER, "anything"), "LOGIN_FAILED", 401))
+    again = store.sso_login({"sub": "idp-001", "preferred_username": SSO_USER},
                             "MockIDP", auto_provision=True, default_role="viewer", ip="127.0.0.1")
     check("同一 SSO 主体复用已有账号", not again["created"] and again["user"]["id"] == sso_user["user"]["id"])
     expect_error("SSO 不允许自动开通管理员",
                  lambda: store.sso_login({"sub": "idp-admin"}, "MockIDP", auto_provision=True,
                                          default_role="admin"), "SSO_ROLE_INVALID", 500)
+    return sso_state, sso_user
 
+
+def _final_checks(store, sso_state, sso_user):
     cookies = rbac.cookie_header("tok")
     check("会话 Cookie 含 HttpOnly/SameSite", "HttpOnly" in cookies and "SameSite=Lax" in cookies)
     all_audit = json.dumps(store.list_audit(limit=500), ensure_ascii=False)
@@ -132,6 +151,18 @@ def main():
                                  for a in store.list_audit(limit=100)))
     check("角色变更进入审计", any(a["action"] == "user_update" for a in store.list_audit(limit=100)))
     check("审计结果过滤可用", all(a["result"] == "deny" for a in store.list_audit(result="deny")))
+
+
+def main():
+    tmp = Path(tempfile.mkdtemp(prefix="we_rbac_unit_"))
+    store = rbac.RbacStore(tmp / "rbac.db")
+    admin = _bootstrap_checks(store, tmp)
+    _matrix_checks()
+    evaluator, viewer, eval_login, view_login = _user_checks(store, admin)
+    _audit_checks(store, view_login)
+    _role_checks(store, admin, evaluator, viewer, view_login, eval_login)
+    sso_state, sso_user = _sso_checks(store)
+    _final_checks(store, sso_state, sso_user)
 
     result = {
         "suite": "rbac",

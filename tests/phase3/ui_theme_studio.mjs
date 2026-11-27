@@ -1,7 +1,7 @@
 /** T06193 主题工作室 UI：实时预览、对比度阻断、JSON 导出、UI/报告主色同源。 */
 import fs from 'node:fs';
 import path from 'node:path';
-import { openPage, checker, sleep, OUT, APP, loadAxe, axeAudit } from './cdp.mjs';
+import { openPage, checker, sleep, OUT, loadAxe, axeAudit } from './cdp.mjs';
 
 const { check, finish } = checker('ui-theme-studio');
 const page = await openPage({ width: 1440, height: 900 });

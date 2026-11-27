@@ -8,6 +8,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+CONFIG_FILE = 'config.json'
+
 ROOT = Path(__file__).resolve().parent.parent
 PY = os.environ.get("PYTHON") or r"F:\Program Files\Python3.14\python.exe"
 if not Path(PY).exists():
@@ -42,7 +46,7 @@ def run_case(name, setup, code, timeout=120):
 def main():
     run_case(
         "主/备配置均损坏时 fail-closed 到 workgroup",
-        lambda d: ((d / "config.json").write_text("{bad", encoding="utf-8"),
+        lambda d: ((d / CONFIG_FILE).write_text("{bad", encoding="utf-8"),
                    (d / "config.json.bak").write_text("{also_bad", encoding="utf-8")),
         "assert server.load_config()['deployment']['mode'] == 'workgroup'\n",
     )
@@ -53,7 +57,7 @@ def main():
     )
     run_case(
         "save_config 原子替换并保留上一次备份",
-        lambda d: (d / "config.json").write_text(json.dumps(
+        lambda d: (d / CONFIG_FILE).write_text(json.dumps(
             {"provider": "agnes", "deployment": {"mode": "workgroup"}}), encoding="utf-8"),
         "server.save_config({'deployment': {'mode': 'standalone'}})\n"
         "cfg=json.loads(server.CONF_FILE.read_text(encoding='utf-8'))\n"
@@ -63,7 +67,7 @@ def main():
     )
     run_case(
         "主配置损坏但备份可用时，写回不覆盖可用备份",
-        lambda d: ((d / "config.json").write_text("{bad", encoding="utf-8"),
+        lambda d: ((d / CONFIG_FILE).write_text("{bad", encoding="utf-8"),
                    (d / "config.json.bak").write_text(json.dumps(
                        {"provider": "agnes", "deployment": {"mode": "workgroup"}}), encoding="utf-8")),
         "server.save_config({'deployment': {'mode': 'standalone'}})\n"
@@ -75,7 +79,7 @@ def main():
     )
     run_case(
         "替换失败时保留原文件且清理 tmp",
-        lambda d: (d / "config.json").write_text(json.dumps(
+        lambda d: (d / CONFIG_FILE).write_text(json.dumps(
             {"provider": "agnes", "deployment": {"mode": "workgroup"}}), encoding="utf-8"),
         "orig=server.os.replace\n"
         "def boom(a,b): raise OSError('simulated replace failure')\n"

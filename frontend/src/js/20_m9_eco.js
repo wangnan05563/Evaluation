@@ -107,13 +107,12 @@ function tf(key, vars){
   return s.replaceAll(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null) ? vars[k] : m);
 }
 /** 切换语言后重渲染动态文案（计数/徽章/图表/PERT 明细）。 */
-function reRenderAfterLang(){
-  const page = document.body.dataset.page;
-  if(typeof render === "function" && Array.isArray(items)) render();
-  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
-  if(page === "config" && typeof rulesLoad === "function") rulesLoad();
-  // 供应商下拉的 option 是 JS 动态生成的，切换语言后需按新字典重绘标签（保留当前选中值）。
-  if(page === "config" && typeof renderProviderOptions === "function") renderProviderOptions();
+function _reRenderPage(page){
+  if(page === "config"){
+    if(typeof rulesLoad === "function") rulesLoad();
+    // 供应商下拉的 option 是 JS 动态生成的，切换语言后需按新字典重绘标签（保留当前选中值）。
+    if(typeof renderProviderOptions === "function") renderProviderOptions();
+  }
   if(page === "pert"){
     if(typeof pertSyncStart === "function") pertSyncStart();
     if(typeof pertFillPhase === "function") pertFillPhase();
@@ -123,7 +122,13 @@ function reRenderAfterLang(){
   // 快速估算页的计数标签/公式不是 data-i18n 静态节点，切语言必须重绘。
   if(page === "fast" && typeof fastRender === "function") fastRender();
 }
-/** 切换语言：落盘 → 重载字典 → 重刷 data-i18n 标注的节点 */
+function reRenderAfterLang(){
+  const page = document.body.dataset.page;
+  if(typeof render === "function" && Array.isArray(items)) render();
+  if(typeof refreshCharts === "function" && Object.keys(_charts || {}).length) refreshCharts();
+  if(typeof migrationRender === "function" && document.getElementById("migrationCard")) migrationRender();
+  _reRenderPage(page);
+}
 async function setLang(lang){
   if(!lang || lang === __I18N_LANG) return;
   localStorage.setItem("wl_lang", lang);

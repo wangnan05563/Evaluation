@@ -1,7 +1,7 @@
 /* T06192 / REQ-014 / AC-14：PERT 结果的蒙特卡洛概率预测。
    固定种子可复现；只读三点估算，不写历史数据。 */
 function mcEsc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replaceAll(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 function mcEnsureUI() {
@@ -49,7 +49,7 @@ function mcRun() {
   const card = mcEnsureUI();
   if (!card) return;
   return (async () => {
-    if (typeof pertPid === "undefined" || !pertPid) { if (typeof toast === "function") toast("请先选择 PERT 项目"); return; }
+    if (typeof pertPid === "undefined" || !pertPid) { if (typeof toast === "function") { toast("请先选择 PERT 项目"); } return; }
     const out = card.querySelector("#mcOut");
     const msg = card.querySelector("#mcMsg");
     out.innerHTML = '<div class="cfg-note">正在模拟…</div>';

@@ -13,6 +13,10 @@ import threading
 import uuid
 from datetime import datetime
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+SEQ_MARK_FMT = '#seq%d'
+
 SCHEMA_VER = 2
 # T01501（S1192）：diff 参与字段级比较的属性清单，原内联在 diff 方法里
 _DIFF_CMP_FIELDS = ("desc", "system", "type", "cx", "reuse", "modify", "count_item")
@@ -141,58 +145,41 @@ class HistStore:
             (sid, group, json.dumps(key, ensure_ascii=False), it.get("type"),
              replaces_id or it.get("replaces_id") or None, self._now()))
 
-    def _assign_ids(self, c, group, latest_items, items):
-        """给本次落库明细分配稳定 ID。
-
-        - 新建组：全部新 ID；
-        - 重开修订：优先沿用明细携带的 stable_id；否则按 (desc,system) 匹配上一版本；
-        - 同一 stable_id 但 type 变化：新建 ID，并把 replaces_id 指向旧 ID，旧 ID 保留在历史与映射表。
-        """
+    def _latest_indexes(self, latest_items):
         latest_by_id = {}
         latest_by_key = {}
-        is_new_group = latest_items is None
         for it in (latest_items or []):
             sid = str(it.get("stable_id") or "").strip()
             if sid:
                 latest_by_id.setdefault(sid, it)
             latest_by_key.setdefault(self._item_key(it), []).append(it)
-        used = set()
-        out = []
-        for idx, it in enumerate(items or []):
-            it = dict(it or {})
-            cur = str(it.get("stable_id") or "").strip()
-            matched = latest_by_id.get(cur) if (cur and not is_new_group) else None
-            if matched is None and not cur and not is_new_group:
-                bucket = latest_by_key.get(self._item_key(it)) or []
-                for cand in bucket:
-                    csid = str(cand.get("stable_id") or "").strip()
-                    if csid and csid not in used:
-                        matched = cand
-                        break
-            if matched is not None:
-                old_sid = str(matched.get("stable_id") or "").strip()
-                if self._same_type(matched, it):
-                    sid = old_sid
-                    replaces = None
-                else:
-                    sid = self._new_id(c)
-                    replaces = old_sid
-                used.add(old_sid)
-            elif (not is_new_group) and cur and c.execute("SELECT 1 FROM item_id_map WHERE stable_id=?", (cur,)).fetchone():
-                # 历史明细带 ID 但上一版本没有（例如跨组误带）：保留但重新登记
-                sid = cur if cur not in used else self._new_id(c)
-                replaces = it.get("replaces_id") or None
-                used.add(sid)
-            else:
-                sid = self._new_id(c)
-                replaces = it.get("replaces_id") or None
-                used.add(sid)
-            it["stable_id"] = sid
-            if replaces:
-                it["replaces_id"] = replaces
-            self._register(c, group, sid, self._item_key(it), it, replaces)
-            out.append(it)
-        # 同版本内去重：重复 ID 视为脏数据，第二项起重新发号
+        return latest_by_id, latest_by_key
+
+    def _match_latest(self, it, cur, used, latest_by_id, latest_by_key, is_new_group):
+        matched = latest_by_id.get(cur) if (cur and not is_new_group) else None
+        if matched is None and not cur and not is_new_group:
+            for cand in latest_by_key.get(self._item_key(it)) or []:
+                csid = str(cand.get("stable_id") or "").strip()
+                if csid and csid not in used:
+                    return cand
+        return matched
+
+    def _resolve_sid(self, c, it, matched, cur, used, is_new_group):
+        """返回 (sid, replaces, used_sid)；used_sid 保持旧实现的占用口径。"""
+        if matched is not None:
+            old_sid = str(matched.get("stable_id") or "").strip()
+            if self._same_type(matched, it):
+                return old_sid, None, old_sid
+            return self._new_id(c), old_sid, old_sid
+        if (not is_new_group) and cur and c.execute("SELECT 1 FROM item_id_map WHERE stable_id=?", (cur,)).fetchone():
+            # 历史明细带 ID 但上一版本没有（例如跨组误带）：保留但重新登记
+            sid = cur if cur not in used else self._new_id(c)
+            return sid, it.get("replaces_id") or None, sid
+        sid = self._new_id(c)
+        return sid, it.get("replaces_id") or None, sid
+
+    def _dedup_version_ids(self, c, group, out):
+        """同版本内去重：重复 ID 视为脏数据，第二项起重新发号。"""
         seen, fixed = set(), []
         for it in out:
             sid = it["stable_id"]
@@ -206,6 +193,68 @@ class HistStore:
             fixed.append(it)
         return fixed
 
+    def _assign_ids(self, c, group, latest_items, items):
+        """给本次落库明细分配稳定 ID。
+
+        - 新建组：全部新 ID；
+        - 重开修订：优先沿用明细携带的 stable_id；否则按 (desc,system) 匹配上一版本；
+        - 同一 stable_id 但 type 变化：新建 ID，并把 replaces_id 指向旧 ID，旧 ID 保留在历史与映射表。
+        """
+        is_new_group = latest_items is None
+        latest_by_id, latest_by_key = self._latest_indexes(latest_items)
+        used = set()
+        out = []
+        for it in items or []:
+            it = dict(it or {})
+            cur = str(it.get("stable_id") or "").strip()
+            matched = self._match_latest(it, cur, used, latest_by_id, latest_by_key, is_new_group)
+            sid, replaces, used_sid = self._resolve_sid(c, it, matched, cur, used, is_new_group)
+            used.add(used_sid)
+            it["stable_id"] = sid
+            if replaces:
+                it["replaces_id"] = replaces
+            self._register(c, group, sid, self._item_key(it), it, replaces)
+            out.append(it)
+        return self._dedup_version_ids(c, group, out)
+
+    def _migration_plan(self, c):
+        rows = c.execute("SELECT id,version_group,items_json,schema_ver FROM estimation_history").fetchall()
+        mapped_ids = {r["stable_id"] for r in
+                      c.execute("SELECT stable_id FROM item_id_map").fetchall()}
+        todo = []
+        for r in rows:
+            try:
+                its = json.loads(r["items_json"] or "[]")
+            except Exception:
+                continue
+            miss = any(not str(it.get("stable_id") or "").strip() for it in its)
+            unmapped = any(str(it.get("stable_id") or "").strip() and str(it["stable_id"]) not in mapped_ids
+                           for it in its)
+            if miss or unmapped:
+                todo.append((r, its))
+        return todo
+
+    def _migrate_one_row(self, c, r, its, started):
+        c.execute("INSERT OR IGNORE INTO history_items_backup(history_id,items_json,schema_ver,backed_up_at) "
+                  "VALUES(?,?,?,?)", (r["id"], r["items_json"], r["schema_ver"], started))
+        seen, occurrence = {}, {}
+        for it in its:
+            k = self._item_key(it)
+            occ = occurrence.get(k, 0)
+            occurrence[k] = occ + 1
+            if str(it.get("stable_id") or "").strip():
+                sid = it["stable_id"]
+                seen[sid] = seen.get(sid, 0) + 1
+                if seen[sid] > 1:
+                    sid = self._migrated_id(r["version_group"], k, occ)
+                    it["stable_id"] = sid
+            else:
+                sid = self._migrated_id(r["version_group"], k, occ)
+                it["stable_id"] = sid
+            self._register(c, r["version_group"], it["stable_id"], k, it, it.get("replaces_id"))
+        c.execute("UPDATE estimation_history SET items_json=?,schema_ver=? WHERE id=?",
+                  (json.dumps(its, ensure_ascii=False), SCHEMA_VER, r["id"]))
+
     def _migrate_legacy_items(self, force=False):
         """旧数据首次打开自动补 stable_id；迁移前逐行备份，状态记入 schema_meta。"""
         with self._lock:
@@ -213,46 +262,14 @@ class HistStore:
             try:
                 if self._meta_get(c, "migration_state") == "rolled_back" and not force:
                     return {"migrated": 0, "skipped": "rolled_back"}
-                rows = c.execute("SELECT id,version_group,items_json,schema_ver FROM estimation_history").fetchall()
-                mapped_ids = {r["stable_id"] for r in
-                              c.execute("SELECT stable_id FROM item_id_map").fetchall()}
-                todo = []
-                for r in rows:
-                    try:
-                        its = json.loads(r["items_json"] or "[]")
-                    except Exception:
-                        continue
-                    miss = any(not str(it.get("stable_id") or "").strip() for it in its)
-                    unmapped = any(str(it.get("stable_id") or "").strip() and str(it["stable_id"]) not in mapped_ids
-                                   for it in its)
-                    if miss or unmapped:
-                        todo.append((r, its))
+                todo = self._migration_plan(c)
                 if not todo:
                     return {"migrated": 0, "skipped": "already"}
                 started = self._now()
                 self._log_event("migration_start", rows=len(todo), started_at=started)
                 self._meta_set(c, "migration_started_at", started)
                 for r, its in todo:
-                    c.execute("INSERT OR IGNORE INTO history_items_backup(history_id,items_json,schema_ver,backed_up_at) "
-                              "VALUES(?,?,?,?)", (r["id"], r["items_json"], r["schema_ver"], started))
-                    seen, occurrence = {}, {}
-                    for idx, it in enumerate(its):
-                        k = self._item_key(it)
-                        occ = occurrence.get(k, 0)
-                        occurrence[k] = occ + 1
-                        if str(it.get("stable_id") or "").strip():
-                            sid = it["stable_id"]
-                            seen[sid] = seen.get(sid, 0) + 1
-                            if seen[sid] > 1:
-                                sid = self._migrated_id(r["version_group"], k, occ)
-                                it["stable_id"] = sid
-                        else:
-                            sid = self._migrated_id(r["version_group"], k, occ)
-                            it["stable_id"] = sid
-                        self._register(c, r["version_group"], it["stable_id"], k, it,
-                                       it.get("replaces_id"))
-                    c.execute("UPDATE estimation_history SET items_json=?,schema_ver=? WHERE id=?",
-                              (json.dumps(its, ensure_ascii=False), SCHEMA_VER, r["id"]))
+                    self._migrate_one_row(c, r, its, started)
                 self._meta_set(c, "migration_state", "migrated")
                 self._meta_set(c, "migration_done_at", self._now())
                 c.commit()
@@ -324,6 +341,33 @@ class HistStore:
             finally:
                 c.close()
 
+    def _validate_row(self, r, mapped, seen_global):
+        try:
+            its = json.loads(r["items_json"] or "[]")
+        except Exception:
+            return 0, []
+        issues = []
+        local = set()
+        for it in its:
+            sid = str(it.get("stable_id") or "").strip()
+            if not sid:
+                issues.append({"kind": "missing", "history_id": r["id"], "desc": it.get("desc")})
+                continue
+            if sid in local:
+                issues.append({"kind": "duplicate", "history_id": r["id"], "stable_id": sid})
+            local.add(sid)
+            seen_global.setdefault(sid, set()).add(r["version_group"])
+            m = mapped.get(sid)
+            if not m:
+                issues.append({"kind": "unmapped", "history_id": r["id"], "stable_id": sid})
+            elif m["version_group"] != r["version_group"]:
+                issues.append({"kind": "group_mismatch", "history_id": r["id"], "stable_id": sid})
+            rep = it.get("replaces_id")
+            if rep and rep not in mapped:
+                issues.append({"kind": "broken_chain", "history_id": r["id"], "stable_id": sid,
+                               "replaces_id": rep})
+        return len(its), issues
+
     def validate_ids(self):
         """映射表校验：缺失、重复、未知映射、版本组不一致、替换链断裂。"""
         with self._lock:
@@ -335,30 +379,9 @@ class HistStore:
                 issues, seen_global = [], {}
                 item_count = 0
                 for r in rows:
-                    try:
-                        its = json.loads(r["items_json"] or "[]")
-                    except Exception:
-                        continue
-                    local = set()
-                    for it in its:
-                        item_count += 1
-                        sid = str(it.get("stable_id") or "").strip()
-                        if not sid:
-                            issues.append({"kind": "missing", "history_id": r["id"], "desc": it.get("desc")})
-                            continue
-                        if sid in local:
-                            issues.append({"kind": "duplicate", "history_id": r["id"], "stable_id": sid})
-                        local.add(sid)
-                        seen_global.setdefault(sid, set()).add(r["version_group"])
-                        m = mapped.get(sid)
-                        if not m:
-                            issues.append({"kind": "unmapped", "history_id": r["id"], "stable_id": sid})
-                        elif m["version_group"] != r["version_group"]:
-                            issues.append({"kind": "group_mismatch", "history_id": r["id"], "stable_id": sid})
-                        rep = it.get("replaces_id")
-                        if rep and rep not in mapped:
-                            issues.append({"kind": "broken_chain", "history_id": r["id"], "stable_id": sid,
-                                           "replaces_id": rep})
+                    count, row_issues = self._validate_row(r, mapped, seen_global)
+                    item_count += count
+                    issues.extend(row_issues)
                 for sid, groups in seen_global.items():
                     if len(groups) > 1:
                         issues.append({"kind": "cross_group", "stable_id": sid, "groups": sorted(groups)})
@@ -496,7 +519,7 @@ class HistStore:
         for idx, it in enumerate(items or []):
             k = cls._item_key(it)
             if not k[0] and not k[1]:
-                k = ("#seq%d" % it.get("seq", idx), "")
+                k = (SEQ_MARK_FMT % it.get("seq", idx), "")
             m.setdefault(k, it)
         return m
 
@@ -513,6 +536,99 @@ class HistStore:
                 out.append({"field": f, "a": av, "b": bv})
         return out
 
+    @staticmethod
+    def _take_pair(a_left, b_left, pairs, j, i):
+        if i is None or i not in a_left:
+            return False
+        a_left.discard(i)
+        b_left.discard(j)
+        pairs.append((i, j))
+        return True
+
+    def _pair_by_stable(self, a_items, b_items, a_left, b_left, pairs):
+        a_by_id = {}
+        for i, it in enumerate(a_items):
+            sid = str(it.get("stable_id") or "").strip()
+            if sid:
+                a_by_id.setdefault(sid, i)
+        for j in range(len(b_items)):
+            if j not in b_left:
+                continue
+            sid = str(b_items[j].get("stable_id") or "").strip()
+            if sid:
+                self._take_pair(a_left, b_left, pairs, j, a_by_id.get(sid))
+        return a_by_id
+
+    def _pair_by_replaces(self, b_items, a_by_id, a_left, b_left, pairs):
+        for j in range(len(b_items)):
+            if j in b_left:
+                rep = str(b_items[j].get("replaces_id") or "").strip()
+                if rep:
+                    self._take_pair(a_left, b_left, pairs, j, a_by_id.get(rep))
+
+    def _pair_by_key(self, a_items, b_items, a_left, b_left, pairs):
+        a_by_key = {}
+        for i in a_left:
+            it = a_items[i]
+            k = self._item_key(it)
+            if not k[0] and not k[1]:
+                k = (SEQ_MARK_FMT % it.get("seq", i), "")
+            a_by_key.setdefault(k, []).append(i)
+        for j in range(len(b_items)):
+            if j not in b_left:
+                continue
+            it = b_items[j]
+            k = self._item_key(it)
+            if not k[0] and not k[1]:
+                k = (SEQ_MARK_FMT % it.get("seq", j), "")
+            bucket = a_by_key.get(k) or []
+            if bucket:
+                self._take_pair(a_left, b_left, pairs, j, bucket.pop(0))
+
+    def _diff_pairs(self, a_items, b_items):
+        a_left, b_left = set(range(len(a_items))), set(range(len(b_items)))
+        pairs = []
+        a_by_id = self._pair_by_stable(a_items, b_items, a_left, b_left, pairs)
+        self._pair_by_replaces(b_items, a_by_id, a_left, b_left, pairs)
+        self._pair_by_key(a_items, b_items, a_left, b_left, pairs)
+        return a_left, b_left, pairs
+
+    @staticmethod
+    def _added_changes(b_items, b_left):
+        return [{"kind": "added", "name": b_items[j].get("desc"),
+                 "system": b_items[j].get("system"), "item": b_items[j]}
+                for j in sorted(b_left)]
+
+    @staticmethod
+    def _removed_changes(a_items, a_left):
+        return [{"kind": "removed", "name": a_items[i].get("desc"),
+                 "system": a_items[i].get("system"), "item": a_items[i]}
+                for i in sorted(a_left)]
+
+    def _changed_changes(self, a_items, b_items, pairs):
+        changes = []
+        for i, j in pairs:
+            ai, bi = a_items[i], b_items[j]
+            fields = self._field_changes(ai, bi)
+            old_sid = str(ai.get("stable_id") or "").strip()
+            new_sid = str(bi.get("stable_id") or "").strip()
+            if old_sid and new_sid and old_sid != new_sid:
+                fields.append({"field": "stable_id", "a": old_sid, "b": new_sid})
+            if fields:
+                changes.append({"kind": "changed", "name": bi.get("desc"),
+                                "system": bi.get("system"), "fields": fields,
+                                "a": ai, "b": bi})
+        return changes
+
+    def _diff_changes(self, a_items, b_items, a_left, b_left, pairs):
+        return (self._added_changes(b_items, b_left) + self._removed_changes(a_items, a_left)
+                + self._changed_changes(a_items, b_items, pairs))
+
+    @staticmethod
+    def _diff_summary(row):
+        s = row.get("summary") or {}
+        return {"count": s.get("count"), "us_total": s.get("us_total") or s.get("total_us")}
+
     def diff(self, a_id, b_id):
         """FR-FE05：任选两历史版本生成 diff。
 
@@ -526,87 +642,15 @@ class HistStore:
         b = self.get(b_id)
         if not b:
             return {"ok": False, "msg": "对比版本不存在或已被清理", "which": "b"}
-
         a_items, b_items = list(a.get("items") or []), list(b.get("items") or [])
-        a_left, b_left = set(range(len(a_items))), set(range(len(b_items)))
-        a_by_id = {}
-        for i, it in enumerate(a_items):
-            sid = str(it.get("stable_id") or "").strip()
-            if sid:
-                a_by_id.setdefault(sid, i)
-        pairs = []
-
-        def take(j, i):
-            if i is None or i not in a_left:
-                return False
-            a_left.discard(i)
-            b_left.discard(j)
-            pairs.append((i, j))
-            return True
-
-        # 1) stable_id 完全一致
-        for j in range(len(b_items)):
-            if j not in b_left:
-                continue
-            sid = str(b_items[j].get("stable_id") or "").strip()
-            if sid:
-                take(j, a_by_id.get(sid))
-        # 2) 类型变更：新 ID 通过 replaces_id 指向旧 ID
-        for j in range(len(b_items)):
-            if j in b_left:
-                rep = str(b_items[j].get("replaces_id") or "").strip()
-                if rep:
-                    take(j, a_by_id.get(rep))
-        # 3) 兼容旧数据：按 (desc,system) 匹配
-        a_by_key = {}
-        for i in a_left:
-            it = a_items[i]
-            k = self._item_key(it)
-            if not k[0] and not k[1]:
-                k = ("#seq%d" % it.get("seq", i), "")
-            a_by_key.setdefault(k, []).append(i)
-        for j in range(len(b_items)):
-            if j not in b_left:
-                continue
-            it = b_items[j]
-            k = self._item_key(it)
-            if not k[0] and not k[1]:
-                k = ("#seq%d" % it.get("seq", j), "")
-            bucket = a_by_key.get(k) or []
-            if bucket:
-                take(j, bucket.pop(0))
-
-        changes = []
-        for j in sorted(b_left):
-            it = b_items[j]
-            changes.append({"kind": "added", "name": it.get("desc"),
-                            "system": it.get("system"), "item": it})
-        for i in sorted(a_left):
-            it = a_items[i]
-            changes.append({"kind": "removed", "name": it.get("desc"),
-                            "system": it.get("system"), "item": it})
-        for i, j in pairs:
-            ai, bi = a_items[i], b_items[j]
-            fields = self._field_changes(ai, bi)
-            old_sid = str(ai.get("stable_id") or "").strip()
-            new_sid = str(bi.get("stable_id") or "").strip()
-            if old_sid and new_sid and old_sid != new_sid:
-                fields.append({"field": "stable_id", "a": old_sid, "b": new_sid})
-            if fields:
-                changes.append({"kind": "changed", "name": bi.get("desc"),
-                                "system": bi.get("system"), "fields": fields,
-                                "a": ai, "b": bi})
-
-        def summ(row):
-            s = row.get("summary") or {}
-            return {"count": s.get("count"), "us_total": s.get("us_total") or s.get("total_us")}
-
+        a_left, b_left, pairs = self._diff_pairs(a_items, b_items)
+        changes = self._diff_changes(a_items, b_items, a_left, b_left, pairs)
         return {
             "ok": True,
             "a": {"id": a["id"], "title": a["title"], "version_no": a["version_no"],
-                  "created_at": a["created_at"], **summ(a)},
+                  "created_at": a["created_at"], **self._diff_summary(a)},
             "b": {"id": b["id"], "title": b["title"], "version_no": b["version_no"],
-                  "created_at": b["created_at"], **summ(b)},
+                  "created_at": b["created_at"], **self._diff_summary(b)},
             "changes": changes,
             "summary": {
                 "added": sum(1 for c in changes if c["kind"] == "added"),

@@ -1,0 +1,232 @@
+02:51:55.001 INFO  Scanner configuration file: D:\code\sonar\sonar-scanner-8.0.1.6346-windows-x64\bin\..\conf\sonar-scanner.properties
+02:51:55.015 INFO  Project root configuration file: D:\code\otherProjects\Evaluation\sonar-project.properties
+02:51:55.055 INFO  SonarScanner CLI 8.0.1.6346
+02:51:55.065 INFO  Windows 10 10.0 amd64
+02:52:13.172 INFO  Communicating with SonarQube Community Build 26.1.0.118079
+02:52:13.173 INFO  JRE provisioning: os[windows], arch[amd64]
+02:52:15.028 INFO  Starting SonarScanner Engine...
+02:52:15.030 INFO  Java 21.0.9 Eclipse Adoptium (64-bit)
+02:52:31.230 INFO  Load global settings
+02:52:31.384 INFO  Load global settings (done) | time=155ms
+02:52:31.390 INFO  Server id: 147B411E-AZzcVKmnyzfMcUBUvV2G
+02:52:31.408 INFO  Loading required plugins
+02:52:31.409 INFO  Load plugins index
+02:52:31.431 INFO  Load plugins index (done) | time=21ms
+02:52:31.431 INFO  Load/download plugins
+02:52:31.502 INFO  Load/download plugins (done) | time=71ms
+02:52:31.998 INFO  Process project properties
+02:52:32.026 INFO  Process project properties (done) | time=29ms
+02:52:32.069 INFO  Project key: 27_Evaluation
+02:52:32.070 INFO  Base dir: D:\code\otherProjects\Evaluation
+02:52:32.070 INFO  Working dir: D:\code\otherProjects\Evaluation\release\.scannerwork
+02:52:32.090 INFO  Load project settings for component key: '27_Evaluation'
+02:52:32.113 INFO  Load project settings for component key: '27_Evaluation' (done) | time=23ms
+02:52:32.154 INFO  Load quality profiles
+02:52:32.271 INFO  Load quality profiles (done) | time=117ms
+02:52:32.382 INFO  Load active rules
+02:52:32.968 INFO  Load active rules (done) | time=586ms
+02:52:32.978 INFO  Load analysis cache
+02:52:33.063 INFO  Load analysis cache | time=85ms
+02:52:33.193 INFO  Preprocessing files...
+02:52:35.526 INFO  4 languages detected in 201 preprocessed files (done) | time=2332ms
+02:52:35.526 INFO  27 files ignored because of inclusion/exclusion patterns
+02:52:35.527 INFO  15 files ignored because of scm ignore settings
+02:52:35.533 INFO  Loading plugins for detected languages
+02:52:35.533 INFO  Load/download plugins
+02:52:35.583 INFO  Load/download plugins (done) | time=50ms
+02:52:36.126 INFO  Load project repositories
+02:52:36.303 INFO  Load project repositories (done) | time=178ms
+02:52:36.341 INFO  Indexing files...
+02:52:36.341 INFO  Project configuration:
+02:52:36.341 INFO    Included sources: **/*.py, **/*.js, **/*.mjs, **/*.html, **/*.css
+02:52:36.342 INFO    Excluded sources: **/__pycache__/**, **/*.pyc, **/node_modules/**, frontend/index.html
+02:52:36.508 INFO  200 files indexed (done) | time=167ms
+02:52:36.510 INFO  Quality profile for css: Sonar way
+02:52:36.510 INFO  Quality profile for js: Sonar way
+02:52:36.511 INFO  Quality profile for py: Sonar way
+02:52:36.511 INFO  Quality profile for web: Sonar way
+02:52:36.511 INFO  ------------- Run sensors on module 27_Evaluation
+02:52:36.592 INFO  Load metrics repository
+02:52:36.639 INFO  Load metrics repository (done) | time=46ms
+02:52:37.406 INFO  Reflections took 113 ms to scan 1 urls, producing 24 keys and 257 values
+02:52:38.124 INFO  Sensor Python Sensor [python]
+02:52:38.466 INFO  Starting global symbols computation
+02:52:38.475 INFO  91 source files to be analyzed
+02:52:44.927 INFO  91/91 source files have been analyzed
+02:52:44.929 INFO  Finished step global symbols computation in 6458ms
+02:52:45.047 INFO  Starting rules execution
+02:52:45.047 INFO  91 source files to be analyzed
+02:52:55.048 INFO  90/91 files analyzed, current file: server.py
+02:53:00.344 INFO  91/91 source files have been analyzed
+02:53:00.344 INFO  Finished step rules execution in 15297ms
+02:53:00.344 INFO  The Python analyzer was able to leverage cached data from previous analyses for 0 out of 91 files. These files were not parsed.
+02:53:00.347 INFO  Sensor Python Sensor [python] (done) | time=22224ms
+02:53:00.347 INFO  Sensor Cobertura Sensor for Python coverage [python]
+02:53:05.686 INFO  Sensor Cobertura Sensor for Python coverage [python] (done) | time=5339ms
+02:53:05.687 INFO  Sensor PythonXUnitSensor [python]
+02:53:09.809 INFO  Sensor PythonXUnitSensor [python] (done) | time=4122ms
+02:53:09.810 INFO  Sensor Python Dependency Sensor [python]
+02:53:09.822 INFO  Sensor Python Dependency Sensor [python] (done) | time=13ms
+02:53:09.823 INFO  Sensor HTML [web]
+02:53:10.655 INFO  Sensor HTML [web] (done) | time=833ms
+02:53:10.656 INFO  Sensor IaC hadolint report Sensor [iac]
+02:53:10.657 INFO  Sensor IaC hadolint report Sensor [iac] (done) | time=1ms
+02:53:10.657 INFO  Sensor Java Config Sensor [iac]
+02:53:10.672 INFO  There are no files to be analyzed for the Java language
+02:53:10.673 INFO  Sensor Java Config Sensor [iac] (done) | time=15ms
+02:53:10.673 INFO  Sensor IaC Docker Sensor [iac]
+02:53:10.678 INFO  There are no files to be analyzed for the Docker language
+02:53:10.678 INFO  Sensor IaC Docker Sensor [iac] (done) | time=5ms
+02:53:10.679 INFO  Sensor JavaScript/TypeScript analysis [javascript]
+02:53:12.833 INFO  Detected os: Windows 10 arch: amd64 alpine: false. Platform: WIN_X64
+02:53:12.834 INFO  Deploy location C:\Users\hspcadmin\.sonar\js\node-runtime, tagetRuntime: C:\Users\hspcadmin\.sonar\js\node-runtime\node.exe,  version: C:\Users\hspcadmin\.sonar\js\node-runtime\version.txt
+02:53:14.320 INFO  Using embedded Node.js runtime.
+02:53:14.320 INFO  Using Node.js executable: 'C:\Users\hspcadmin\.sonar\js\node-runtime\node.exe'.
+02:53:17.454 ERROR [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+02:53:17.909 INFO  Memory configuration: OS (65264 MB), Node.js (4288 MB).
+02:53:18.076 INFO  WebSocket client connected on /ws
+02:53:18.080 INFO  Plugin version: [11.7.1.36988]
+02:53:20.851 ERROR [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+02:53:21.264 INFO  Some of the project files were automatically excluded because they looked like generated code. Enable debug logging to see which files were excluded. You can disable bundle detection by setting sonar.javascript.detectBundles=false
+02:53:21.710 INFO  Using generated tsconfig.json file using wildcards C:\PYFIX_~4\tsconfig-Vx4rSw.json
+02:53:40.079 INFO  Found 1 tsconfig.json file(s): [C:\PYFIX_~4\tsconfig-Vx4rSw.json]
+02:53:40.079 INFO  74 source files to be analyzed
+02:53:40.080 INFO  Creating TypeScript program
+02:53:40.080 INFO  TypeScript(5.9.3) configuration file C:\PYFIX_~4\tsconfig-Vx4rSw.json
+02:53:40.082 INFO  74/74 source files have been analyzed
+02:53:40.116 INFO  Hit the cache for 0 out of 91
+02:53:40.117 INFO  Miss the cache for 91 out of 91: ANALYSIS_MODE_INELIGIBLE [91/91]
+02:53:40.117 INFO  Sensor JavaScript/TypeScript analysis [javascript] (done) | time=29438ms
+02:53:40.117 INFO  Sensor JavaScript inside HTML analysis [javascript]
+02:53:40.216 INFO  1 source file to be analyzed
+02:53:40.338 INFO  1/1 source file has been analyzed
+02:53:40.339 INFO  Hit the cache for 0 out of 1
+02:53:40.339 INFO  Miss the cache for 1 out of 1: ANALYSIS_MODE_INELIGIBLE [1/1]
+02:53:40.339 INFO  Sensor JavaScript inside HTML analysis [javascript] (done) | time=221ms
+02:53:40.339 INFO  Sensor CSS Rules [javascript]
+02:53:40.348 INFO  18 source files to be analyzed
+02:53:41.506 INFO  18/18 source files have been analyzed
+02:53:41.507 INFO  Hit the cache for 0 out of 0
+02:53:41.507 INFO  Miss the cache for 0 out of 0
+02:53:41.507 INFO  Sensor CSS Rules [javascript] (done) | time=1168ms
+02:53:41.507 INFO  Sensor CSS Metrics [javascript]
+02:53:41.816 INFO  Sensor CSS Metrics [javascript] (done) | time=309ms
+02:53:41.816 INFO  Sensor TextAndSecretsSensor [text]
+02:53:41.861 INFO  Available processors: 8
+02:53:41.861 INFO  Using 8 threads for analysis.
+02:53:42.339 INFO  The property "sonar.tests" is not set. To improve the analysis accuracy, we categorize a file as a test file if any of the following is true:
+  * The filename starts with "test"
+  * The filename contains "test." or "tests."
+  * Any directory in the file path is named: "doc", "docs", "test", "tests", "mock" or "mocks"
+  * Any directory in the file path has a name ending in "test" or "tests"
+
+02:53:42.368 INFO  Start fetching files for the text and secrets analysis
+02:53:43.408 INFO  Using Git CLI to retrieve untracked files
+02:53:43.819 INFO  Retrieving language associated files and files included via "sonar.text.inclusions" that are tracked by git
+02:53:43.819 INFO  Starting the text and secrets analysis
+02:53:43.823 INFO  200 source files to be analyzed for the text and secrets analysis
+02:53:44.406 INFO  200/200 source files have been analyzed for the text and secrets analysis
+02:53:44.408 INFO  Sensor TextAndSecretsSensor [text] (done) | time=2593ms
+02:53:44.411 INFO  ------------- Run sensors on project
+02:53:44.612 INFO  Sensor Zero Coverage Sensor
+02:53:45.062 INFO  Sensor Zero Coverage Sensor (done) | time=450ms
+02:53:45.063 INFO  ------------- Gather SCA dependencies on project
+02:53:45.069 INFO  Dependency analysis skipped
+02:53:45.328 INFO  SCM Publisher SCM provider for this project is: git
+02:53:45.330 INFO  SCM Publisher 77 source files to be analyzed
+02:53:55.333 INFO  
+02:54:05.341 INFO  
+02:54:09.825 INFO  SCM Publisher 0/77 source files have been analyzed (done) | time=24493ms
+02:54:09.826 WARN  Missing blame information for the following files:
+02:54:09.826 WARN    * frontend/src/js/20_m9_eco.js
+02:54:09.826 WARN    * tests/integrations_api.py
+02:54:09.827 WARN    * tests/phase3/ui_role_onboard.mjs
+02:54:09.827 WARN    * tests/phase3/ui_theme_studio.mjs
+02:54:09.827 WARN    * tests/integrations.py
+02:54:09.827 WARN    * tests/enhancement.py
+02:54:09.827 WARN    * tests/phase3/ui_audit_package.mjs
+02:54:09.828 WARN    * frontend/src/js/27_montecarlo.js
+02:54:09.828 WARN    * frontend/src/js/24_theme_tokens.js
+02:54:09.828 WARN    * tests/long_task_drill.py
+02:54:09.828 WARN    * tests/phase3/ui_stable_ids.mjs
+02:54:09.828 WARN    * frontend/src/index.src.html
+02:54:09.828 WARN    * scripts/audit_package.py
+02:54:09.829 WARN    * frontend/src/js/28_data_migration.js
+02:54:09.829 WARN    * tests/deployment_api.py
+02:54:09.829 WARN    * tests/phase3/ui_rbac_sso.mjs
+02:54:09.829 WARN    * tests/config_atomic.py
+02:54:09.829 WARN    * scripts/ai_eval.py
+02:54:09.829 WARN    * tests/security_audit.py
+02:54:09.830 WARN    * tests/phase3/ui_10k_grid.mjs
+02:54:09.830 WARN    * tests/share_package.py
+02:54:09.830 WARN    * scripts/project_workflow.py
+02:54:09.830 WARN    * tests/ops_acceptance.py
+02:54:09.830 WARN    * frontend/src/js/01_core.js
+02:54:09.830 WARN    * scripts/secret_store.py
+02:54:09.831 WARN    * tests/ai_eval.py
+02:54:09.831 WARN    * tests/project_workflow.py
+02:54:09.831 WARN    * tests/ai_eval_api.py
+02:54:09.831 WARN    * tests/phase3/ui_ui_kit.mjs
+02:54:09.831 WARN    * tests/load_concurrent.py
+02:54:09.832 WARN    * tests/phase3/run_phase3.mjs
+02:54:09.832 WARN    * tests/phase3/ui_enhancement.mjs
+02:54:09.832 WARN    * tests/rbac_api.py
+02:54:09.832 WARN    * tests/ac38_health.py
+02:54:09.833 WARN    * scripts/pdf_render.mjs
+02:54:09.833 WARN    * tests/phase3/ui_review_efficiency.mjs
+02:54:09.835 WARN    * tests/phase3/ui_command_palette.mjs
+02:54:09.836 WARN    * tests/phase3/ui_present_share.mjs
+02:54:09.836 WARN    * frontend/src/css/61_present_share.css
+02:54:09.837 WARN    * frontend/src/js/23_command_palette.js
+02:54:09.837 WARN    * scripts/pert.py
+02:54:09.837 WARN    * tests/phase3/cdp.mjs
+02:54:09.837 WARN    * scripts/diag_redact.py
+02:54:09.837 WARN    * scripts/theme_tokens.py
+02:54:09.837 WARN    * tests/phase3/regression_baseline.mjs
+02:54:09.837 WARN    * tests/phase3/ui_evidence_confidence.mjs
+02:54:09.837 WARN    * scripts/enhancement.py
+02:54:09.838 WARN    * tests/phase3/ui_long_task.mjs
+02:54:09.838 WARN    * tests/unit_publish_precheck.py
+02:54:09.838 WARN    * scripts/rbac.py
+02:54:09.838 WARN    * frontend/src/css/21_phase3_review.css
+02:54:09.839 WARN    * tests/phase3/pdf_render.mjs
+02:54:09.839 WARN    * tests/phase3/stable_ids_versions.py
+02:54:09.839 WARN    * tests/ui_a11y_keyboard.mjs
+02:54:09.839 WARN    * scripts/brand_installer.py
+02:54:09.839 WARN    * tests/phase3/ui_empty_error.mjs
+02:54:09.840 WARN    * tests/phase3/pdf_spike.py
+02:54:09.840 WARN    * tests/phase3/ui_mode_switch.mjs
+02:54:09.840 WARN    * frontend/src/js/26_calibration.js
+02:54:09.841 WARN    * frontend/src/js/02_t00927_确认无误_生成进度条_后台真实阶段.js
+02:54:09.841 WARN    * tests/migration_drill.py
+02:54:09.841 WARN    * tests/run.mjs
+02:54:09.841 WARN    * scripts/datakeeper.py
+02:54:09.841 WARN    * frontend/src/js/21_component_table.js
+02:54:09.842 WARN    * tests/project_workflow_api.py
+02:54:09.842 WARN    * scripts/history.py
+02:54:09.842 WARN    * tests/evidence_confidence.py
+02:54:09.842 WARN    * frontend/src/js/07_m3_fr_1_4_1_5_1_7_2_9_批量.js
+02:54:09.843 WARN    * scripts/engine.py
+02:54:09.843 WARN    * scripts/evidence.py
+02:54:09.843 WARN    * tests/phase3/ui_theme_tokens.mjs
+02:54:09.843 WARN    * scripts/server.py
+02:54:09.843 WARN    * tests/rbac.py
+02:54:09.844 WARN    * tests/theme_studio.py
+02:54:09.844 WARN    * tests/phase3/ui_integrations.mjs
+02:54:09.844 WARN    * tests/phase3/ui_migration.mjs
+02:54:09.844 WARN    * scripts/integrations.py
+02:54:09.844 WARN  This may lead to missing/broken features in SonarQube
+02:54:09.948 INFO  CPD Executor 3 files had no CPD blocks
+02:54:09.948 INFO  CPD Executor Calculating CPD for 163 files
+02:54:10.765 INFO  CPD Executor CPD calculation finished (done) | time=817ms
+02:54:10.835 INFO  SCM revision ID 'b6e3052e07a99de1bb8dfe06ca976e3ebc8dd164'
+02:54:13.500 INFO  Analysis report generated in 1890ms, dir size=7.9 MB
+02:54:17.480 INFO  Analysis report compressed in 3979ms, zip size=4.1 MB
+02:54:17.631 INFO  Analysis report uploaded in 151ms
+02:54:17.636 INFO  ANALYSIS SUCCESSFUL, you can find the results at: http://localhost:9000/dashboard?id=27_Evaluation
+02:54:17.636 INFO  Note that you will be able to access the updated dashboard once the server has processed the submitted analysis report
+02:54:17.636 INFO  More about the report processing at http://localhost:9000/api/ce/task?id=152ea23f-890b-44e7-95e4-adf88098242b
+02:54:31.710 INFO  Analysis total time: 2:00.142 s
+02:54:31.722 INFO  SonarScanner Engine completed successfully
+02:54:32.329 INFO  EXECUTION SUCCESS
+02:54:32.330 INFO  Total time: 2:37.333s

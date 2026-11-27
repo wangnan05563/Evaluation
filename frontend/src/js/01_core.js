@@ -34,31 +34,31 @@ const LV={低:"low",中:"mid",高:"high",新增:"new",修改:"change",删除:"de
 const escAttr=s=>String(s??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 /* T06173/WCAG 4.1.2：配置页/表格内存在大量“视觉有标题、程序无名称”的输入控件。
    统一按最近的表头、.f-w 字段名或卡片标题补 aria-label；已有 name 的控件不覆盖。 */
+function _a11yTableName(el){
+  const tr=el.closest("tr");
+  if(!tr)return "";
+  const cell=el.closest("td,th"),table=tr.closest("table");
+  if(!cell||!table)return "";
+  const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
+  return th?th.textContent.replaceAll(/\s+/g," ").trim():"";
+}
+function _a11yWrapName(el){
+  const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
+  const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
+  return lab?lab.textContent.replaceAll(/\s+/g," ").trim():"";
+}
+function _a11yCardName(el){
+  const card=el.closest(".glass.pad,.card");
+  const title=card&&card.querySelector(".card-title");
+  return title?(title.querySelector("span")||title).textContent.replaceAll(/\s+/g," ").trim():"";
+}
 function a11yLabelControls(root=document){
   const scope=root&&root.querySelectorAll?root:document;
   scope.querySelectorAll("input,select,textarea").forEach(el=>{
     const type=(el.getAttribute("type")||"").toLowerCase();
     if(type==="hidden"||type==="file")return;
     if(el.getAttribute("aria-label")||el.getAttribute("aria-labelledby")||el.closest("label"))return;
-    let name="";
-    const tr=el.closest("tr");
-    if(tr){
-      const cell=el.closest("td,th"),table=tr.closest("table");
-      if(cell&&table){
-        const idx=[...tr.children].indexOf(cell),th=table.querySelectorAll("thead th")[idx];
-        if(th)name=th.textContent.replace(/\s+/g," ").trim();
-      }
-    }
-    if(!name){
-      const wrap=el.closest(".fill,.cfg-row,.field,.form-row");
-      const lab=wrap&&wrap.querySelector(".f-w,.lbl,.cap,.sw-label");
-      if(lab)name=lab.textContent.replace(/\s+/g," ").trim();
-    }
-    if(!name){
-      const card=el.closest(".glass.pad,.card");
-      const title=card&&card.querySelector(".card-title");
-      if(title)name=(title.querySelector("span")||title).textContent.replace(/\s+/g," ").trim();
-    }
+    let name=_a11yTableName(el)||_a11yWrapName(el)||_a11yCardName(el);
     if(!name&&el.getAttribute("placeholder"))name=el.getAttribute("placeholder").trim();
     if(!name&&el.id)name=el.id;
     if(name)el.setAttribute("aria-label",name.slice(0,96));
@@ -77,7 +77,7 @@ function confidenceOf(it){
 function confBadge(it){
   const c=confidenceOf(it);
   if(c==null)return "";
-  const pct=Math.round(c*100), lv=c<0.70?"low":c<0.85?"mid":"high";
+  const pct=Math.round(c*100), lv=c<0.7?"low":c<0.85?"mid":"high";
   const label=(typeof tf==="function")?tf("review.confidence.short",{n:pct}):"置信 "+pct+"%";
   return `<span class="rwb-conf-badge ${lv}" title="${escAttr(label)}">${escAttr(label)}</span>`;
 }
@@ -100,24 +100,29 @@ window.confBadge=confBadge;
 function badge(it){return (it.ok?'<span class="stat st-ok"><i aria-hidden="true" data-lucide="circle-check"></i>'+t("review.dock.ok")+'</span>':'<span class="stat st-md"><i aria-hidden="true" data-lucide="clock-3"></i>'+t("review.badge.pending")+'</span>')+confBadge(it);}
 function cxInt(v,d){const n=Number.parseInt(v,10);return Number.isFinite(n)?n:d;}
 function cxDefaultDet(type){return (type==='ILF'||type==='EIF')?20:10;}
+function _stdIlf(d,r){
+  if(r<=1)return d<=50?'低':'中';
+  if(r<=5)return d<=19?'低':(d<=50?'中':'高');
+  return d<=19?'中':'高';
+}
+function _stdEi(d,f){
+  if(f<=2)return d<=4?'低':(d<=15?'中':'高');
+  return d<=4?'中':'高';
+}
+function _stdOther(d,f){
+  if(f<=3)return d<=5?'低':(d<=19?'中':'高');
+  return d<=5?'中':'高';
+}
 function stdComplexity(it){
   const d=Math.max(1,cxInt(it.det,cxDefaultDet(it.type)));
   const r=Math.max(1,cxInt(it.ret,2));
   const f=Math.max(0,cxInt(it.ftr,1));
-  if(it.type==='ILF'||it.type==='EIF'){
-    if(r<=1)return d<=50?'低':'中';
-    if(r<=5)return d<=19?'低':(d<=50?'中':'高');
-    return d<=19?'中':'高';
-  }
-  if(it.type==='EI'){
-    if(f<=2)return d<=4?'低':(d<=15?'中':'高');
-    return d<=4?'中':'高';
-  }
-  if(f<=3)return d<=5?'低':(d<=19?'中':'高');
-  return d<=5?'中':'高';
+  if(it.type==='ILF'||it.type==='EIF')return _stdIlf(d,r);
+  if(it.type==='EI')return _stdEi(d,f);
+  return _stdOther(d,f);
 }
 function stdUfp(it){const w=STD_WEIGHT[it.type];return w?w[stdComplexity(it)]:(WEIGHT[it.type]||0);}
-function ufp(it){if(cxMode==='标准IFPUG')return stdUfp(it);const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
+function ufp(it){if(cxMode==='标准IFPUG'){return stdUfp(it);}const m=$("#methodSel");return (m&&m.value==="预估功能点"&&WEIGHT_PRE[it.type]!=null)?WEIGHT_PRE[it.type]:WEIGHT[it.type];}
 function onMethodChange(){if(items.length)render();}
 function cxHintText(){
   const en=(document.documentElement.lang||"zh").toLowerCase().startsWith("en");
@@ -146,7 +151,10 @@ function optHTML(v,cur,label){return `<option value="${v}" ${v===cur?"selected":
 function cxCellHTML(it){return `<select class="pick" aria-label="${t("review.th.cx")} ${it.seq}" data-k="cx" data-seq="${it.seq}">${['低','中','高'].map(c=>optHTML(c,it.cx,t("common.lv."+LV[c]))).join('')}</select>`;}
 function stdCxHTML(it){
   const d=cxInt(it.det,cxDefaultDet(it.type)),r=cxInt(it.ret,2),f=cxInt(it.ftr,1),cx=stdComplexity(it);
-  const inp=(k,v,lab,max)=>`<input class="pick" type="number" min="0" ${max?`max="${max}"`:''} step="1" value="${v}" data-k="${k}" data-seq="${it.seq}" aria-label="${lab} ${it.seq}" style="width:42px;padding:2px 3px;font-size:11px">`;
+  const inp=(k,v,lab,max)=>{
+    const maxAttr=max?`max="${max}"`:'';
+    return `<input class="pick" type="number" min="0" ${maxAttr} step="1" value="${v}" data-k="${k}" data-seq="${it.seq}" aria-label="${lab} ${it.seq}" style="width:42px;padding:2px 3px;font-size:11px">`;
+  };
   return `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap" title="DET / RET / FTR">`+
     inp('det',d,'DET',null)+inp('ret',r,'RET',null)+inp('ftr',f,'FTR',null)+
     `<span class="cat ${CATCOLOR[it.type]}" data-cx="${it.seq}" style="min-width:28px;text-align:center">${cx}</span></div>`;
@@ -230,10 +238,10 @@ function clearFilters(){$("#q").value="";["fSys","fType","fReuse"].forEach(id=>$
   $("#fTodo").checked=false;sortState=null;render();toast(t("review.filter.cleared"));}
 // FR-UI07：emptyState / errorBox 已迁至 22_fr_ui04_ui07_动效_空态插画.js（补插画与语义容器），
 // 本模块只保留列表渲染，避免两处定义互相覆盖（后定义者胜出会静默改行为）。
-function rowHTML(it,lite){
+function _liteRowHTML(it){
   const blocked=!canConfirmItem(it);
   const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
-  if(lite) return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
+  return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row" title="10k 紧凑模式：使用批量操作编辑">
       <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div></div>
       <div class="ct-c" role="gridcell"><div class="cat ${CATCOLOR[it.type]}">${it.type}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${it.count_item}</div></div>
@@ -241,6 +249,10 @@ function rowHTML(it,lite){
       <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${it.reuse||''}</div><div class="ct-c" role="gridcell">${it.modify||'新增'}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
       <div class="ct-c" role="gridcell"><span class="rowst"><span class="stat ${it.ok?'st-ok':'st-md'}">${it.ok?t("review.dock.ok"):t("review.badge.pending")}</span></span></div>
     </div>`;
+}
+function _fullRowHTML(it){
+  const blocked=!canConfirmItem(it);
+  const ckTitle=blocked?(typeof t==="function"?t("review.evidence.no_confirm"):"该项没有原文证据，不能确认"):"";
   return `<div class="rowr ${it.ok?'done':''}" data-seq="${it.seq}" data-sys="${escAttr(it.system)}" role="row">
       <div class="ct-c ct-ck" role="gridcell"><input type="checkbox" class="ck" aria-label="选择功能项 ${it.seq}" ${it.ok?'checked':''} ${blocked?'disabled aria-disabled="true"':''} title="${escAttr(ckTitle)}"></div>
       <div class="ct-c" role="gridcell"><div class="descline"><div class="desc" role="button" tabindex="0" aria-expanded="false" title="${escAttr(it.desc||it.count_item||'')}">${it.desc||it.count_item}</div><button class="toggle" onclick="toggleBasis(${it.seq})" title="${t("review.basis.title")}" aria-label="${t("review.basis.title")}" aria-expanded="false"><i aria-hidden="true" data-lucide="chevron-down" style="width:13px;height:13px;vertical-align:-2px"></i></button></div>${it.stable_id?`<div style="font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px" title="稳定功能ID">${escAttr(it.stable_id)}</div>`:''}<div class="basis">${it.basis||''}</div></div>
@@ -248,7 +260,33 @@ function rowHTML(it,lite){
       <div class="ct-c" role="gridcell"><div style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap">${typeCell(it)}${cxMode==='标准IFPUG'?stdCxHTML(it):cxCellHTML(it)}</div></div>
       <div class="ct-c num" role="gridcell" data-u>${ufp(it)}</div><div class="ct-c" role="gridcell">${reuseHTML(it)}</div><div class="ct-c" role="gridcell">${modHTML(it)}</div><div class="ct-c num" role="gridcell" data-s>${us(it).toFixed(2)}</div>
       <div class="ct-c" role="gridcell"><span class="rowst">${badge(it)}</span></div>
-    </div>`;}
+    </div>`;
+}
+function rowHTML(it,lite){return lite?_liteRowHTML(it):_fullRowHTML(it);}
+function _clearTable(tb){
+  tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
+}
+function _renderEmpty(light,icon,titleKey,bodyKey,extra){
+  const tb=$("#tbody");
+  _clearTable(tb);
+  tb.innerHTML=`<div class="ct-empty">${emptyState(icon,t(titleKey),t(bodyKey),extra)}</div>`;
+  if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+}
+function _renderVirtual(arr,lite,light){
+  const tb=$("#tbody");
+  if(!light){tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
+  tb.setAttribute("role","rowgroup");
+  ctRenderVirtual(tb,arr,it=>rowHTML(it,lite),curSeq,window.__showb);
+  ctBindScroll(tb,()=>render({light:true}));
+  if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+}
+function _renderRows(arr,lite){
+  const tb=$("#tbody");
+  _clearTable(tb);
+  tb.setAttribute("role","rowgroup");
+  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
+  refreshTotals();window.lucide&&lucide.createIcons();
+}
 function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/图标，仅重画虚拟窗口
   const light=opts&&opts.light;
   if(!light&&window.RWB) setTimeout(()=>RWB.onRender(),0);
@@ -259,45 +297,33 @@ function render(opts){   // FR-3.3：light 模式跳过树重建/筛选/汇总/�
   const vrEl=$("#v-review");if(vrEl)vrEl.classList.toggle("ct-lite",lite);
   if(!light){$("#listCnt").textContent=tf("review.count",{n:arr.length});
     const bb=$("#batchBar");bb.style.display=arr.length?"flex":"none";$("#batchCnt").textContent=arr.length;}
-  if(!items.length){
-    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
-    tb.innerHTML=`<div class="ct-empty">${emptyState("inbox",t("review.empty.title"),t("review.empty.body"),"")}</div>`;
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
-  if(!arr.length){
-    const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.removeAttribute("role");
-    tb.innerHTML=`<div class="ct-empty">${emptyState("search-x",t("review.empty2.title"),t("review.empty2.body"),'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>')}</div>`;
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}return;}
+  if(!items.length){_renderEmpty(light,"inbox","review.empty.title","review.empty.body","");return;}
+  if(!arr.length){_renderEmpty(light,"search-x","review.empty2.title","review.empty2.body",'<button class="btn btn-ghost" onclick="clearFilters()">'+t("review.empty2.btn")+'</button>');return;}
   if(!window.__showb)window.__showb=new Set();   // FR-3.3：展开状态改 Set 驱动（虚拟路径可还原）
   if(arr.length>CT.threshold){   // FR-3.3（UI03）：虚拟滚动窗口渲染
-    if(!light){const tb=$("#tbody");tb.innerHTML="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;}
-    $("#tbody").setAttribute("role","rowgroup");
-    ctRenderVirtual($("#tbody"),arr,it=>rowHTML(it,lite),curSeq,window.__showb);
-    ctBindScroll($("#tbody"),()=>render({light:true}));
-    if(!light){refreshTotals();window.lucide&&lucide.createIcons();}
+    _renderVirtual(arr,lite,light);
     return;
   }
-  const tb=$("#tbody");tb.classList.remove("virtual");tb.style.height="";tb.__ctPool=null;tb.__ctRows=null;tb.__ctTotalH=null;tb.setAttribute("role","rowgroup");
-  tb.innerHTML=arr.map(it=>rowHTML(it,lite).replace('class="rowr',`class="rowr ${it.seq===curSeq?'cur':''} ${window.__showb&&window.__showb.has(it.seq)?'showb':''}`)).join("");
-  refreshTotals();window.lucide&&lucide.createIcons();
+  _renderRows(arr,lite);
 }
-$("#tbody").addEventListener("change",e=>{
-  const ck=e.target.closest(".ck");
-  if(ck){const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
-    if(!it)return;
-    if(ck.checked && !canConfirmItem(it)){
-      ck.checked=false;
-      if(window.toast)toast(t("review.evidence.no_confirm"));
-      return;
-    }
-    if(it.ok===ck.checked)return;
-    pushUndo("确认状态");
-    it.ok=ck.checked;row.classList.toggle("done",ck.checked);
-    if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
-    const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
-    window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
-    if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
-    return;}
-  const s=e.target;if(!s.dataset.k)return;
+function _handleRowCheck(ck){
+  const row=ck.closest(".rowr"),seq=+row.dataset.seq,it=items.find(x=>x.seq===seq);
+  if(!it)return;
+  if(ck.checked && !canConfirmItem(it)){
+    ck.checked=false;
+    if(window.toast)toast(t("review.evidence.no_confirm"));
+    return;
+  }
+  if(it.ok===ck.checked)return;
+  pushUndo("确认状态");
+  it.ok=ck.checked;row.classList.toggle("done",ck.checked);
+  if(isAiOrigin(it)){it.human_decision=it.ok?"confirmed":"unconfirmed";it.decision_at=it.ok?new Date().toISOString():null;}
+  const rs=row.querySelector(".rowst");if(rs)rs.innerHTML=badge(it);
+  window.lucide&&lucide.createIcons();refreshTotals();saveFormState();updateUndoUI();
+  if(window.ReviewPerf)ReviewPerf.action("row_toggle",{seq,ok:it.ok});
+}
+function _handleFieldChange(s){
+  if(!s.dataset.k)return;
   const it=items.find(x=>x.seq===+s.dataset.seq);if(!it)return;
   if(String(it[s.dataset.k])===String(s.value))return;
   pushUndo("编辑 "+(s.dataset.k||""));
@@ -305,7 +331,13 @@ $("#tbody").addEventListener("change",e=>{
   if(cxMode==='标准IFPUG'&&['type','det','ret','ftr'].includes(s.dataset.k)){
     it.det=cxInt(it.det,cxDefaultDet(it.type));it.ret=cxInt(it.ret,2);it.ftr=cxInt(it.ftr,1);it.cx=stdComplexity(it);
   }
-  refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();});
+  refreshRow(it);refreshTotals();saveFormState();updateRejBadge();updateUndoUI();
+}
+$("#tbody").addEventListener("change",e=>{
+  const ck=e.target.closest(".ck");
+  if(ck){_handleRowCheck(ck);return;}
+  _handleFieldChange(e.target);
+});
 $("#q").addEventListener("input",e=>{render();});   // M3：搜索纳入统一筛选（叠加 AND）
 // UI-UX：超长描述默认 3 行钳制（见 20_components.css .desc），点击在「全文展开 / 收起」间切换。
 // 事件委托挂 document：同时覆盖复核表(#tbody)与 PERT 两张表；短描述未溢出时点击不响应。
@@ -325,7 +357,7 @@ document.addEventListener("keydown",e=>{
 });
 function toggleBasis(seq){
   const row=document.querySelector(`#tbody [data-seq="${seq}"]`);
-  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn)btn.setAttribute("aria-expanded",on?"true":"false");on?window.__showb.add(seq):window.__showb.delete(seq);}
+  if(row){row.classList.toggle("showb");const on=row.classList.contains("showb");const btn=row.querySelector(".toggle");if(btn){btn.setAttribute("aria-expanded",on?"true":"false");}on?window.__showb.add(seq):window.__showb.delete(seq);}
   else{window.__showb.has(seq)?window.__showb.delete(seq):window.__showb.add(seq);render();}   // 虚拟路径：窗口外行走状态重渲
 }
 function showAllBasis(){items.forEach(it=>{window.__showb.add(it.seq);const row=document.querySelector(`#tbody [data-seq="${it.seq}"]`);if(row)row.classList.add("showb");});
@@ -383,36 +415,47 @@ const PERT_PHASE_KEYS={"需求分析":"pert.phase.req","系统设计":"pert.phas
 function pertPhaseLabel(p){const k=PERT_PHASE_KEYS[p];
   return (k&&__I18N&&__I18N[k])?t(k):String(p??"");}   // 字典未就绪/缺键时回退中文原值（数据即文案）
 let pertPid=null, pertItems=[], pertSummary=null;
-function goPage(p){
-  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+const PAGE_INIT={
+  config:[()=>bindConfig(),()=>typeof initWindowBehavior==="function"&&initWindowBehavior(),()=>rulesLoad(),()=>ratesLoad(),
+    ()=>typeof themeTokenPanel==="function"&&themeTokenPanel(),()=>typeof evalInit==="function"&&evalInit()],
+  flow:[()=>typeof flowInit==="function"&&flowInit()],
+  team:[()=>window.RbacAuth&&RbacAuth.teamInit()],
+  fast:[()=>fastRender()],pert:[()=>pertInit()],help:[()=>loadAppInfo()],
+};
+function _runPageInit(p){
+  (PAGE_INIT[p]||[]).forEach(fn=>{if(typeof fn==="function")fn();});
+}
+function _teamPageDenied(){
+  if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return true;}
+  if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return true;}
+  return false;
+}
+function _configPageDenied(){
+  return !!(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read"));
+}
+function _flowPageDenied(){
+  if(window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){toast(tl("rbac.denied.project","当前角色无权查看项目"));return true;}
+  if(document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return true;}
+  return false;
+}
+function _pageAccessDenied(p){
   if(document.body.classList.contains('auth-locked')&&p!=="work"){
     if(window.RbacAuth)RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));
-    return;
+    return true;
   }
-  if(p==="team"){
-    if(!window.RbacAuth||!RbacAuth.workgroup){toast(tl("team.standalone","单机版不启用团队与权限"));return;}
-    if(!RbacAuth.user){RbacAuth.showGate(!!(RbacAuth.state&&RbacAuth.state.bootstrapRequired));return;}
+  if(p==="team")return _teamPageDenied();
+  if(p==="config"&&_configPageDenied()){
+    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return true;
   }
-  if(p==="config"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("settings.read")){
-    toast(tl("rbac.denied.config","当前角色无权访问配置中心"));return;
-  }
-  if(p==="flow"&&window.RbacAuth&&RbacAuth.workgroup&&!RbacAuth.can("project.read")){
-    toast(tl("rbac.denied.project","当前角色无权查看项目"));return;
-  }
-  if(p==="flow"&&document.body.dataset.deployMode!=="workgroup"){toast(t("flow.mode.need_workgroup"));return;}
+  if(p==="flow")return _flowPageDenied();
+  return false;
+}
+function goPage(p){
+  // T06199：工作组未登录时门禁锁住 .wrap；命令面板等入口也不能绕过。
+  if(_pageAccessDenied(p))return;
   document.body.dataset.page=p;
   document.querySelectorAll(".m-item").forEach(b=>b.classList.toggle("on",b.dataset.page===p));
-  if(p==="config")bindConfig();   // 进入配置中心时加载已存配置
-  if(p==="config"&&typeof initWindowBehavior==="function")initWindowBehavior();   // T03779 窗口关闭行为
-  if(p==="config")rulesLoad();    // M3/FR-2.9：加载识别规则表
-  if(p==="config")ratesLoad();    // M6/FR-2.3：加载费率版本
-  if(p==="config"&&typeof themeTokenPanel==="function")themeTokenPanel();   // T06171：主题 Token 面板
-  if(p==="config"&&typeof evalInit==="function")evalInit();   // T06196：AI 质量评测面板
-  if(p==="flow"&&typeof flowInit==="function")flowInit();     // T06198：项目状态与签收
-  if(p==="team"&&window.RbacAuth)RbacAuth.teamInit();           // T06199：团队与权限
-  if(p==="fast")fastRender();     // M6/FR-2.1：快算页
-  if(p==="pert")pertInit();
-  if(p==="help")loadAppInfo();
+  _runPageInit(p);
   window.scrollTo({top:0,behavior:'smooth'});
   saveFormState();
 }
@@ -431,7 +474,7 @@ function pertStep(s){
   document.body.dataset.pertstep=s;
   const map={in:1,edit:2,gen:3};
   Object.keys(map).forEach(k=>{$("#pst"+map[k]).classList.toggle("on",k===s);});
-  if(s==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}   // T06191/T06192：实际值校准 + 蒙特卡洛
+  if(s==="gen"){if(typeof calibrationRender==="function"){calibrationRender();}if(typeof monteCarloRender==="function"){monteCarloRender();}}   // T06191/T06192：实际值校准 + 蒙特卡洛
   window.lucide&&lucide.createIcons();
   saveFormState();
 }
@@ -487,7 +530,7 @@ async function pertRefresh(){
   pertItems=r.items;
   renderPert();
   applyPertSummary(r.summary);
-  if(document.body.dataset.pertstep==="gen"){if(typeof calibrationRender==="function")calibrationRender();if(typeof monteCarloRender==="function")monteCarloRender();}
+  if(document.body.dataset.pertstep==="gen"){if(typeof calibrationRender==="function"){calibrationRender();}if(typeof monteCarloRender==="function"){monteCarloRender();}}
 }
 async function pertAdd(){
   if(!pertPid){toast(t("pert.need_project"));return;}
@@ -588,13 +631,14 @@ function renderPertPhases(s){
       </div></td>
     </tr>`;
   }).join("");
+  const zeroNote=zeroCount?`<p class="cfg-note" style="margin:8px 0 0">${tf("pert.phase.zero_note",{n:zeroCount})}</p>`:'';
   box.innerHTML=`<div class="card-title" style="margin-bottom:8px"><i aria-hidden="true" data-lucide="layers"></i><span>${t("pert.phase.title")}</span></div>
     <div style="overflow:auto"><table id="pertPhaseTable">
       <thead><tr><th>${t("pert.th.phase")}</th><th class="num">${t("pert.phase.days")}</th><th class="num">${t("pert.phase.items")}</th><th>${t("pert.phase.pct")}</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td><b>${t("pert.phase.total")}</b></td><td class="num"><b>${totalDays.toFixed(2)}</b></td><td class="num"><b>${totalCount}</b></td><td><b>100.0%</b></td></tr></tfoot>
     </table></div>
-    ${zeroCount?`<p class="cfg-note" style="margin:8px 0 0">${tf("pert.phase.zero_note",{n:zeroCount})}</p>`:""}`;
+    ${zeroNote}`;
   window.lucide&&lucide.createIcons();
 }
 async function pertGen(){
@@ -713,7 +757,7 @@ function pertCandSyncAll(){
   all.checked=!!boxes.length&&n===boxes.length;
   all.indeterminate=n>0&&n<boxes.length;
 }
-function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c)c.checked=v;pertCandSyncAll();}
+function pertCandToggle(seq,v){const c=pertCands.find(x=>x.seq===seq);if(c){c.checked=v;}pertCandSyncAll();}
 function pertCandAll(v){
   pertCands.forEach(c=>c.checked=!!v);
   document.querySelectorAll("#pertCandTbody input[data-cb]").forEach(el=>el.checked=!!v);
@@ -1252,35 +1296,42 @@ window.LTASK_ON_RECOGNIZED=(res,meta)=>{
   applyRecognitionResult(res,$("#progressMark"));
   if(meta&&meta.restored)toast("已恢复上次识别结果");
 };
+function _recognizeParams(){
+  if(!llmCfg)return {};
+  return {llm_enabled:llmCfg.llm.enabled,llm_api:llmCfg.llm.api,llm_model:llmCfg.llm.model,llm_key:llmCfg.llm.key};
+}
+async function _runRecognition(params,mk){
+  if(window.LTASK){
+    // T06180：识别走长任务通道（真实阶段进度 + 取消 + 断点续跑）
+    const res=await LTASK.createAndRun(curFile,params);
+    applyRecognitionResult(res,mk);
+    return;
+  }
+  const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
+  const res=await resp.json();
+  if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
+  applyRecognitionResult(res,mk);
+}
+function _resetStartButton(b){
+  b.disabled=false;
+  b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';
+  window.lucide&&lucide.createIcons();
+}
+function _showRecogError(err,mk){
+  if(err&&err.code==="canceled"){dynText(mk,()=>"已取消，可继续未完成任务");return;}
+  dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);
+}
 $("#startBtn").addEventListener("click",async ()=>{
   if(!curFile)return;
   const b=$("#startBtn");b.disabled=true;const mk=$("#progressMark");dynText(mk,()=>t("work.uploading"));
   try{
-    // 大模型配置来源：配置中心已保存配置（llmCfg 为 null 时后端回退读 data/config.json）
-    let params={};
-    if(llmCfg){  // 已在会话中加载过配置中心，直接携带，保证即时性
-      params={llm_enabled:llmCfg.llm.enabled,llm_api:llmCfg.llm.api,llm_model:llmCfg.llm.model,llm_key:llmCfg.llm.key};
-    }else{  // 尚未进入过配置中心：不传 params，后端回退读已存配置
-      params={};
-    }
-    if(window.LTASK){
-      // T06180：识别走长任务通道（真实阶段进度 + 取消 + 断点续跑）
-      const res=await LTASK.createAndRun(curFile,params);
-      applyRecognitionResult(res,mk);
-    }else{
-      const resp=await fetch(API+"/api/recognize",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({name:curFile.name,b64:await toB64(curFile),params})});
-      const res=await resp.json();
-      if(!res.ok)throw new Error(res.msg?lm(res):t("work.recog_fail"));
-      applyRecognitionResult(res,mk);
-    }
+    await _runRecognition(_recognizeParams(),mk);
   }catch(err){
-    if(err&&err.code==="canceled")dynText(mk,()=>"已取消，可继续未完成任务");
-    else{dynText(mk,()=>tf("work.recog.failed",{msg:err.message}));toast(err.message);}
+    _showRecogError(err,mk);
   }
-  b.disabled=false;b.innerHTML='<i aria-hidden="true" data-lucide="sparkles" style="width:15px;height:15px"></i><span data-i18n="work.start_btn">'+t("work.start_btn")+'</span>';window.lucide&&lucide.createIcons();
+  _resetStartButton(b);
 });
-
 // T06188：复杂度口径提示随模式/语言切换刷新（dynText 已注册可重绘）
 (function(){
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",refreshCxHint,{once:true});

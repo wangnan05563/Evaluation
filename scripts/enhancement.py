@@ -75,15 +75,48 @@ def _changes(base: Dict[str, Any], cur: Dict[str, Any]) -> List[str]:
     return [f for f in _CHANGE_FIELDS if _val(base.get(f)) != _val(cur.get(f))]
 
 
-def _match(baseline: List[Dict[str, Any]], current: List[Dict[str, Any]]):
-    """返回 pairs(当前索引, 基线索引, 匹配方式), 未匹配索引集合。"""
-    b_left = set(range(len(baseline)))
-    c_left = set(range(len(current)))
-    b_by_sid: Dict[str, int] = {}
+def _sid_index(baseline):
+    b_by_sid = {}
     for i, it in enumerate(baseline):
         sid = _sid(it)
         if sid:
             b_by_sid.setdefault(sid, i)
+    return b_by_sid
+
+
+def _match_stable(current, b_by_sid, take):
+    for cj, it in enumerate(current):
+        sid = _sid(it)
+        if sid:
+            take(cj, b_by_sid.get(sid), "stable_id")
+
+
+def _match_replaces(current, b_by_sid, take, c_left):
+    for cj, it in enumerate(current):
+        if cj not in c_left:
+            continue
+        rep = str(it.get("replaces_id") or "").strip()
+        if rep:
+            take(cj, b_by_sid.get(rep), "replaces_id")
+
+
+def _match_keys(baseline, current, b_left, c_left, take):
+    b_by_key = {}
+    for bi in tuple(b_left):
+        b_by_key.setdefault(_key(baseline[bi], bi), []).append(bi)
+    for cj, it in enumerate(current):
+        if cj not in c_left:
+            continue
+        bucket = b_by_key.get(_key(it, cj)) or []
+        if bucket:
+            take(cj, bucket.pop(0), "key")
+
+
+def _match(baseline: List[Dict[str, Any]], current: List[Dict[str, Any]]):
+    """返回 pairs(当前索引, 基线索引, 匹配方式), 未匹配索引集合。"""
+    b_left = set(range(len(baseline)))
+    c_left = set(range(len(current)))
+    b_by_sid = _sid_index(baseline)
     pairs: List[tuple] = []
 
     def take(cj: int, bi: int, how: str) -> bool:
@@ -95,38 +128,15 @@ def _match(baseline: List[Dict[str, Any]], current: List[Dict[str, Any]]):
         return True
 
     # 1) 稳定 ID 完全一致：最高可信
-    for cj, it in enumerate(current):
-        sid = _sid(it)
-        if sid:
-            take(cj, b_by_sid.get(sid), "stable_id")
+    _match_stable(current, b_by_sid, take)
     # 2) 类型变更：当前新 ID 的 replaces_id 指向基线旧 ID
-    for cj, it in enumerate(current):
-        if cj not in c_left:
-            continue
-        rep = str(it.get("replaces_id") or "").strip()
-        if rep:
-            take(cj, b_by_sid.get(rep), "replaces_id")
+    _match_replaces(current, b_by_sid, take, c_left)
     # 3) 旧数据/未携带 ID 的兼容匹配：描述+系统；仅作低可信建议
-    b_by_key: Dict[tuple, List[int]] = {}
-    for bi in list(b_left):
-        b_by_key.setdefault(_key(baseline[bi], bi), []).append(bi)
-    for cj, it in enumerate(current):
-        if cj not in c_left:
-            continue
-        bucket = b_by_key.get(_key(it, cj)) or []
-        if bucket:
-            take(cj, bucket.pop(0), "key")
-
+    _match_keys(baseline, current, b_left, c_left, take)
     return pairs, b_left, c_left
 
 
-def _auto_label(base: Optional[Dict[str, Any]], cur: Optional[Dict[str, Any]],
-                how: str, changes: List[str]) -> tuple:
-    """返回 (auto, confidence, reason_codes)。只给建议，不改数据。"""
-    if cur is None:
-        return "DEL", ("high" if base and _sid(base) else "medium"), ["missing_in_current"]
-    if base is None:
-        return "ADD", ("high" if _sid(cur) else "medium"), ["new_in_current"]
+def _auto_both(base, cur, how, changes):
     # 显式转换标记：基线或当前任一携带 conversion=true，视为转换功能
     if bool(base.get("conversion")) or bool(cur.get("conversion")):
         return "CFP", "high", ["conversion_flag"]
@@ -139,6 +149,16 @@ def _auto_label(base: Optional[Dict[str, Any]], cur: Optional[Dict[str, Any]],
     if changes:
         return "CHG", ("high" if how == "stable_id" else "medium"), ["fields_changed"]
     return "UNCHANGED", ("high" if how == "stable_id" else "low"), ["no_change"]
+
+
+def _auto_label(base: Optional[Dict[str, Any]], cur: Optional[Dict[str, Any]],
+                how: str, changes: List[str]) -> tuple:
+    """返回 (auto, confidence, reason_codes)。只给建议，不改数据。"""
+    if cur is None:
+        return "DEL", ("high" if base and _sid(base) else "medium"), ["missing_in_current"]
+    if base is None:
+        return "ADD", ("high" if _sid(cur) else "medium"), ["new_in_current"]
+    return _auto_both(base, cur, how, changes)
 
 
 def _row(seq: int, source: str, base: Optional[Dict[str, Any]], cur: Optional[Dict[str, Any]],

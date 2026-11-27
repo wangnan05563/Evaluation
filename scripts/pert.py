@@ -167,6 +167,14 @@ def summarize(con, pid):
     }
 
 
+def _variance_direction(bias):
+    if bias > 5:
+        return "underestimated"
+    if bias < -5:
+        return "overestimated"
+    return "balanced"
+
+
 def calibration(con, min_samples=5):
     """T06191：按已结项的实际人天计算 MAPE/偏差/校准系数。
 
@@ -203,12 +211,7 @@ def calibration(con, min_samples=5):
     total_expected = sum(s["expected_days"] for s in samples)
     factor = total_actual / total_expected if total_expected else 0
     bias = (factor - 1) * 100
-    if bias > 5:
-        direction = "underestimated"
-    elif bias < -5:
-        direction = "overestimated"
-    else:
-        direction = "balanced"
+    direction = _variance_direction(bias)
     ready = n >= min_samples
     suggested = max(0.7, min(1.3, round(factor, 2))) if ready else None
     message = (f"样本 {n} 个：MAPE {mape:.1f}%，整体{'低估' if direction == 'underestimated' else ('高估' if direction == 'overestimated' else '基本准确')} "
@@ -245,6 +248,42 @@ def _mc_params(rows):
         if a < 0 or b < 0 or c < 0 or not (a <= b <= c):
             raise ValueError(f"第 {i + 1} 项三点估算非法：需 0 ≤ 乐观 ≤ 最可能 ≤ 悲观")
     return o, m, p
+
+
+def _mc_sensitivity(rows, var, total_var, o, m, p):
+    import numpy as np
+    sens = []
+    for i in np.argsort(-var)[:5]:
+        if var[i] <= 0:
+            continue
+        sens.append({
+            "label": _mc_label(rows[int(i)]),
+            "expected_days": round(exp(o[int(i)], m[int(i)], p[int(i)]), 2),
+            "variance_days": round(float(var[int(i)]), 2),
+            "share_pct": round(float(var[int(i)] / total_var * 100), 1) if total_var else 0.0,
+        })
+    return sens
+
+
+def _mc_scenarios(sc_in, q, target, totals):
+    scen = []
+    for s in sc_in:
+        try:
+            factor = float(s.get("factor", 1))
+        except (TypeError, ValueError):
+            raise ValueError("情景系数必须为数字")
+        if factor <= 0:
+            raise ValueError("情景系数必须大于 0")
+        scen.append({
+            "name": str(s.get("name") or f"×{factor}")[:20], "factor": factor,
+            "p50": round(float(q[0]) * factor, 2),
+            "p80": round(float(q[1]) * factor, 2),
+            "p95": round(float(q[2]) * factor, 2),
+            # 比例情景下 P(T×f ≤ target) = P(T ≤ target/f)
+            "probability_pct": None if target is None else
+            round(float((totals <= target / factor).mean() * 100), 1),
+        })
+    return scen
 
 
 def monte_carlo(rows, simulations=MC_DEFAULT_SIMS, seed=MC_DEFAULT_SEED,
@@ -285,35 +324,10 @@ def monte_carlo(rows, simulations=MC_DEFAULT_SIMS, seed=MC_DEFAULT_SEED,
                    span ** 2 * alpha * beta /
                    ((alpha + beta) ** 2 * (alpha + beta + 1)), 0.0)
     total_var = float(var.sum())
-    sens = []
-    for i in np.argsort(-var)[:5]:
-        if var[i] <= 0:
-            continue
-        sens.append({
-            "label": _mc_label(rows[int(i)]),
-            "expected_days": round(exp(o[int(i)], m[int(i)], p[int(i)]), 2),
-            "variance_days": round(float(var[int(i)]), 2),
-            "share_pct": round(float(var[int(i)] / total_var * 100), 1) if total_var else 0.0,
-        })
+    sens = _mc_sensitivity(rows, var, total_var, o, m, p)
 
     sc_in = scenarios if scenarios else [{"name": n, "factor": f} for n, f in MC_SCENARIOS]
-    scen = []
-    for s in sc_in:
-        try:
-            factor = float(s.get("factor", 1))
-        except (TypeError, ValueError):
-            raise ValueError("情景系数必须为数字")
-        if factor <= 0:
-            raise ValueError("情景系数必须大于 0")
-        scen.append({
-            "name": str(s.get("name") or f"×{factor}")[:20], "factor": factor,
-            "p50": round(float(q[0]) * factor, 2),
-            "p80": round(float(q[1]) * factor, 2),
-            "p95": round(float(q[2]) * factor, 2),
-            # 比例情景下 P(T×f ≤ target) = P(T ≤ target/f)
-            "probability_pct": None if target is None else
-            round(float((totals <= target / factor).mean() * 100), 1),
-        })
+    scen = _mc_scenarios(sc_in, q, target, totals)
 
     return {
         "ok": True, "simulations": int(simulations), "seed": int(seed),
@@ -534,6 +548,58 @@ def _num(v):
 DEV_ROWS = DEV_END - DEV_START + 1
 
 
+def _collect_phase_items(rows):
+    phase_items = {}
+    for r in rows:
+        ph = r.get("phase") or "开发"
+        if ph != "开发":
+            phase_items.setdefault(ph, []).append(r)
+    return phase_items
+
+
+def _write_dev_row(ws, row, r, index):
+    desc = _pert_desc(r)
+    if index >= DEV_ROWS:
+        old = ws.cell(row, 4).value or ""
+        ws.cell(row, 4).value = f"{old}（合并 {index - DEV_ROWS + 2} 项）" if old else desc
+        for c, key in ((5, "most_likely"), (6, "optimistic"), (7, "pessimistic")):
+            ws.cell(row, c).value = _num(ws.cell(row, c).value) + _num(r.get(key))
+        return
+    if desc:
+        ws.cell(row, 4).value = desc
+    ws.cell(row, 5).value = r.get("most_likely")
+    ws.cell(row, 6).value = r.get("optimistic")
+    ws.cell(row, 7).value = r.get("pessimistic")
+
+
+def _write_dev_rows(ws, dev_items):
+    """开发明细按行号依次写 R8 起；超过 23 行合并进末行。"""
+    for i, r in enumerate(dev_items):
+        _write_dev_row(ws, DEV_START + min(i, DEV_ROWS - 1), r, i)
+    for row in range(DEV_START + len(dev_items), DEV_END + 1):
+        ws.cell(row, 8).value = 0
+    if not dev_items:
+        ws.cell(8, 9).value = ""
+
+
+def _write_phase_rows(ws, phase_items):
+    for ph, arr in phase_items.items():
+        row = PHASE_ROW.get(ph)
+        if not row:
+            continue
+        ws.cell(row, 5).value = sum(_num(x.get("most_likely")) for x in arr)
+        ws.cell(row, 6).value = sum(_num(x.get("optimistic")) for x in arr)
+        ws.cell(row, 7).value = sum(_num(x.get("pessimistic")) for x in arr)
+
+
+def _clear_empty_phase_rows(ws, phase_items):
+    for ph, row in PHASE_ROW.items():
+        if ph == "开发" or ph in phase_items:
+            continue
+        ws.cell(row, 8).value = 0
+        ws.cell(row, 9).value = ""
+
+
 def _write_pert_rows(ws, rows):
     """开发明细按行号依次写 R8 起；非开发阶段按阶段汇总写对应阶段行。
 
@@ -543,50 +609,10 @@ def _write_pert_rows(ws, rows):
     开发明细超过 23 行时，溢出项合并进第 23 行（R30），不再回落到 R8 覆盖首项。
     """
     dev_items = [r for r in rows if (r.get("phase") or "开发") == "开发"]
-    phase_items = {}
-    for r in rows:
-        ph = r.get("phase") or "开发"
-        if ph != "开发":
-            phase_items.setdefault(ph, []).append(r)
-
-    # 开发明细：前 23 项各占一行；超出部分合并进末行，保证合计不丢项。
-    for i, r in enumerate(dev_items):
-        row = DEV_START + min(i, DEV_ROWS - 1)
-        desc = _pert_desc(r)
-        if i >= DEV_ROWS:
-            old = ws.cell(row, 4).value or ""
-            ws.cell(row, 4).value = f"{old}（合并 {i - DEV_ROWS + 2} 项）" if old else desc
-            for c, key in ((5, "most_likely"), (6, "optimistic"), (7, "pessimistic")):
-                ws.cell(row, c).value = _num(ws.cell(row, c).value) + _num(r.get(key))
-            continue
-        if desc:
-            ws.cell(row, 4).value = desc
-        ws.cell(row, 5).value = r.get("most_likely")
-        ws.cell(row, 6).value = r.get("optimistic")
-        ws.cell(row, 7).value = r.get("pessimistic")
-
-    # 未使用的开发明细行：H 公式置 0，避免空白行 COUNTA=0 导致 H31 小计报错。
-    for row in range(DEV_START + len(dev_items), DEV_END + 1):
-        ws.cell(row, 8).value = 0
-    # 开发阶段无条目时，I8 的比例公式也置空，避免显示 0% 占位。
-    if not dev_items:
-        ws.cell(8, 9).value = ""
-
-    for ph, arr in phase_items.items():
-        row = PHASE_ROW.get(ph)
-        if not row:
-            continue
-        ws.cell(row, 5).value = sum(_num(x.get("most_likely")) for x in arr)
-        ws.cell(row, 6).value = sum(_num(x.get("optimistic")) for x in arr)
-        ws.cell(row, 7).value = sum(_num(x.get("pessimistic")) for x in arr)
-
-    # 空阶段行：H 置 0、I 置空；保留模板格式与行结构，H35 汇总不会出现错误值。
-    for ph, row in PHASE_ROW.items():
-        if ph == "开发" or ph in phase_items:
-            continue
-        ws.cell(row, 8).value = 0
-        ws.cell(row, 9).value = ""
-
+    phase_items = _collect_phase_items(rows)
+    _write_dev_rows(ws, dev_items)
+    _write_phase_rows(ws, phase_items)
+    _clear_empty_phase_rows(ws, phase_items)
 
 
 def rows_for_generate(con, pid):

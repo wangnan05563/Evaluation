@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """T06196 / REQ-019 / AC-20：离线 AI 识别质量评测与提交前自检验收。"""
 import json
+import math
 import os
 import sys
 import tempfile
@@ -27,29 +28,29 @@ def check(name, ok, detail=""):
         fails.append(name)
 
 
-def main():
-    runs_dir = TMP / "eval_runs"
-    t0 = time.time()
-    print("\n# 1. 标注集")
-    doc, info = ai_eval.load_dataset()
+def _check_dataset():
+    _, info = ai_eval.load_dataset()
     check("120 条样本 / 12 组", info["samples"] == 120 and info["groups"] == 12,
           json.dumps({k: info[k] for k in ("samples", "groups", "sha256")}, ensure_ascii=False))
-    check("五类各 24 条", info["self_check"]["class_count"] == {t: 24 for t in ai_eval.TYPES},
+    check("五类各 24 条", info["self_check"]["class_count"] == dict.fromkeys(ai_eval.TYPES, 24),
           json.dumps(info["self_check"]["class_count"], ensure_ascii=False))
     check("样本集自身自检通过", info["self_check"]["ok"] is True,
           json.dumps(info["self_check"], ensure_ascii=False))
     check("ID/组内名称无重复",
           not info["self_check"]["duplicate_ids"] and not info["self_check"]["duplicate_names"])
+    return info
 
-    print("\n# 2. 真实 docx 回放评测")
+
+def _check_run(runs_dir):
     run = ai_eval.evaluate(server.recognize_local, save_dir=runs_dir)
     m, g = run["metrics"], run["gate"]
     check("Precision / Recall 均为 90.0%",
-          m["precision"] == 0.9 and m["recall"] == 0.9 and m["f1"] == 0.9,
+          math.isclose(m["precision"], 0.9) and math.isclose(m["recall"], 0.9)
+          and math.isclose(m["f1"], 0.9),
           json.dumps(m, ensure_ascii=False))
     check("TP/FP/FN = 108/12/12", (m["tp"], m["fp"], m["fn"]) == (108, 12, 12),
           json.dumps(m, ensure_ascii=False))
-    check("P/R ≥ 85% 质量门通过", g["passed"] is True and g["threshold"] == 0.85,
+    check("P/R ≥ 85% 质量门通过", g["passed"] is True and math.isclose(g["threshold"], 0.85),
           json.dumps(g, ensure_ascii=False))
     check("120 项全部提取，无漏项/多余",
           run["counts"]["predicted"] == 120 and not run["self_check"]["missing"]
@@ -72,8 +73,10 @@ def main():
     check("评测结果已落盘 latest.json",
           (runs_dir / "latest.json").exists()
           and json.loads((runs_dir / "latest.json").read_text(encoding="utf-8"))["run_id"] == run["run_id"])
+    return run, m, g
 
-    print("\n# 3. 提交前自检")
+
+def _check_precheck(runs_dir):
     src = TMP / "sample.docx"
     src.write_bytes(server._onboarding_sample_docx())
     items, _meta = server.recognize_doc(src)
@@ -99,8 +102,10 @@ def main():
           (runs_dir / "latest-precheck.json").exists()
           and (runs_dir / f"{trace_bad['run_id']}.json").exists(),
           trace_bad["run_id"])
+    return items, trace_bad
 
-    print("\n# 4. 审计包留痕")
+
+def _check_audit(items, run, trace_bad):
     payload = {
         "project": {"name": "T06196 质量评测审计样本", "client": "内部", "version": "0.1.20261124-audit",
                     "classification": "内部", "owner": "评估师", "reviewer": "审核人",
@@ -133,6 +138,23 @@ def main():
           "P90.0%")
     check("PDF 记录提交前自检告警", "提交前自检" in text and "漏项2" in flat,
           "漏项2")
+    return result
+
+
+def main():
+    runs_dir = TMP / "eval_runs"
+    t0 = time.time()
+    print("\n# 1. 标注集")
+    info = _check_dataset()
+
+    print("\n# 2. 真实 docx 回放评测")
+    run, m, g = _check_run(runs_dir)
+
+    print("\n# 3. 提交前自检")
+    items, trace_bad = _check_precheck(runs_dir)
+
+    print("\n# 4. 审计包留痕")
+    result = _check_audit(items, run, trace_bad)
 
     elapsed = int((time.time() - t0) * 1000)
     results_dir = ROOT / "docs" / "test-reports" / "phase3-20261122" / "results"

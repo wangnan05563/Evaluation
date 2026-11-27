@@ -132,8 +132,8 @@ try {
   const rowMap = Object.fromEntries(rows.map(r => [r.id, { ...r, auto: codeOf(r.auto) }]));
   const missing = Object.keys(expected).filter(id => !rowMap[id]);
   const wrong = Object.keys(expected).filter(id => rowMap[id] && rowMap[id].auto !== expected[id]);
-  check('自动分类 ADD/CHG/DEL/CFP 与预期逐项一致（100%）', missing.length === 0 && wrong.length === 0, `missing=${missing} wrong=${JSON.stringify(wrong.map(id => `${id}:${rowMap[id].auto}`))}`);
-  check('每条均显示置信度且未自动确认', rows.every(r => /高|中|低/.test(r.confidence) && r.reviewed === false), JSON.stringify(rows.map(r => [r.id, r.confidence])));
+  check('自动分类 ADD/CHG/DEL/CFP 与预期逐项一致（100%）', missing.length === 0 && wrong.length === 0, `missing=${missing} wrong=${JSON.stringify(wrong.map(id => id + ':' + rowMap[id].auto))}`);
+  check('每条均显示置信度且未自动确认', rows.every(r => /[高中低]/.test(r.confidence) && r.reviewed === false), JSON.stringify(rows.map(r => [r.id, r.confidence])));
 
   // 3) 全部标记已复核 → 导出解锁；再人工改判 F11 ADD → UNCHANGED，验证 mismatch 与 KPI 重算。
   summaryBefore = await page.ev(`document.querySelector('.enh-kpi.efp b').textContent`);
@@ -178,7 +178,7 @@ try {
   await page.ev(`document.querySelector('#enhCsv').click()`);
   let f = null;
   for (let i = 0; i < 40; i++) {
-    const fsx = fs.readdirSync(dlDir).filter(n => /_EFP\.csv$/.test(n));
+    const fsx = fs.readdirSync(dlDir).filter(n => n.endsWith('_EFP.csv'));
     if (fsx.length) { f = path.join(dlDir, fsx[0]); break; }
     await sleep(200);
   }

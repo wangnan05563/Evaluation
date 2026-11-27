@@ -52,6 +52,58 @@ def load_dataset(path=None) -> tuple[dict, dict]:
                  "sha256": hashlib.sha256(raw).hexdigest()[:16], "self_check": check}
 
 
+def _check_sample_id(errors, ids, sid, i):
+    if not sid:
+        errors.append({"index": i, "reason": "missing_id"})
+        return
+    ids[sid] += 1
+    if ids[sid] > 1:
+        errors.append({"id": sid, "reason": "duplicate_id"})
+
+
+def _check_sample_group(errors, seen_groups, group_ids, group, sid, i):
+    if not group:
+        errors.append({"id": sid or i, "reason": "missing_group"})
+        return
+    seen_groups.add(group)
+    if group_ids and group not in group_ids:
+        errors.append({"id": sid or i, "reason": "unknown_group", "group": group})
+
+
+def _check_sample_name(errors, names_by_group, name, group, sid, i):
+    if not name:
+        errors.append({"id": sid or i, "reason": "missing_name"})
+    elif group:
+        names_by_group[group].append(_norm(name))
+
+
+def _check_sample_gold(errors, class_count, gold, sid, i):
+    if gold not in TYPES:
+        errors.append({"id": sid or i, "reason": "bad_gold", "gold": gold})
+    else:
+        class_count[gold] += 1
+
+
+def _collect_duplicate_names(names_by_group, errors):
+    dup_names = []
+    for group, names in names_by_group.items():
+        c = Counter(names)
+        for name, n in c.items():
+            if n > 1:
+                dup_names.append({"group": group, "name": name, "count": n})
+                errors.append({"group": group, "reason": "duplicate_name", "name": name, "count": n})
+    return dup_names
+
+
+def _coverage_errors(errors, samples, class_count, group_ids, seen_groups):
+    if len(samples) < 100:
+        errors.append({"reason": "too_few_samples", "actual": len(samples), "min": 100})
+    if class_count and len(class_count) != len(TYPES):
+        errors.append({"reason": "missing_class", "classes": sorted(class_count)})
+    if group_ids and seen_groups != group_ids:
+        errors.append({"reason": "group_unused", "groups": sorted(group_ids - seen_groups)})
+
+
 def dataset_check(samples, groups=None) -> dict:
     """样本集自身完整性：重复/缺字段/非法类型/类别覆盖。"""
     errors = []
@@ -68,39 +120,12 @@ def dataset_check(samples, groups=None) -> dict:
         group = str(s.get("group") or "").strip()
         name = str(s.get("name") or "").strip()
         gold = str(s.get("gold") or "").strip().upper()
-        if not sid:
-            errors.append({"index": i, "reason": "missing_id"})
-        else:
-            ids[sid] += 1
-            if ids[sid] > 1:
-                errors.append({"id": sid, "reason": "duplicate_id"})
-        if not group:
-            errors.append({"id": sid or i, "reason": "missing_group"})
-        else:
-            seen_groups.add(group)
-            if group_ids and group not in group_ids:
-                errors.append({"id": sid or i, "reason": "unknown_group", "group": group})
-        if not name:
-            errors.append({"id": sid or i, "reason": "missing_name"})
-        elif group:
-            names_by_group[group].append(_norm(name))
-        if gold not in TYPES:
-            errors.append({"id": sid or i, "reason": "bad_gold", "gold": gold})
-        else:
-            class_count[gold] += 1
-    dup_names = []
-    for group, names in names_by_group.items():
-        c = Counter(names)
-        for name, n in c.items():
-            if n > 1:
-                dup_names.append({"group": group, "name": name, "count": n})
-                errors.append({"group": group, "reason": "duplicate_name", "name": name, "count": n})
-    if len(samples) < 100:
-        errors.append({"reason": "too_few_samples", "actual": len(samples), "min": 100})
-    if class_count and len(class_count) != len(TYPES):
-        errors.append({"reason": "missing_class", "classes": sorted(class_count)})
-    if group_ids and seen_groups != group_ids:
-        errors.append({"reason": "group_unused", "groups": sorted(group_ids - seen_groups)})
+        _check_sample_id(errors, ids, sid, i)
+        _check_sample_group(errors, seen_groups, group_ids, group, sid, i)
+        _check_sample_name(errors, names_by_group, name, group, sid, i)
+        _check_sample_gold(errors, class_count, gold, sid, i)
+    dup_names = _collect_duplicate_names(names_by_group, errors)
+    _coverage_errors(errors, samples, class_count, group_ids, seen_groups)
     return {
         "ok": not errors,
         "errors": errors,
@@ -143,10 +168,7 @@ def _run_id(prefix: str, digest: str) -> str:
     return f"{prefix}-{time.strftime('%Y%m%d-%H%M%S')}-{digest[:8]}"
 
 
-def evaluate(recognize_fn, dataset_path=None, save_dir=None, runner="local-rules") -> dict:
-    """运行一次完整离线评测；recognize_fn(path)->items 或 (items, sys, mod)。"""
-    started = time.time()
-    doc, info = load_dataset(dataset_path)
+def _prepare_groups(doc):
     samples = doc.get("samples") or []
     groups = defaultdict(list)
     for s in samples:
@@ -156,39 +178,39 @@ def evaluate(recognize_fn, dataset_path=None, save_dir=None, runner="local-rules
         if group_titles.get(gid):
             for r in rows:
                 r.setdefault("doc_title", f"{group_titles[gid]}功能需求说明书")
+    return samples, groups
 
-    out_dir = Path(tempfile.mkdtemp(prefix="we_ai_eval_"))
+
+def _predict_group(gid, rows, recognize_fn, out_dir):
+    path = _write_group_docx(gid, rows, out_dir)
+    items = _call_recognizer(recognize_fn, path)
+    expected = {_norm(r.get("name")): r for r in rows}
+    used = set()
+    duplicates = Counter()
     predicted = []
-    per_group = {}
-    for gid, rows in groups.items():
-        path = _write_group_docx(gid, rows, out_dir)
-        items = _call_recognizer(recognize_fn, path)
-        expected = {_norm(r.get("name")): r for r in rows}
-        used = set()
-        duplicates = Counter()
-        for pos, it in enumerate(items):
-            if not isinstance(it, dict):
-                continue
-            name = str(it.get("count_item") or it.get("m1") or "").strip()
-            key = _norm(name)
-            typ = str(it.get("type") or "").strip().upper()
-            rec = {"group": gid, "pos": pos, "name": name, "key": key, "type": typ,
-                   "match": None, "predicted_id": it.get("stable_id"),
-                   "evidence": len(it.get("evidence") or [])}
-            if key and key in expected and key not in used:
-                rec["match"] = expected[key]
-                used.add(key)
-            predicted.append(rec)
-            if key:
-                duplicates[key] += 1
-        # 记录组内重复候选（同一名称出现 >1 次）
-        for key, n in duplicates.items():
-            if n > 1 and key in expected:
-                per_group.setdefault(gid, []).append({"name": key, "count": n})
+    for pos, it in enumerate(items):
+        if not isinstance(it, dict):
+            continue
+        name = str(it.get("count_item") or it.get("m1") or "").strip()
+        key = _norm(name)
+        typ = str(it.get("type") or "").strip().upper()
+        rec = {"group": gid, "pos": pos, "name": name, "key": key, "type": typ,
+               "match": None, "predicted_id": it.get("stable_id"),
+               "evidence": len(it.get("evidence") or [])}
+        if key and key in expected and key not in used:
+            rec["match"] = expected[key]
+            used.add(key)
+        predicted.append(rec)
+        if key:
+            duplicates[key] += 1
+    dup_list = [{"name": key, "count": n} for key, n in duplicates.items()
+                if n > 1 and key in expected]
+    return predicted, dup_list
 
-    expected_total = len(samples)
-    missing, wrong_types, invalid, dup_candidates, extra = [], [], [], [], []
-    matrix = {g: {p: 0 for p in TYPES} for g in TYPES}
+
+def _score_predictions(predicted):
+    wrong_types, invalid, extra = [], [], []
+    matrix = {g: dict.fromkeys(TYPES, 0) for g in TYPES}
     tp = 0
     used_expected = set()
     for rec in predicted:
@@ -205,35 +227,63 @@ def evaluate(recognize_fn, dataset_path=None, save_dir=None, runner="local-rules
         used_expected.add(sid)
         gold = str(exp.get("gold") or "").upper()
         pred = rec["type"] if rec["type"] in TYPES else "INVALID"
-        row = matrix.setdefault(gold, {p: 0 for p in TYPES})
+        row = matrix.setdefault(gold, dict.fromkeys(TYPES, 0))
         row[pred] = row.get(pred, 0) + 1
         if rec["type"] == gold:
             tp += 1
         else:
             wrong_types.append({"id": sid, "group": rec["group"], "name": rec["name"],
                                 "gold": gold, "predicted": rec["type"]})
-    for recs in per_group.values():
-        dup_candidates.extend(recs)
-    duplicate_count = sum(r["count"] - 1 for r in dup_candidates)
-    for s in samples:
-        if s.get("id") not in used_expected:
-            missing.append({"id": s.get("id"), "group": s.get("group"), "name": s.get("name"), "gold": s.get("gold")})
-    predicted_total = len([r for r in predicted if r.get("key")])
-    precision = tp / predicted_total if predicted_total else 0.0
-    recall = tp / expected_total if expected_total else 0.0
-    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
-    evidence_items = [r for r in predicted if r.get("key")]
-    evidence_verified = sum(1 for r in evidence_items if r.get("evidence", 0) > 0)
-    evidence_missing = [{"group": r["group"], "name": r["name"]} for r in evidence_items
-                        if r.get("evidence", 0) <= 0]
+    return wrong_types, invalid, extra, matrix, tp, used_expected
 
-    gate = {
+
+def _safe_div(a, b):
+    return a / b if b else 0.0
+
+
+def _eval_gate(info, precision, recall):
+    return {
         "passed": bool(info["self_check"].get("ok")) and precision >= THRESHOLD and recall >= THRESHOLD,
         "threshold": THRESHOLD,
         "precision_ok": precision >= THRESHOLD,
         "recall_ok": recall >= THRESHOLD,
         "dataset_ok": bool(info["self_check"].get("ok")),
     }
+
+
+def _evidence_stats(predicted):
+    evidence_items = [r for r in predicted if r.get("key")]
+    verified = sum(1 for r in evidence_items if r.get("evidence", 0) > 0)
+    missing = [{"group": r["group"], "name": r["name"]} for r in evidence_items
+               if r.get("evidence", 0) <= 0]
+    return verified, missing
+
+
+def evaluate(recognize_fn, dataset_path=None, save_dir=None, runner="local-rules") -> dict:
+    """运行一次完整离线评测；recognize_fn(path)->items 或 (items, sys, mod)。"""
+    started = time.time()
+    doc, info = load_dataset(dataset_path)
+    samples, groups = _prepare_groups(doc)
+    out_dir = Path(tempfile.mkdtemp(prefix="we_ai_eval_"))
+    predicted = []
+    dup_candidates = []
+    for gid, rows in groups.items():
+        recs, dups = _predict_group(gid, rows, recognize_fn, out_dir)
+        predicted.extend(recs)
+        dup_candidates.extend(dups)
+    wrong_types, invalid, extra, matrix, tp, used_expected = _score_predictions(predicted)
+    missing = []
+    duplicate_count = sum(r["count"] - 1 for r in dup_candidates)
+    for s in samples:
+        if s.get("id") not in used_expected:
+            missing.append({"id": s.get("id"), "group": s.get("group"), "name": s.get("name"), "gold": s.get("gold")})
+    expected_total = len(samples)
+    predicted_total = len([r for r in predicted if r.get("key")])
+    precision = _safe_div(tp, predicted_total)
+    recall = _safe_div(tp, expected_total)
+    f1 = _safe_div(2 * precision * recall, precision + recall)
+    evidence_verified, evidence_missing = _evidence_stats(predicted)
+    gate = _eval_gate(info, precision, recall)
     run = {
         "ok": True,
         "run_id": _run_id("EVAL", info["sha256"]),
@@ -242,7 +292,7 @@ def evaluate(recognize_fn, dataset_path=None, save_dir=None, runner="local-rules
         "dataset": info,
         "metrics": {
             "precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4),
-            "accuracy": round(tp / expected_total, 4) if expected_total else 0.0,
+            "accuracy": round(_safe_div(tp, expected_total), 4),
             "tp": tp, "fp": predicted_total - tp, "fn": expected_total - tp,
             "predicted": predicted_total, "gold": expected_total, "threshold": THRESHOLD,
         },
@@ -295,6 +345,30 @@ def latest_run(save_dir) -> dict | None:
         return None
 
 
+def _precheck_item(it, i, names, rows, missing, invalid, evidence_missing):
+    if not isinstance(it, dict):
+        invalid.append({"seq": i, "reason": "not_object"})
+        return
+    name = str(it.get("count_item") or it.get("m1") or "").strip()
+    desc = str(it.get("desc") or "").strip()
+    typ = str(it.get("type") or "").strip().upper()
+    origin = str(it.get("origin") or "").lower()
+    ev = it.get("evidence") if isinstance(it.get("evidence"), list) else []
+    row = {"seq": it.get("seq") or i, "name": name, "type": typ, "origin": origin,
+           "confidence": it.get("confidence"), "evidence": len(ev)}
+    rows.append(row)
+    if not name:
+        missing.append({"seq": row["seq"], "reason": "empty_name"})
+    elif not desc:
+        missing.append({"seq": row["seq"], "name": name, "reason": "empty_desc"})
+    if name:
+        names[_norm(name)] += 1
+    if typ not in TYPES:
+        invalid.append({"seq": row["seq"], "name": name, "type": typ})
+    if origin in ("ai", "llm") and not ev:
+        evidence_missing.append({"seq": row["seq"], "name": name, "reason": "no_evidence"})
+
+
 def precheck_items(items, expected_count=None) -> dict:
     """提交前轻量自检：重复、必填缺失、非法类型、AI 无证据。"""
     rows = []
@@ -303,27 +377,7 @@ def precheck_items(items, expected_count=None) -> dict:
     invalid = []
     evidence_missing = []
     for i, it in enumerate(items or [], 1):
-        if not isinstance(it, dict):
-            invalid.append({"seq": i, "reason": "not_object"})
-            continue
-        name = str(it.get("count_item") or it.get("m1") or "").strip()
-        desc = str(it.get("desc") or "").strip()
-        typ = str(it.get("type") or "").strip().upper()
-        origin = str(it.get("origin") or "").lower()
-        ev = it.get("evidence") if isinstance(it.get("evidence"), list) else []
-        row = {"seq": it.get("seq") or i, "name": name, "type": typ, "origin": origin,
-               "confidence": it.get("confidence"), "evidence": len(ev)}
-        rows.append(row)
-        if not name:
-            missing.append({"seq": row["seq"], "reason": "empty_name"})
-        elif not desc:
-            missing.append({"seq": row["seq"], "name": name, "reason": "empty_desc"})
-        if name:
-            names[_norm(name)] += 1
-        if typ not in TYPES:
-            invalid.append({"seq": row["seq"], "name": name, "type": typ})
-        if origin in ("ai", "llm") and not ev:
-            evidence_missing.append({"seq": row["seq"], "name": name, "reason": "no_evidence"})
+        _precheck_item(it, i, names, rows, missing, invalid, evidence_missing)
     duplicates = [{"name": name, "count": n} for name, n in names.items() if n > 1]
     if expected_count is not None:
         try:

@@ -24,7 +24,12 @@ a = Analysis(
     hiddenimports=['engine', 'generate_xlsx', 'replay_recognize', 'numpy'],
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    # 运行侧只用 numpy/openpyxl/python-docx/Pillow/PyMuPDF/win32com；开发机额外安装的
+    # 训练/视觉/数据科学大包会被模块图连带扫入，分析 20 分钟仍未收敛且产物被撑大。
+    # 显式排除这些未被任何脚本 import 的可选依赖，保持单文件 sidecar 的体积与构建时长稳定。
+    excludes=['tensorflow', 'keras', 'onnxruntime', 'cv2', 'pandas',
+              'matplotlib', 'scipy', 'sklearn', 'torch', 'pytest',
+              'IPython', 'jupyter', 'notebook'],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

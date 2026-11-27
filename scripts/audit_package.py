@@ -20,6 +20,10 @@ import time
 import uuid
 from pathlib import Path
 
+
+# 重复字面量统一为模块常量（SonarQube python:S1192）
+HTML_TR_END = '</tr>'
+
 ROOT = Path(__file__).resolve().parent.parent
 NODE = shutil.which("node") or "node"
 RENDER = str(ROOT / "scripts" / "pdf_render.mjs")
@@ -103,59 +107,43 @@ def _f(value, digits=2):
         return "—"
 
 
-def _normalize(payload):
-    """校验并补齐审计包输入；非法数据在此拒绝，不进入渲染。"""
-    if not isinstance(payload, dict):
-        raise ValueError("请求体必须是 JSON 对象")
-    items = payload.get("items")
-    if not isinstance(items, list) or not items:
-        raise ValueError("审计包至少需要 1 个功能项")
-    if len(items) > 300:
-        raise ValueError("审计包功能项上限 300")
-    try:
-        from engine import (METHOD_ESTIMATE, METHODS, SCALE_CHANGE, CX_MASTER, normalize_cx_mode,
-                            REUSE, MODIFY, item_ufp, item_us, summary)
-    except ImportError:
-        import engine as _e
-        METHOD_ESTIMATE, METHODS, SCALE_CHANGE, CX_MASTER, normalize_cx_mode = (
-            _e.METHOD_ESTIMATE, _e.METHODS, _e.SCALE_CHANGE, _e.CX_MASTER, _e.normalize_cx_mode)
-        REUSE, MODIFY, item_ufp, item_us, summary = _e.REUSE, _e.MODIFY, _e.item_ufp, _e.item_us, _e.summary
-    method = payload.get("method") or METHOD_ESTIMATE
-    if method not in METHODS:
-        raise ValueError(f"未知估算方法 {method}")
-    timing = payload.get("timing") or "估算中期"
-    if timing not in SCALE_CHANGE:
-        raise ValueError(f"未知估算时机 {timing}")
-    cx_mode = normalize_cx_mode(payload.get("cx_mode"))
-    normalized = []
-    for i, raw in enumerate(items, 1):
-        if not isinstance(raw, dict):
-            raise ValueError(f"第 {i} 项不是对象")
-        typ = (raw.get("type") or "").strip()
-        if typ not in engine_types(REUSE, MODIFY):
-            raise ValueError(f"第 {i} 项类型非法：{typ}")
-        reuse = raw.get("reuse") or "中"
-        modify = raw.get("modify") or "新增"
-        if reuse not in REUSE or modify not in MODIFY:
-            raise ValueError(f"第 {i} 项重用/修改类型非法")
-        it = dict(raw)
-        it["seq"] = i
-        it["type"] = typ
-        it["reuse"] = reuse
-        it["modify"] = modify
-        it["desc"] = (it.get("desc") or it.get("count_item") or "").strip()
-        if not it["desc"]:
-            raise ValueError(f"第 {i} 项缺少描述")
-        it["stable_id"] = str(it.get("stable_id") or f"FP-{i:03d}")
-        it["basis"] = str(it.get("basis") or f"{typ} 类型识别规则 · {method}/{cx_mode} · 规则版本 {payload.get('version') or 'rules-v1'}")
-        it["ufp"] = item_ufp(it, method, cx_mode)
-        it["us"] = round(item_us(it, method, cx_mode), 2)
-        if it.get("det") in (None, "") and it.get("ret") in (None, "") and it.get("ftr") in (None, ""):
-            it["det_na"] = True
-        normalized.append(it)
-    totals = summary(normalized, timing=timing, method=method, cx_mode=cx_mode)
+def _engine_module():
+    """延迟导入引擎，避免脚本以包/单文件两种方式加载时耦合。"""
+    import engine
+    return engine
+
+
+def _normalize_item(raw, i, method, cx_mode, payload, eng):
+    """校验并补齐单个功能项。"""
+    if not isinstance(raw, dict):
+        raise ValueError(f"第 {i} 项不是对象")
+    typ = (raw.get("type") or "").strip()
+    if typ not in engine_types():
+        raise ValueError(f"第 {i} 项类型非法：{typ}")
+    reuse = raw.get("reuse") or "中"
+    modify = raw.get("modify") or "新增"
+    if reuse not in eng.REUSE or modify not in eng.MODIFY:
+        raise ValueError(f"第 {i} 项重用/修改类型非法")
+    it = dict(raw)
+    it["seq"] = i
+    it["type"] = typ
+    it["reuse"] = reuse
+    it["modify"] = modify
+    it["desc"] = (it.get("desc") or it.get("count_item") or "").strip()
+    if not it["desc"]:
+        raise ValueError(f"第 {i} 项缺少描述")
+    it["stable_id"] = str(it.get("stable_id") or f"FP-{i:03d}")
+    it["basis"] = str(it.get("basis") or f"{typ} 类型识别规则 · {method}/{cx_mode} · 规则版本 {payload.get('version') or 'rules-v1'}")
+    it["ufp"] = eng.item_ufp(it, method, cx_mode)
+    it["us"] = round(eng.item_us(it, method, cx_mode), 2)
+    if it.get("det") in (None, "") and it.get("ret") in (None, "") and it.get("ftr") in (None, ""):
+        it["det_na"] = True
+    return it
+
+
+def _normalize_project(payload):
     project = payload.get("project") if isinstance(payload.get("project"), dict) else {}
-    project = {
+    return {
         "name": str(project.get("name") or payload.get("title") or "工作量评估项目"),
         "client": str(project.get("client") or "—"),
         "version": str(project.get("version") or "v1"),
@@ -165,7 +153,29 @@ def _normalize(payload):
         "date": str(project.get("date") or time.strftime("%Y-%m-%d")),
         "source": str(project.get("source") or "需求文档"),
     }
-    trace_rows = [_trace(it, project, method, cx_mode) for it in normalized]
+
+
+def _normalize(payload):
+    """校验并补齐审计包输入；非法数据在此拒绝，不进入渲染。"""
+    if not isinstance(payload, dict):
+        raise ValueError("请求体必须是 JSON 对象")
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("审计包至少需要 1 个功能项")
+    if len(items) > 300:
+        raise ValueError("审计包功能项上限 300")
+    eng = _engine_module()
+    method = payload.get("method") or eng.METHOD_ESTIMATE
+    if method not in eng.METHODS:
+        raise ValueError(f"未知估算方法 {method}")
+    timing = payload.get("timing") or "估算中期"
+    if timing not in eng.SCALE_CHANGE:
+        raise ValueError(f"未知估算时机 {timing}")
+    cx_mode = eng.normalize_cx_mode(payload.get("cx_mode"))
+    normalized = [_normalize_item(raw, i, method, cx_mode, payload, eng) for i, raw in enumerate(items, 1)]
+    totals = eng.summary(normalized, timing=timing, method=method, cx_mode=cx_mode)
+    project = _normalize_project(payload)
+    trace_rows = [_trace(it, project) for it in normalized]
     changes = payload.get("changes") if isinstance(payload.get("changes"), list) else []
     ai = payload.get("ai") if isinstance(payload.get("ai"), dict) else {}
     signoff = payload.get("signoff") if isinstance(payload.get("signoff"), dict) else {}
@@ -185,7 +195,7 @@ def _normalize(payload):
     }
 
 
-def engine_types(reuse, modify):
+def engine_types():
     """与 engine.REUSE/MODIFY 同源的类别白名单，避免 import 顺序耦合。"""
     try:
         import engine
@@ -194,7 +204,7 @@ def engine_types(reuse, modify):
         return {"ILF", "EIF", "EI", "EO", "EQ"}
 
 
-def _trace(item, project, method, cx_mode):
+def _trace(item, project):
     raw = item.get("trace") if isinstance(item.get("trace"), dict) else {}
     ev = item.get("evidence")[0] if isinstance(item.get("evidence"), list) and item.get("evidence") else {}
     paragraph = raw.get("paragraph") or ev.get("locator") or item.get("src_para") or item.get("locator") \
@@ -290,7 +300,7 @@ def _detail(ctx):
             f"<td>{_esc(it.get('desc'))}</td>", f"<td class=\"rm\">{_esc(it.get('reuse'))} / {_esc(it.get('modify'))}</td>",
             f"<td><a class=\"numlink\" href=\"#trace\">{it['ufp']}</a></td>", f"<td><a class=\"numlink\" href=\"#trace\">{_f(it['us'])}</a></td>",
             f"<td>{_esc(it.get('basis') or 'N/A')}</td>", '<td><a class="trace" href="#trace">追溯</a></td>',
-        ]) + "</tr>")
+        ]) + HTML_TR_END)
     return f'''<section class="part"><h2>4. 估算明细</h2>
 <p>共 {len(ctx["items"])} 项。每行保留 stable_id、类型、DET/RET/FTR、重用/修改、UFP/US 与识别依据；点击 UFP/US 数值或「追溯」跳转第 5 部分对应行。</p>
 <table class="detail"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:11%"><col style="width:31%"><col style="width:8%"><col style="width:5%"><col style="width:6%"><col style="width:15%"><col style="width:9%"></colgroup>
@@ -307,7 +317,7 @@ def _trace_section(ctx):
             f"<td>{_esc(t['id'])}</td>", f"<td>{_esc(t['paragraph'])}</td>", f"<td>{_esc(t['quote'])}</td>",
             f"<td>{_esc(t['rule'])}</td>", f"<td class=\"formula\">{_esc(t['formula'])}</td>", f"<td>{_esc(t['confidence'])}</td>", f"<td>{_esc(t['version'])}</td>",
             f"<td>{_esc(t['req'])}</td>", f"<td>{_esc(t['ac'])}</td>",
-        ]) + "</tr>")
+        ]) + HTML_TR_END)
     return f'''<section class="part" id="trace"><h2>5. 追溯矩阵</h2>
 <p>每一行对应第 4 部分的一个功能项，记录原文段落、原文摘录、识别规则、复算公式、置信度、版本、需求/验收关联。明细页的 UFP/US 数值与「追溯」链接均跳转到本页对应行。</p>
 <table class="trace-table"><colgroup><col style="width:7%"><col style="width:13%"><col style="width:22%"><col style="width:12%"><col style="width:16%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"></colgroup>
@@ -317,7 +327,7 @@ def _trace_section(ctx):
 </section>'''
 
 
-def _changes(ctx):
+def _change_table(ctx):
     rows = ctx["changes"] if ctx["changes"] else [{"type": "首版", "detail": "本次为首版审计包，无基线差异。", "before": "—", "after": ctx["version_hash"]}]
     body = []
     for c in rows:
@@ -328,8 +338,43 @@ def _changes(ctx):
             f"<td>{_esc(c.get('type') or '变更')}</td>", f"<td>{_esc(c.get('detail') or '—')}</td>",
             f"<td>{_esc(c.get('before') or '—')}</td>", f"<td>{_esc(c.get('after') or '—')}</td>",
             f"<td>{_esc(c.get('operator') or '—')}</td>",
-        ]) + "</tr>")
-    ai = ctx["ai"]
+        ]) + HTML_TR_END)
+    return "".join(body)
+
+
+def _quality_rows(quality):
+    m = quality.get("metrics") if isinstance(quality.get("metrics"), dict) else {}
+    ds = quality.get("dataset") if isinstance(quality.get("dataset"), dict) else {}
+    gate = quality.get("gate") if isinstance(quality.get("gate"), dict) else {}
+    rows = [("质量评测（AC-20）",
+             f"P {_pct(m.get('precision'))} / R {_pct(m.get('recall'))} / F1 {_pct(m.get('f1'))}；"
+             f"{ds.get('samples') or '—'} 样本；门禁{'通过' if gate.get('passed') else '未通过'}；"
+             f"{quality.get('run_id') or '—'}")]
+    sc = quality.get("self_check") if isinstance(quality.get("self_check"), dict) else {}
+    rows.append(("质量自检",
+                 f"重复 {sc.get('duplicate_count') or 0}；漏项 {len(sc.get('missing') or [])}；"
+                 f"多余 {len(sc.get('extra') or [])}；类型错误 {len(sc.get('wrong_types') or [])}；"
+                 f"证据缺失 {len((sc.get('evidence') or {}).get('missing') or [])}"))
+    return rows
+
+
+def _precheck_row(pre):
+    q = pre.get("precheck") if isinstance(pre.get("precheck"), dict) else pre
+    miss = q.get("missing") if isinstance(q.get("missing"), list) else []
+    inv = q.get("invalid") if isinstance(q.get("invalid"), list) else []
+    evm = q.get("evidence_missing") if isinstance(q.get("evidence_missing"), list) else []
+    if not miss and isinstance(q.get("missing_count"), int):
+        miss = [None] * q["missing_count"]
+    if not inv and isinstance(q.get("invalid_count"), int):
+        inv = [None] * q["invalid_count"]
+    if not evm and isinstance(q.get("evidence_missing_count"), int):
+        evm = [None] * q["evidence_missing_count"]
+    return ("提交前自检",
+            f"重复 {q.get('duplicate_count') or 0}；漏项 {len(miss)}；非法 {len(inv)}；"
+            f"证据缺失 {len(evm)}；{pre.get('run_id') or q.get('run_id') or '—'}")
+
+
+def _ai_rows(ctx, ai):
     ai_rows = [("AI 启用", "是" if ai.get("enabled") else "否（本地规则）"),
                ("模型", ai.get("model") or "—"), ("提示词版本", ai.get("prompt_version") or "—"),
                ("识别时间", ai.get("created_at") or "—"),
@@ -337,76 +382,73 @@ def _changes(ctx):
                ("人工调整", ai.get("adjustments") or "—")]
     quality = ai.get("quality") if isinstance(ai.get("quality"), dict) else {}
     if quality:
-        m = quality.get("metrics") if isinstance(quality.get("metrics"), dict) else {}
-        ds = quality.get("dataset") if isinstance(quality.get("dataset"), dict) else {}
-        gate = quality.get("gate") if isinstance(quality.get("gate"), dict) else {}
-        ai_rows.append(("质量评测（AC-20）",
-                        f"P {_pct(m.get('precision'))} / R {_pct(m.get('recall'))} / F1 {_pct(m.get('f1'))}；"
-                        f"{ds.get('samples') or '—'} 样本；门禁{'通过' if gate.get('passed') else '未通过'}；"
-                        f"{quality.get('run_id') or '—'}"))
-        sc = quality.get("self_check") if isinstance(quality.get("self_check"), dict) else {}
-        ai_rows.append(("质量自检",
-                        f"重复 {sc.get('duplicate_count') or 0}；漏项 {len(sc.get('missing') or [])}；"
-                        f"多余 {len(sc.get('extra') or [])}；类型错误 {len(sc.get('wrong_types') or [])}；"
-                        f"证据缺失 {len((sc.get('evidence') or {}).get('missing') or [])}"))
+        ai_rows.extend(_quality_rows(quality))
     pre = ai.get("quality_precheck") if isinstance(ai.get("quality_precheck"), dict) else {}
     if pre:
-        q = pre.get("precheck") if isinstance(pre.get("precheck"), dict) else pre
-        miss = q.get("missing") if isinstance(q.get("missing"), list) else []
-        inv = q.get("invalid") if isinstance(q.get("invalid"), list) else []
-        evm = q.get("evidence_missing") if isinstance(q.get("evidence_missing"), list) else []
-        if not miss and isinstance(q.get("missing_count"), int):
-            miss = [None] * q["missing_count"]
-        if not inv and isinstance(q.get("invalid_count"), int):
-            inv = [None] * q["invalid_count"]
-        if not evm and isinstance(q.get("evidence_missing_count"), int):
-            evm = [None] * q["evidence_missing_count"]
-        ai_rows.append(("提交前自检",
-                        f"重复 {q.get('duplicate_count') or 0}；漏项 {len(miss)}；非法 {len(inv)}；"
-                        f"证据缺失 {len(evm)}；{pre.get('run_id') or q.get('run_id') or '—'}"))
-    ai_html = "".join(f"<tr><td>{_esc(k)}</td><td>{_esc(v)}</td></tr>" for k, v in ai_rows)
+        ai_rows.append(_precheck_row(pre))
+    return ai_rows
+
+
+def _record_from_item(item, ai):
+    ai2 = item.get("ai") if isinstance(item.get("ai"), dict) else {}
+    conf = item.get("confidence")
+    if conf is None:
+        return None
+    try:
+        conf_text = f"{round(float(conf) * 100)}%"
+    except (TypeError, ValueError):
+        conf_text = "—"
+    decision = item.get("human_decision") or ("confirmed" if item.get("ok") else "pending")
+    return {"stable_id": item.get("stable_id"), "model": ai2.get("model") or ai.get("model") or "—",
+            "prompt_version": ai2.get("prompt_version") or ai.get("prompt_version") or "—",
+            "created_at": ai2.get("created_at") or ai.get("created_at") or "—",
+            "confidence": conf_text, "decision": decision,
+            "decision_at": item.get("decision_at") or "—"}
+
+
+def _ai_records(ctx, ai):
     records = ai.get("items") if isinstance(ai.get("items"), list) else []
-    if not records:
-        for item in ctx["items"]:
-            ai2 = item.get("ai") if isinstance(item.get("ai"), dict) else {}
-            conf = item.get("confidence")
-            if conf is None:
-                continue
-            try:
-                conf_text = f"{round(float(conf) * 100)}%"
-            except (TypeError, ValueError):
-                conf_text = "—"
-            decision = item.get("human_decision") or ("confirmed" if item.get("ok") else "pending")
-            records.append({"stable_id": item.get("stable_id"), "model": ai2.get("model") or ai.get("model") or "—",
-                            "prompt_version": ai2.get("prompt_version") or ai.get("prompt_version") or "—",
-                            "created_at": ai2.get("created_at") or ai.get("created_at") or "—",
-                            "confidence": conf_text, "decision": decision,
-                            "decision_at": item.get("decision_at") or "—"})
-    record_html = ""
     if records:
-        trs = []
-        for r in records:
-            if not isinstance(r, dict):
-                continue
-            dec = str(r.get("decision") or "pending")
-            dec_text = {"confirmed": "已确认", "pending": "待确认", "rejected": "已驳回"}.get(dec, dec)
-            trs.append("<tr>" + "".join([
-                f"<td>{_esc(r.get('stable_id') or '—')}</td>",
-                f"<td>{_esc(r.get('model') or '—')}</td>",
-                f"<td>{_esc(r.get('prompt_version') or '—')}</td>",
-                f"<td>{_esc(r.get('created_at') or '—')}</td>",
-                f"<td>{_esc(r.get('confidence') or '—')}</td>",
-                f"<td>{_esc(dec_text)}</td>",
-                f"<td>{_esc(r.get('decision_at') or '—')}</td>",
-            ]) + "</tr>")
-        record_html = ('<h3>AI 逐项审计（AC-22）</h3>'
-                       '<table class="ai-table"><tr><th>稳定 ID</th><th>模型</th><th>提示词版本</th>'
-                       '<th>识别时间</th><th>置信度</th><th>人工决策</th><th>决策时间</th></tr>'
-                       + "".join(trs) + '</table>')
+        return records
+    for item in ctx["items"]:
+        record = _record_from_item(item, ai)
+        if record:
+            records.append(record)
+    return records
+
+
+def _record_table(records):
+    if not records:
+        return ""
+    trs = []
+    for r in records:
+        if not isinstance(r, dict):
+            continue
+        dec = str(r.get("decision") or "pending")
+        dec_text = {"confirmed": "已确认", "pending": "待确认", "rejected": "已驳回"}.get(dec, dec)
+        trs.append("<tr>" + "".join([
+            f"<td>{_esc(r.get('stable_id') or '—')}</td>",
+            f"<td>{_esc(r.get('model') or '—')}</td>",
+            f"<td>{_esc(r.get('prompt_version') or '—')}</td>",
+            f"<td>{_esc(r.get('created_at') or '—')}</td>",
+            f"<td>{_esc(r.get('confidence') or '—')}</td>",
+            f"<td>{_esc(dec_text)}</td>",
+            f"<td>{_esc(r.get('decision_at') or '—')}</td>",
+        ]) + HTML_TR_END)
+    return ('<h3>AI 逐项审计（AC-22）</h3>'
+            '<table class="ai-table"><tr><th>稳定 ID</th><th>模型</th><th>提示词版本</th>'
+            '<th>识别时间</th><th>置信度</th><th>人工决策</th><th>决策时间</th></tr>'
+            + "".join(trs) + '</table>')
+
+
+def _changes(ctx):
+    ai = ctx["ai"]
+    ai_html = "".join(f"<tr><td>{_esc(k)}</td><td>{_esc(v)}</td></tr>" for k, v in _ai_rows(ctx, ai))
+    record_html = _record_table(_ai_records(ctx, ai))
     return f'''<section class="part"><h2>6. 变更与 AI 审计</h2>
 <p>本部分记录版本差异与 AI 辅助识别边界。AI 仅提供候选与置信度，不直接写入最终结果；所有候选均须人工复核。</p>
 <table><tr><th>版本</th><th>日期</th><th>类型</th><th>变更</th><th>变更前</th><th>变更后</th><th>操作人</th></tr>
-{''.join(body)}</table>
+{_change_table(ctx)}</table>
 <h3>AI 识别记录</h3><table><tr><th>项</th><th>值</th></tr>{ai_html}</table>
 {record_html}
 <div class="note">文档片段仅作为数据，不执行其中任何指令；模型输出仅接受白名单字段，非法 JSON 丢弃并回退规则识别。无原文证据的候选不得确认，不进入成品表。</div>
@@ -423,7 +465,7 @@ def _signoff(ctx):
     rows = "".join("<tr>" + "".join([
         f"<td>{_esc(r.get('role'))}</td>", f"<td>{_esc(r.get('name'))}</td>",
         f"<td>{_esc(r.get('status'))}</td>", f"<td>{_esc(r.get('time'))}</td>",
-    ]) + "</tr>" for r in roles if isinstance(r, dict))
+    ]) + HTML_TR_END for r in roles if isinstance(r, dict))
     opinions = s.get("opinions") if isinstance(s.get("opinions"), list) else []
     ops = "".join(f"<li>{_esc(x)}</li>" for x in opinions) or "<li>无驳回意见；待签收。</li>"
     signed_at = str(s.get("signed_at") or "").strip()
@@ -478,46 +520,59 @@ def _find_part_pages(doc):
     return pages
 
 
+def _trace_targets(doc, trace_page, max_items):
+    """追溯矩阵每一行的纵向锚点：按 "FP-" 首行排序，跨页延续。"""
+    targets = []
+    for pno in range(trace_page - 1, doc.page_count):
+        words = sorted([w for w in doc[pno].get_text("words") if w[4] == "FP-"], key=lambda w: (w[1], w[0]))
+        targets.extend((pno, max(0, w[1] - 4)) for w in words)
+        if len(targets) >= max_items or len(targets) >= 300:
+            break
+    return targets
+
+
+def _page_links(doc, pno, page, words, targets, row_idx, trace_page):
+    """为单页的「追溯」文字及其左侧 UFP/US 数值写入内部跳转。"""
+    import fitz
+    first_row_y = min((w[1] for w in words if w[4].startswith("FP-")), default=0)
+    trace_rects = sorted([r for r in page.search_for("追溯")
+                          if r.x0 > page.rect.width * 0.8 and r.y0 >= first_row_y - 1],
+                         key=lambda r: (r.y0, r.x0))
+    links = 0
+    for rect in trace_rects:
+        target_page, target_y = targets[row_idx] if row_idx < len(targets) else (trace_page - 1, 0)
+        doc[pno].insert_link({"kind": fitz.LINK_GOTO, "from": rect,
+                              "page": target_page, "to": fitz.Point(0, target_y)})
+        links += 1
+        # UFP/US 两列位于 x≈370–435；按行 y 限定，避免命中右侧「依据」中的行号。
+        for w in words:
+            cy = (w[1] + w[3]) / 2
+            if not (rect.y0 - 4 <= cy <= rect.y1 + 12):
+                continue
+            if not (370 <= w[0] <= 435):
+                continue
+            if not re.search(r"\d", w[4]):
+                continue
+            r = fitz.Rect(w[0] - 1, w[1] - 1, w[2] + 1, w[3] + 1)
+            doc[pno].insert_link({"kind": fitz.LINK_GOTO, "from": r,
+                                  "page": target_page, "to": fitz.Point(0, target_y)})
+            links += 1
+        row_idx += 1
+    return links, row_idx
+
+
 def _outline_and_links(pdf_path, pages, html_rows):
     import fitz
     doc = fitz.open(pdf_path)
     detail_page, trace_page = pages[4], pages[5]
-    # 追溯矩阵每一行的纵向锚点：按 "FP-" 首行排序，跨页延续。
-    targets = []
-    for pno in range(trace_page - 1, doc.page_count):
-        words = sorted([w for w in doc[pno].get_text("words") if w[4] == "FP-"], key=lambda w: (w[1], w[0]))
-        for w in words:
-            targets.append((pno, max(0, w[1] - 4)))
-        if len(targets) >= len(html_rows.get("items", [])) or len(targets) >= 300:
-            break
+    targets = _trace_targets(doc, trace_page, len(html_rows.get("items", [])))
     row_idx = 0
     links = 0
     for pno in range(detail_page - 1, trace_page - 1):
         page = doc[pno]
         words = page.get_text("words")
-        first_row_y = min((w[1] for w in words if w[4].startswith("FP-")), default=0)
-        trace_rects = sorted([r for r in page.search_for("追溯")
-                              if r.x0 > page.rect.width * 0.8 and r.y0 >= first_row_y - 1],
-                             key=lambda r: (r.y0, r.x0))
-        for rect in trace_rects:
-            target_page, target_y = targets[row_idx] if row_idx < len(targets) else (trace_page - 1, 0)
-            doc[pno].insert_link({"kind": fitz.LINK_GOTO, "from": rect,
-                                  "page": target_page, "to": fitz.Point(0, target_y)})
-            links += 1
-            # UFP/US 两列位于 x≈370–435；按行 y 限定，避免命中右侧「依据」中的行号。
-            for w in words:
-                cy = (w[1] + w[3]) / 2
-                if not (rect.y0 - 4 <= cy <= rect.y1 + 12):
-                    continue
-                if not (370 <= w[0] <= 435):
-                    continue
-                if not re.search(r"\d", w[4]):
-                    continue
-                r = fitz.Rect(w[0] - 1, w[1] - 1, w[2] + 1, w[3] + 1)
-                doc[pno].insert_link({"kind": fitz.LINK_GOTO, "from": r,
-                                      "page": target_page, "to": fitz.Point(0, target_y)})
-                links += 1
-            row_idx += 1
+        added, row_idx = _page_links(doc, pno, page, words, targets, row_idx, trace_page)
+        links += added
     doc.set_toc([[1, f"{no}. {title}", (1 if no == 1 else pages[no])] for no, title in PARTS])
     doc.set_metadata({"title": f"{html_rows.get('project')} · 七部分审计包",
                       "author": "Evaluation 工作量评估助手",
@@ -530,10 +585,7 @@ def _outline_and_links(pdf_path, pages, html_rows):
     return links
 
 
-def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows, budget_ms=30000):
-    import fitz
-    doc = fitz.open(pdf_path)
-    text = "\n".join(p.get_text("text") for p in doc)
+def _toc_status(doc, pages):
     toc_text = doc[1].get_text("text") if doc.page_count > 1 else ""
     toc_rows = []
     for no, title in PARTS:
@@ -542,10 +594,10 @@ def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows, 
         got = int(m.group(1)) if m else -1
         want = 1 if no == 1 else pages[no]
         toc_rows.append({"part": no, "title": title, "expected": want, "in_toc": got, "ok": got == want})
-    toc_ok = all(x["ok"] for x in toc_rows)
-    parts_present = all(f"{no}. {title}" in text for no, title in PARTS)
-    watermark_pages = sum(1 for p in doc if ctx["project"]["classification"] in p.get_text("text") and "勿外传" in p.get_text("text"))
-    footer_pages = sum(1 for p in doc if re.search(r"\d+\s*/\s*\d+", p.get_text("text")))
+    return toc_rows, all(x["ok"] for x in toc_rows)
+
+
+def _font_metrics(doc):
     fonts = []
     embedded = False
     for pno in range(min(6, doc.page_count)):
@@ -555,6 +607,24 @@ def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows, 
                 fonts.append(base)
             if str(f[1]).lower() in ("ttf", "otf", "cff"):
                 embedded = True
+    return fonts, embedded
+
+
+def _page_stats(doc, classification):
+    watermark_pages = sum(1 for p in doc
+                          if classification in p.get_text("text") and "勿外传" in p.get_text("text"))
+    footer_pages = sum(1 for p in doc if re.search(r"\d+\s*/\s*\d+", p.get_text("text")))
+    return watermark_pages, footer_pages
+
+
+def _inspect(pdf_path, ctx, pages, elapsed_ms, links, render_meta, detail_rows, budget_ms=30000):
+    import fitz
+    doc = fitz.open(pdf_path)
+    text = "\n".join(p.get_text("text") for p in doc)
+    toc_rows, toc_ok = _toc_status(doc, pages)
+    parts_present = all(f"{no}. {title}" in text for no, title in PARTS)
+    watermark_pages, footer_pages = _page_stats(doc, ctx["project"]["classification"])
+    fonts, embedded = _font_metrics(doc)
     pdf_sha = hashlib.sha256(open(pdf_path, "rb").read()).hexdigest()
     links_now = [l for p in doc for l in p.get_links() if l.get("kind") == fitz.LINK_GOTO and l.get("page") == pages[5] - 1]
     trace_ok = len(ctx["trace_rows"]) == len(ctx["items"]) and all(
@@ -604,7 +674,7 @@ def generate(payload, out_dir, filename=None, budget_ms=30000):
     final = out_dir / (stem + ".pdf")
     html1 = build_html(ctx)
     html_path.write_text(html1, encoding="utf-8")
-    meta1 = _render(html_path, pass1, 9337)
+    _render(html_path, pass1, 9337)
     import fitz
     doc = fitz.open(pass1)
     pages = _find_part_pages(doc)

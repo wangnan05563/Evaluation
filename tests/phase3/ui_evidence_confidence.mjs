@@ -36,7 +36,7 @@ const data = [
   },
   {
     seq: 4, desc: '人工补充的报表功能', count_item: '报表功能', type: 'EQ', system: '报表', reuse: '中', modify: '新增',
-    ok: false, basis: '人工录入', stable_id: 'FP-004', origin: 'manual', confidence: 0.90, can_confirm: true,
+    ok: false, basis: '人工录入', stable_id: 'FP-004', origin: 'manual', confidence: 0.9, can_confirm: true,
     evidence: [{
       kind: 'manual', locator: '人工补录', quote: '按机构汇总票据签发量',
       context: '按机构汇总票据签发量并导出日报。', verified: true
@@ -149,7 +149,7 @@ try {
     decision:it.human_decision, at:it.decision_at, state:document.querySelector('#evidenceBody .rwb-state')?.textContent,
     actions:[...document.querySelectorAll('#evidenceBody .rwb-ev-actions .uik-btn')].map(x=>x.textContent.trim())}); })()`));
   check('确认后写人工决策与决策时间',
-    confirmed.ok === true && confirmed.decision === 'confirmed' && /^2026-/.test(confirmed.at || '')
+    confirmed.ok === true && confirmed.decision === 'confirmed' && (confirmed.at || '').startsWith('2026-')
       && confirmed.state === '已确认' && confirmed.actions[1] === '取消确认', JSON.stringify(confirmed));
 
   await page.ev(`document.querySelector('#tbody .rowr[data-seq="3"]').click()`); await sleep(400);
@@ -180,7 +180,7 @@ try {
   check('生成 payload 携带证据/置信度/决策',
     p1 && p1.origin === 'llm' && p1.confidence === 0.42 && p1.can_confirm === true
       && Array.isArray(p1.evidence) && p1.evidence[0].locator === '表格 1 · 第 2 行'
-      && p1.human_decision === 'confirmed' && /^2026-/.test(p1.decision_at || ''), JSON.stringify(p1));
+      && p1.human_decision === 'confirmed' && (p1.decision_at || '').startsWith('2026-'), JSON.stringify(p1));
 
   const audit = JSON.parse(await page.ev(`JSON.stringify(AUDIT.buildPayload().ai.items)`));
   const a1 = audit.find(x => x.stable_id === 'FP-001');
